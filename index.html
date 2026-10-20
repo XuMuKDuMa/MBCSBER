@@ -6293,11 +6293,18 @@ body.dark .route-list-title { background: linear-gradient(135deg, #46607a, #3449
 /* Автоподсказки улиц в карточке адреса */
 #screen4 .route-addr-wrap { position: relative; }
 #screen4 .mvs-street-suggest {
-  position: absolute; left: 0; right: 0; top: calc(100% + 4px);
-  z-index: 1500; max-height: 220px; overflow-y: auto;
+  /* Подсказки открываются НАД полем адреса, чтобы не перекрывать следующие поля. */
+  position: absolute; left: 0; right: 0; top: auto; bottom: calc(100% + 5px);
+  z-index: 1500; max-height: min(300px, 42vh); overflow-y: auto; overflow-x: hidden;
+  overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin; scrollbar-color: #aab8c2 #f1f4f6;
   border: 1px solid #d9e2e8; border-radius: 10px;
-  background: #fff; box-shadow: 0 8px 24px rgba(20,35,50,.2);
+  background: #fff; box-shadow: 0 -8px 24px rgba(20,35,50,.18);
 }
+#screen4 .mvs-street-suggest::-webkit-scrollbar { width: 7px; }
+#screen4 .mvs-street-suggest::-webkit-scrollbar-track { background: #f1f4f6; border-radius: 8px; }
+#screen4 .mvs-street-suggest::-webkit-scrollbar-thumb { background: #aab8c2; border-radius: 8px; }
+#screen4 .mvs-street-option { flex-shrink: 0; }
 #screen4 .mvs-street-suggest[hidden] { display: none !important; }
 #screen4 .mvs-street-option {
   display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
@@ -6308,7 +6315,7 @@ body.dark .route-list-title { background: linear-gradient(135deg, #46607a, #3449
 #screen4 .mvs-street-option:active { background: #eaf4fb; }
 #screen4 .mvs-street-main { font-size: 14px; font-weight: 700; }
 #screen4 .mvs-street-option small { font-size: 11px; color: #7b8992; }
-body.dark #screen4 .mvs-street-suggest { background: #1c2733; border-color: #3a4a5a; }
+body.dark #screen4 .mvs-street-suggest { background: #1c2733; border-color: #3a4a5a; scrollbar-color: #526575 #1c2733; }
 body.dark #screen4 .mvs-street-option { color: #e8eef5; border-bottom-color: #2c3a48; }
 body.dark #screen4 .mvs-street-option:active { background: #2c3a48; }
 body.dark #screen4 .mvs-street-option small { color: #9fb0bc; }
