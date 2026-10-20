@@ -8168,30 +8168,80 @@ function closeStreetSuggest() {
 function streetFromResult(result) {
   const a = result.address || {};
   const p = result.properties || {};
-  return a.road || a.pedestrian || a.residential || a.footway || a.path || a.cycleway || a.street || p.street || ((p.osm_key === 'highway' || /street|road|path|pedestrian|residential|living_street/i.test(String(p.type || ''))) ? p.name : '') || '';
+  const name = p.name || '';
+  return a.road || a.pedestrian || a.residential || a.footway || a.path || a.cycleway || a.street || p.street ||
+    ((p.osm_key === 'highway' || /street|road|path|pedestrian|residential|living_street|boulevard/i.test(String(p.type || p.osm_value || ''))) ? name : '') ||
+    // В Photon улица иногда приходит только в properties.name.
+    (name && !/^\d+[а-яa-z]?(?:\/\d+)?$/i.test(name) ? name : '') || '';
 }
 function houseFromResult(result) {
   const a = result.address || {};
   const p = result.properties || {};
-  return a.house_number || a.housenumber || p.housenumber || p.house_number || '';
+  return String(a.house_number || a.housenumber || p.housenumber || p.house_number ||
+    (/^\d+[а-яa-z]?(?:\/\d+)?$/i.test(String(p.name || '')) ? p.name : '') || '').trim();
 }
-function showStreetSuggestions(items, searchingHouse) {
+function normalizeStreetText(value) {
+  return String(value || '').toLocaleLowerCase('ru-RU')
+    .replace(/[ё]/g, 'е').replace(/\b(улица|ул\.?|бульвар|бул\.?|проспект|пр-т|переулок|пер\.?|шоссе|площадь)\b/gi, ' ')
+    .replace(/[.,]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function resultIsNearKrasnogorsk(result) {
+  const a = result.address || {};
+  const p = result.properties || {};
+  const locality = [a.city, a.town, a.village, a.suburb, a.municipality, a.county, p.city, p.town, p.village, p.district, p.county, p.name].filter(Boolean).join(' ').toLocaleLowerCase('ru-RU');
+  // Если сервис явно указал другой город/район, не показываем его улицы.
+  if (/(москва|moscow|химки|khimki|одинцово|odintsovo|истрин|зеленоград|митин|тушин)/i.test(locality) && !/красногорск/i.test(locality)) return false;
+  const coords = result.geometry && result.geometry.coordinates;
+  if (Array.isArray(coords) && coords.length >= 2 && Number.isFinite(+coords[0]) && Number.isFinite(+coords[1])) {
+    // Ограничиваем результаты окрестностями Красногорска, чтобы не предлагать случайные улицы из других городов.
+    const dx = (+coords[0] - 37.330) * 75;
+    const dy = (+coords[1] - 55.831) * 111;
+    if (Math.sqrt(dx * dx + dy * dy) > 18) return false;
+  }
+  return true;
+}
+function parseStreetInput(value) {
+  const trimmed = String(value || '').trim();
+  const m = trimmed.match(/^(.*?)[,\s]+(\d+[а-яА-Яa-zA-Z]?(?:\/\d+)?)\s*$/);
+  if (m && m[1].trim()) return { street: m[1].trim(), house: m[2].trim() };
+  return { street: trimmed, house: '' };
+}
+function showStreetSuggestions(items, searchingHouse, typedStreet, typedHouse) {
   streetSuggest.innerHTML = '';
   const unique = new Set();
-  items.forEach(result => {
+  const needle = normalizeStreetText(typedStreet);
+  const houseNeedle = String(typedHouse || '').toLocaleLowerCase('ru-RU');
+  const filtered = items.filter(result => {
+    if (!resultIsNearKrasnogorsk(result)) return false;
     const street = streetFromResult(result);
     const house = houseFromResult(result);
-    // При вводе номера дома показываем только результаты с номером дома.
-    if (searchingHouse && !house) return;
-    if (!street && !result.display_name && !result.properties?.name) return;
+    const normalizedStreet = normalizeStreetText(street);
+    // Строго проверяем совпадение названия, а не доверяем общей релевантности геокодера.
+    if (needle && normalizedStreet && !normalizedStreet.startsWith(needle) && !normalizedStreet.includes(needle)) return false;
+    if (searchingHouse) {
+      if (!house || !String(house).toLocaleLowerCase('ru-RU').startsWith(houseNeedle)) return false;
+      if (needle && !normalizedStreet.includes(needle)) return false;
+    } else if (!street) return false;
+    return true;
+  });
+  // Сначала наиболее точные совпадения названия улицы, затем сортировка по адресу.
+  filtered.sort((a, b) => {
+    const sa = normalizeStreetText(streetFromResult(a)), sb = normalizeStreetText(streetFromResult(b));
+    const ea = sa.startsWith(needle) ? 0 : 1, eb = sb.startsWith(needle) ? 0 : 1;
+    if (ea !== eb) return ea - eb;
+    return (streetFromResult(a) + ' ' + houseFromResult(a)).localeCompare(streetFromResult(b) + ' ' + houseFromResult(b), 'ru');
+  });
+  filtered.forEach(result => {
+    const street = streetFromResult(result);
+    const house = houseFromResult(result);
     const label = searchingHouse ? [street, house].filter(Boolean).join(', ') : street;
     if (!label) return;
-    const key = label.toLocaleLowerCase('ru-RU');
+    const key = label.toLocaleLowerCase('ru-RU').replace(/[ё]/g, 'е');
     if (unique.has(key)) return;
     unique.add(key);
     const a = result.address || {};
     const p = result.properties || {};
-    const area = a.city || a.town || a.village || a.suburb || a.county || p.city || p.town || p.village || p.district || p.county || '';
+    const area = a.city || a.town || a.village || a.suburb || p.city || p.town || p.village || '';
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'mvs-street-option';
@@ -8200,9 +8250,9 @@ function showStreetSuggestions(items, searchingHouse) {
     main.className = 'mvs-street-main';
     main.textContent = label;
     button.appendChild(main);
-    if (area || (searchingHouse && result.display_name)) {
+    if (area) {
       const sub = document.createElement('small');
-      sub.textContent = area || result.display_name;
+      sub.textContent = area;
       button.appendChild(sub);
     }
     button.addEventListener('pointerdown', ev => ev.preventDefault());
@@ -8223,43 +8273,59 @@ function showStreetSuggestions(items, searchingHouse) {
 addrInput.addEventListener('input', () => {
   clearTimeout(streetSuggestTimer);
   const typed = addrInput.value.trim();
-  // Начинаем поиск уже с двух букв. Цифры разрешены: в этом режиме ищем номера домов.
-  if (typed.replace(/\d/g, '').trim().length < 2) { closeStreetSuggest(); return; }
+  const parsed = parseStreetInput(typed);
+  const typedStreet = parsed.street;
+  const typedHouse = parsed.house;
+  if (normalizeStreetText(typedStreet).length < 2) { closeStreetSuggest(); return; }
   streetSuggestTimer = setTimeout(async () => {
     const seq = ++streetSuggestSeq;
     try {
       if (streetSuggestAbort) streetSuggestAbort.abort();
       streetSuggestAbort = new AbortController();
-      // Если город не задан в настройках, используем Красногорск по умолчанию.
       const city = getMyCity() || 'Красногорск';
-      const searchingHouse = /\d/.test(typed);
-      const query = [typed, city].filter(Boolean).join(', ');
-      const photonUrl = 'https://photon.komoot.io/api/?' + new URLSearchParams({
-        q: query, limit: '15', lang: 'ru', lat: '55.831', lon: '37.330'
-      });
+      const searchingHouse = !!typedHouse;
+      const queries = searchingHouse
+        ? [typedStreet + ' ' + typedHouse, typedStreet + ' ' + typedHouse + 'а', typedStreet + ' ' + typedHouse + 'б']
+        : [typedStreet];
       let results = [];
-      try {
-        const response = await fetch(photonUrl, { signal: streetSuggestAbort.signal });
-        if (response.ok) {
-          const data = await response.json();
-          results = Array.isArray(data.features) ? data.features : [];
+      // Photon: ищем именно введённую улицу, а Красногорск используем как географическую привязку,
+      // не добавляя название города в текст запроса (это и вызывало посторонние совпадения).
+      for (const q of queries) {
+        const photonUrl = 'https://photon.komoot.io/api/?' + new URLSearchParams({
+          q, limit: '25', lang: 'ru', lat: '55.831', lon: '37.330'
+        });
+        try {
+          const response = await fetch(photonUrl, { signal: streetSuggestAbort.signal });
+          if (response.ok) {
+            const data = await response.json();
+            if (Array.isArray(data.features)) results.push(...data.features);
+          }
+        } catch (err) {
+          if (err && err.name === 'AbortError') throw err;
         }
-      } catch (err) {
-        if (err && err.name === 'AbortError') throw err;
       }
-      if (!results.length || (searchingHouse && !results.some(houseFromResult))) {
+      // Nominatim — резервный поиск с ограничением области Красногорска.
+      if (!results.some(r => resultIsNearKrasnogorsk(r) && normalizeStreetText(streetFromResult(r)).includes(normalizeStreetText(typedStreet)) && (!searchingHouse || (houseFromResult(r) && houseFromResult(r).toLowerCase().startsWith(typedHouse.toLowerCase()))))) {
         const nominatimUrl = 'https://nominatim.openstreetmap.org/search?' + new URLSearchParams({
-          q: query + ', Россия', format: 'jsonv2', addressdetails: '1', limit: '15',
-          countrycodes: 'ru', 'accept-language': 'ru'
+          q: [typedStreet, typedHouse, ...(searchingHouse ? [city] : []), 'Московская область', 'Россия'].filter(Boolean).join(' '),
+          format: 'jsonv2', addressdetails: '1', limit: '30', countrycodes: 'ru', 'accept-language': 'ru',
+          viewbox: '37.20,55.92,37.48,55.73', bounded: '1'
         });
         const response = await fetch(nominatimUrl, { signal: streetSuggestAbort.signal, headers: { 'Accept': 'application/json' } });
         if (response.ok) {
           const fallback = await response.json();
-          if (Array.isArray(fallback) && fallback.length) results = fallback;
+          if (Array.isArray(fallback) && fallback.length) results.push(...fallback);
         }
       }
       if (seq !== streetSuggestSeq || document.activeElement !== addrInput) return;
-      showStreetSuggestions(results, searchingHouse);
+      // Убираем дубли и сортируем после объединения результатов обоих запросов.
+      const merged = [];
+      const seen = new Set();
+      results.forEach(r => {
+        const key = [streetFromResult(r), houseFromResult(r), r.geometry?.coordinates?.join(',') || r.lat + ',' + r.lon].join('|').toLowerCase();
+        if (!seen.has(key)) { seen.add(key); merged.push(r); }
+      });
+      showStreetSuggestions(merged, searchingHouse, typedStreet, typedHouse);
     } catch (err) {
       if (err && err.name !== 'AbortError') closeStreetSuggest();
     }
