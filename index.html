@@ -6291,8 +6291,8 @@ body.dark .route-list-title { background: linear-gradient(135deg, #46607a, #3449
 
 <style>
 /* Автоподсказки улиц в карточке адреса */
-#screen4 .route-addr-wrap { position: relative; }
-#screen4 .mvs-street-suggest {
+.route-addr-wrap { position: relative; }
+.mvs-street-suggest {
   /* Подсказки открываются НАД полем адреса, чтобы не перекрывать следующие поля. */
   position: absolute; left: 0; right: 0; top: auto; bottom: calc(100% + 5px);
   z-index: 1500; max-height: min(300px, 42vh); overflow-y: auto; overflow-x: hidden;
@@ -6301,24 +6301,24 @@ body.dark .route-list-title { background: linear-gradient(135deg, #46607a, #3449
   border: 1px solid #d9e2e8; border-radius: 10px;
   background: #fff; box-shadow: 0 -8px 24px rgba(20,35,50,.18);
 }
-#screen4 .mvs-street-suggest::-webkit-scrollbar { width: 7px; }
-#screen4 .mvs-street-suggest::-webkit-scrollbar-track { background: #f1f4f6; border-radius: 8px; }
-#screen4 .mvs-street-suggest::-webkit-scrollbar-thumb { background: #aab8c2; border-radius: 8px; }
-#screen4 .mvs-street-option { flex-shrink: 0; }
-#screen4 .mvs-street-suggest[hidden] { display: none !important; }
-#screen4 .mvs-street-option {
+.mvs-street-suggest::-webkit-scrollbar { width: 7px; }
+.mvs-street-suggest::-webkit-scrollbar-track { background: #f1f4f6; border-radius: 8px; }
+.mvs-street-suggest::-webkit-scrollbar-thumb { background: #aab8c2; border-radius: 8px; }
+.mvs-street-option { flex-shrink: 0; }
+.mvs-street-suggest[hidden] { display: none !important; }
+.mvs-street-option {
   display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
   width: 100%; padding: 10px 12px; border: 0; border-bottom: 1px solid #edf0f2;
   background: transparent; color: #263944; text-align: left; font: inherit; cursor: pointer;
 }
-#screen4 .mvs-street-option:last-child { border-bottom: 0; }
-#screen4 .mvs-street-option:active { background: #eaf4fb; }
-#screen4 .mvs-street-main { font-size: 14px; font-weight: 700; }
-#screen4 .mvs-street-option small { font-size: 11px; color: #7b8992; }
-body.dark #screen4 .mvs-street-suggest { background: #1c2733; border-color: #3a4a5a; scrollbar-color: #526575 #1c2733; }
-body.dark #screen4 .mvs-street-option { color: #e8eef5; border-bottom-color: #2c3a48; }
-body.dark #screen4 .mvs-street-option:active { background: #2c3a48; }
-body.dark #screen4 .mvs-street-option small { color: #9fb0bc; }
+.mvs-street-option:last-child { border-bottom: 0; }
+.mvs-street-option:active { background: #eaf4fb; }
+.mvs-street-main { font-size: 14px; font-weight: 700; }
+.mvs-street-option small { font-size: 11px; color: #7b8992; }
+body.dark .mvs-street-suggest { background: #1c2733; border-color: #3a4a5a; scrollbar-color: #526575 #1c2733; }
+body.dark .mvs-street-option { color: #e8eef5; border-bottom-color: #2c3a48; }
+body.dark .mvs-street-option:active { background: #2c3a48; }
+body.dark .mvs-street-option small { color: #9fb0bc; }
 </style>
 
 </head>
@@ -8164,13 +8164,33 @@ const streetSuggest = document.createElement('div');
 streetSuggest.className = 'mvs-street-suggest';
 streetSuggest.setAttribute('role', 'listbox');
 streetSuggest.hidden = true;
-addrWrap.appendChild(streetSuggest);
+streetSuggest.style.position = 'fixed';
+streetSuggest.style.left = '0px';
+streetSuggest.style.right = 'auto';
+streetSuggest.style.top = '0px';
+streetSuggest.style.bottom = 'auto';
+streetSuggest.style.zIndex = '2147483000';
+document.body.appendChild(streetSuggest);
+function positionStreetSuggest() {
+  if (streetSuggest.hidden || !addrInput.isConnected) return;
+  const r = addrInput.getBoundingClientRect();
+  const gap = 5;
+  const availableAbove = Math.max(80, r.top - 12);
+  streetSuggest.style.left = Math.max(8, r.left) + 'px';
+  streetSuggest.style.width = Math.min(r.width, window.innerWidth - Math.max(8, r.left) - 8) + 'px';
+  streetSuggest.style.maxHeight = Math.min(300, Math.round(window.innerHeight * 0.42), availableAbove) + 'px';
+  streetSuggest.style.top = 'auto';
+  streetSuggest.style.bottom = Math.max(8, window.innerHeight - r.top + gap) + 'px';
+}
+window.addEventListener('resize', positionStreetSuggest);
+window.addEventListener('scroll', positionStreetSuggest, true);
 let streetSuggestTimer = null;
 let streetSuggestAbort = null;
 let streetSuggestSeq = 0;
 function closeStreetSuggest() {
   streetSuggest.hidden = true;
   streetSuggest.innerHTML = '';
+  streetSuggest.style.display = 'none';
 }
 function streetFromResult(result) {
   const a = result.address || {};
@@ -8276,6 +8296,8 @@ function showStreetSuggestions(items, searchingHouse, typedStreet, typedHouse) {
     streetSuggest.appendChild(button);
   });
   streetSuggest.hidden = streetSuggest.childElementCount === 0;
+  streetSuggest.style.display = streetSuggest.hidden ? 'none' : 'block';
+  if (!streetSuggest.hidden) requestAnimationFrame(positionStreetSuggest);
 }
 addrInput.addEventListener('input', () => {
   clearTimeout(streetSuggestTimer);
