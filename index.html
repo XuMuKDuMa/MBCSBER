@@ -8142,7 +8142,48 @@ btnMic.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: tru
 
 addrWrap.appendChild(addrInput);
 addrWrap.appendChild(btnMic);
-
+// ═══════════════════════════════════════════════════════════
+// НАЧАЛО БЛОКА DADATA
+// ═══════════════════════════════════════════════════════════
+if (window.Dadata) {
+  const cityForDadata = getMyCity();
+  
+  Dadata.createSuggestions(addrInput, {
+    token: "630e3f0765777f98ed735703ef307d64c9f7c6d8", // Ваш ключ
+    type: "address",
+    // Жесткая привязка к Красногорску по ФИАС
+    locations: [{ city_fias_id: "63fcf18a-365e-451f-baee-8d09ac50b773" }],
+    
+    onSelect: function (suggestion) {
+      // Когда пользователь выбрал адрес из списка:
+      const selectedAddress = suggestion.value;
+      
+      // Записываем в модель данных
+      item.addr = selectedAddress;
+      saveRouteState(routeState);
+      
+      // Обновляем значение в самом поле
+      addrInput.value = selectedAddress;
+      
+      // Автоматически подгоняем высоту textarea
+      autoGrow(addrInput);
+      
+      // Если DaData вернула координаты — сохраняем их в кэш карты!
+      if (suggestion.data && suggestion.data.geo_lat && suggestion.data.geo_lon) {
+        const lat = parseFloat(suggestion.data.geo_lat);
+        const lon = parseFloat(suggestion.data.geo_lon);
+        
+        // Сохраняем в кэш, чтобы карта сразу поставила точку
+        mapGeocache[selectedAddress] = [lat, lon];
+        saveGeocache();
+        
+        // Обновляем карту, если она открыта
+        _mapHash = '';
+        if (map) renderMapMarkers();
+      }
+    }
+  });
+}
 // ─── Кнопка ручного ввода координат ───
 const btnCoords = document.createElement('button');
 btnCoords.type = 'button';
