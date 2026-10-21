@@ -79,6 +79,8 @@
 <title>МВС отчёты</title>
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#101820">
+<link href="./suggestions.min.css" rel="stylesheet" />
+<script src="./suggestions.min.js"></script>
 <style>
   /* ═══════════════════════════════════════════════
    ЦИТАТА ДНЯ
@@ -6685,6 +6687,72 @@ var _mapHash = '';
   // ─── Глобальное состояние слайдера встреч ───
 let meetingsSlide = 0;
 /* ═══════════════════════════════════════════════
+   ВОССТАНОВЛЕНИЕ ПРОПАВШИХ ФУНКЦИЙ
+   ═══════════════════════════════════════════════ */
+
+// 1. Сброс утреннего отчёта
+function checkQuickReportReset() {
+  const lastDay = localStorage.getItem(QUICK_REPORT_DAY_KEY);
+  const todayKey = getTodayKey23();
+  if (lastDay !== todayKey) {
+    localStorage.removeItem(QUICK_REPORT_KEY);
+    localStorage.removeItem(QUICK_REPORT_SENT_KEY);
+    localStorage.removeItem(QUICK_REPORT_REMIND_KEY);
+    localStorage.removeItem(MORNING_REPORT_SENT_KEY);
+    localStorage.setItem(QUICK_REPORT_DAY_KEY, todayKey);
+    return true;
+  }
+  return false;
+}
+
+// 2. Обновление поля B2C в «Сегодня»
+function updateB2cField() {
+  const field = document.querySelector('#app1 .b2c-input');
+  if (!field) return;
+
+  let b2cAuto = 0;
+  if (typeof ROUTE_TIMES !== 'undefined' && typeof routeState !== 'undefined' && routeState && routeState.lists) {
+    ROUTE_TIMES.forEach(t => {
+      (routeState.lists[t.id] || []).forEach(item => {
+        if (!item) return;
+        if (!item.addr || !item.addr.trim()) return;
+        const cat = item.category || 'b2c';
+        if (cat === 'b2c') b2cAuto++;
+      });
+    });
+  }
+
+  const manualVal = String(getManual1('b2c_total') || '').trim();
+  const isManual = manualVal !== '' && manualVal !== '0';
+  if (isManual) return;
+
+  if (field.value !== String(b2cAuto)) {
+    field.value = b2cAuto;
+  }
+
+  const b2bField = document.querySelector('#app1 .b2b-input');
+  if (b2bField) {
+    let b2bAuto = 0;
+    ROUTE_TIMES.forEach(t => {
+      (routeState.lists[t.id] || []).forEach(item => {
+        if (!item) return;
+        if (!item.addr || !item.addr.trim()) return;
+        const cat = item.category || 'b2c';
+        if (cat === 'b2b') b2bAuto++;
+      });
+    });
+    const manualB2B = String(getManual1('b2b_total') || '').trim();
+    const isManualB2B = manualB2B !== '' && manualB2B !== '0';
+    if (!isManualB2B && b2bField.value !== String(b2bAuto)) {
+      b2bField.value = b2bAuto;
+    }
+  }
+}
+
+// 3. Исправление ошибки инициализации VPN
+// Находим проблемные строки в вашем коде и меняем их порядок.
+// (Эту правку нужно сделать вручную в коде, см. ниже)
+/* ═══════════════════════════════════════════════
    ЦИТАТА ДНЯ
    ═══════════════════════════════════════════════ */
 const DAILY_QUOTES = {
@@ -8184,7 +8252,6 @@ if (window.Dadata) {
     }
   });
 }
-
 // ─── Кнопка ручного ввода координат ───
 const btnCoords = document.createElement('button');
 btnCoords.type = 'button';
@@ -10346,29 +10413,89 @@ function daySummaryHtml() {
   const fdItems = SECTIONS1.find(x => x.title === 'Встречи').items;
   const bizItems = SECTIONS1.find(x => x.title === 'Бизнес').items;
   const planned = plannedMeetingsCounts();
-  const usePlan = planned.cards > 0;                                   // есть карточки — считаем по ним
+  const usePlan = planned.cards > 0;                                   
   const cnt = id => usePlan ? (planned.counts[id] || 0) : num(getCount1(id));
+  
   const fd = fdItems.map(i => ({ name: i.name, n: cnt(i.id), up: i.up }));
   const biz = bizItems.map(i => ({ name: i.name, n: cnt(i.id), up: i.up }));
   biz.push({ name: 'ЗК', n: usePlan ? (planned.counts.zk || 0) : num(getZK1()), up: ZK_COEF });
+  
   const fdN = fd.reduce((a, x) => a + x.n, 0), bizN = biz.reduce((a, x) => a + x.n, 0);
   const fdUp = fd.reduce((a, x) => a + x.n * x.up, 0), bizUp = biz.reduce((a, x) => a + x.n * x.up, 0);
   const meetUp = fdUp + bizUp;
   const total = fdN + bizN;
-  // сколько УП по встречам уже реально засчитано (проведённые карточки / счётчики)
-  const doneUp = fdItems.reduce((a, i) => a + num(getCount1(i.id)) * i.up, 0) + bizItems.reduce((a, i) => a + num(getCount1(i.id)) * i.up, 0) + num(getZK1()) * ZK_COEF;
-  const t = calcTotals1();
+  
+  // Считаем УП на ФД (продажи) из общего расчета
+  const tGlobal = calcTotals1();
+  const fdUpSales = tGlobal.upFD; 
+  const doneMeets = planned.done; 
+
   const chip = x => `<span class="ds-chip${x.n ? ' on' : ''}">${x.name}<b>${x.n}</b></span>`;
   const row = (name, val, sub, color) => `<div class="ds-row"><div class="ds-name">${name}</div><div class="ds-val"${color ? ' style="color:' + color + '"' : ''}>${val}${sub ? '<small>' + sub + '</small>' : ''}</div></div>`;
 
   let html = `<div class="ds-title">📅 Сегодня · встречи и УП</div><div class="ds-body">`;
-  html += `<div class="ds-big"><div><span>${total}</span><small>${usePlan ? 'встреч в плане' : 'встреч всего'}</small></div><div><span>${f2(meetUp)}</span><small>УП только по встречам</small></div></div>`;
+  
+  // ═══════════════════════════════════════════════
+  // НОВЫЙ БЛОК ИЗ 3 КОЛОНОК
+  // ═══════════════════════════════════════════════
+  html += `
+  <div style="display: flex; justify-content: space-between; align-items: stretch; gap: 6px; padding: 12px 14px 10px;">
+      <!-- Слева: УП по встречам -->
+      <div style="flex: 1; border-radius: 14px; padding: 10px 4px; background: rgba(46,134,193,.10); text-align: center;">
+          <span style="display: block; font-size: 22px; font-weight: 800; color: #2471a3;">${f2(meetUp)}</span>
+          <small style="display: block; margin-top: 4px; font-size: 10px; font-weight: 700; opacity: 0.7; line-height: 1.2;">УП по встречам<br>(без продаж)</small>
+      </div>
+      
+      <!-- ПО ЦЕНТРУ: Встречи -->
+      <div style="flex: 1.2; border-radius: 14px; padding: 10px 4px; background: rgba(142,68,173,.10); text-align: center;">
+          <span style="display: block; font-size: 22px; font-weight: 800; color: #7d3c98;">${doneMeets} / ${total}</span>
+          <small style="display: block; margin-top: 4px; font-size: 10px; font-weight: 700; opacity: 0.7; line-height: 1.2;">Проведено<br>встреч</small>
+      </div>
+
+      <!-- Справа: УП на ФД (продажи) -->
+      <div style="flex: 1; border-radius: 14px; padding: 10px 4px; background: rgba(243,156,18,.10); text-align: center;">
+          <span style="display: block; font-size: 22px; font-weight: 800; color: #d35400;">${f2(fdUpSales)}</span>
+          <small style="display: block; margin-top: 4px; font-size: 10px; font-weight: 700; opacity: 0.7; line-height: 1.2;">УП на ФД<br>(продажи)</small>
+      </div>
+  </div>
+  `;
+
+  // ═══════════════════════════════════════════════
+  // ПРОГРЕСС-БАР ДНЕВНОЙ НОРМЫ (1.0 УП)
+  // ═══════════════════════════════════════════════
+  const dailyTarget = 1.0;
+  const progressPct = Math.min(100, (fdUpSales / dailyTarget) * 100);
+  
+  let barColor = '#e74c3c';
+  if (progressPct >= 50) barColor = '#f39c12';
+  if (progressPct >= 100) barColor = '#27ae60';
+  
+  let statusText = fdUpSales >= dailyTarget 
+      ? '🎉 Дневная норма выполнена!' 
+      : `До нормы (1.0 УП) осталось: <b>${f2(dailyTarget - fdUpSales)}</b> УП`;
+
+  html += `
+  <div style="padding: 0 14px 12px;">
+      <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; margin-bottom: 6px;">
+          <span>Дневная норма УП на ФД</span>
+          <span style="color: ${barColor}">${f2(fdUpSales)} / 1.00 УП</span>
+      </div>
+      <div style="height: 8px; background: rgba(120,120,128,0.2); border-radius: 4px; overflow: hidden; margin-bottom: 6px;">
+          <div style="height: 100%; width: ${progressPct}%; background: ${barColor}; border-radius: 4px; transition: width 0.3s;"></div>
+      </div>
+      <div style="font-size: 11px; color: #666; text-align: center; font-weight: 600;">
+          ${statusText}
+      </div>
+  </div>
+  `;
+
+  // ═══════════════════════════════════════════════
+  // ДЕТАЛИЗАЦИЯ (остается как было, но без старых плашек)
+  // ═══════════════════════════════════════════════
   html += `<div class="ds-group"><div class="ds-gl">B2C · ${fdN}</div><div class="ds-chips">${fd.map(chip).join('')}</div></div>`;
   if (bizN > 0) html += `<div class="ds-group"><div class="ds-gl biz">B2B · ${bizN}</div><div class="ds-chips">${biz.map(chip).join('')}</div></div>`;
-  html += row('УП без продаж (только встречи)', f2(meetUp), 'B2C ' + f2(fdUp) + (bizN > 0 ? ' · B2B ' + f2(bizUp) : ''));
-  if (usePlan) html += row('Уже проведено', planned.done + ' из ' + total, 'засчитано ' + f2(doneUp) + ' УП');
 
-  // ── сценарии: что можно сделать, если на каждой ФД-встрече продавать ──
+  // ── сценарии ──
   const findItem = id => SECTIONS1.reduce((r, sec) => r || (sec.items || []).find(i => i.id === id), null);
   const sim = findItem('sim_my'), topup = findItem('sim_topup'), port = findItem('perenos_sim');
   html += `<div class="ds-sep">🎯 Сколько УП можно сделать <span style="font-weight:600;opacity:.7">· продажи только на B2C</span></div>`;
@@ -10379,36 +10506,36 @@ function daySummaryHtml() {
     const extra = fdN * (topup.up + port.up);
     html += row('Только встречи', f2(meetUp), 'B2C ' + f2(fdUp) + (bizN > 0 ? ' · B2B ' + f2(bizUp) : ''));
     html += row('+ «Сим для своих» на каждой B2C-встрече', f2(s1), fdN + ' × ' + f2(sim.up) + ' = +' + f2(fdN * sim.up), '#2471a3');
-    html += row('+ пополнение тарифа и перенос номера', f2(s1 + extra), 'ещё ' + fdN + ' × (' + f2(topup.up) + ' + ' + f2(port.up) + ') = +' + f2(extra), '#3949ab');
+    html += row('+ пополнение тарифа и перенос номера', f2(s1 + extra), 'еще ' + fdN + ' × (' + f2(topup.up) + ' + ' + f2(port.up) + ') = +' + f2(extra), '#3949ab');
   }
   if (bizN > 0) html += row('B2B-встречи: ' + bizN, '+' + f2(bizUp), 'без продаж — только УП за встречу', '#7d3c98');
 
-  // ── подробности (сворачиваются): статистика и показатели дня ──
+  // ── подробности ──
   const hist = avgUpFdPerMeeting();
   let det = '';
   let potTxt = '';
   det += `<div class="ds-sep">📈 По твоей статистике</div>`;
-  det += row('Продано сейчас', f2(t.upFD), 'УП ФД (продажи)');
+  det += row('Продано сейчас', f2(tGlobal.upFD), 'УП ФД (продажи)');
   if (fdN === 0) {
     det += row('Потенциал', '—', 'нужны B2C-встречи');
   } else if (hist) {
     const pot = fdN * hist.avg;
     potTxt = '≈ ' + f2(pot);
     det += row('В среднем на ' + fdN + ' B2C-встреч', '≈ ' + f2(pot), f2(hist.avg) + ' УП ФД на встречу (за ' + hist.days + ' дн.)', '#3949ab');
-    const gap = pot - t.upFD;
+    const gap = pot - tGlobal.upFD;
     det += row(gap > 0 ? 'До среднего не хватает' : 'Уже выше среднего', gap > 0 ? f2(gap) : '+' + f2(-gap), '', gap > 0 ? '#e67e22' : '#27ae60');
   } else {
     det += row('По твоей статистике', '—', 'пока нет прошлых дней с встречами');
   }
   det += `<div class="ds-sep">📊 По дню</div>`;
-  det += row('Всего УП сегодня', f2(t.up), 'ОД ' + t.od);
+  det += row('Всего УП сегодня', f2(tGlobal.up), 'ОД ' + tGlobal.od);
   const avgDay = avgDayUpFromHistory();
   if (avgDay) {
-    const d = t.up - avgDay.avg;
+    const d = tGlobal.up - avgDay.avg;
     det += row('К среднему дню месяца', (d >= 0 ? '+' : '') + f2(d), 'в среднем ' + f2(avgDay.avg) + ' УП (за ' + avgDay.days + ' дн.)', d >= 0 ? '#27ae60' : '#e67e22');
   }
-  if (t.up > 0) det += row('Доля встреч в УП', Math.round(doneUp / t.up * 100) + '%', 'остальное — продажи');
-  const assigned = (t.b2cTotal || 0) + (t.b2bTotal || 0), doneM = (t.b2cDone || 0) + (t.b2bDone || 0);
+  if (tGlobal.up > 0) det += row('Доля встреч в УП', Math.round(meetUp / tGlobal.up * 100) + '%', 'остальное — продажи');
+  const assigned = (tGlobal.b2cTotal || 0) + (tGlobal.b2bTotal || 0), doneM = (tGlobal.b2cDone || 0) + (tGlobal.b2bDone || 0);
   if (assigned > 0) det += row('Проведено / назначено', doneM + ' / ' + assigned, Math.round(doneM / assigned * 100) + '% TR');
   try {
     const kmE = kmLoadHistory()[kmDayKey()];
@@ -10419,7 +10546,7 @@ function daySummaryHtml() {
   } catch (e) {}
 
   const open = !!window._dsMoreOpen;
-  const head = [potTxt ? '📈 по статистике ' + potTxt : '', '📊 УП ' + f2(t.up)].filter(Boolean).join(' · ');
+  const head = [potTxt ? '📈 по статистике ' + potTxt : '', '📊 УП ' + f2(tGlobal.up)].filter(Boolean).join(' · ');
   html += `<div class="ds-more"><span>Подробнее: ${head}</span><span class="ds-arrow" style="${open ? 'transform:rotate(180deg)' : ''}">▼</span></div>`;
   html += `<div class="ds-details" style="display:${open ? 'block' : 'none'}">${det}</div>`;
   html += `</div>`;
@@ -10430,157 +10557,150 @@ function renderDaySummary1() {
   if (!el) return;
   try { el.innerHTML = daySummaryHtml(); } catch (e) { console.warn('daySummary', e); }
 }
-// сводка обновляется вместе с итогами дня
-(function () {
-  const orig = renderTotals1;
-  renderTotals1 = function () {
-    const r = orig.apply(this, arguments);
-    try { renderDaySummary1(); } catch (e) {}
-    return r;
-  };
-})();
-render1();
-renderTotals1();
-setTimeout(updateB2cField, 100);
-/* ═══════════════════════════════════════════════
-   ОБНОВЛЕНИЕ ПОЛЯ B2C В «СЕГОДНЯ»
-   ═══════════════════════════════════════════════ */
-function updateB2cField() {
-  const field = document.querySelector('#app1 .b2c-input');
-  if (!field) return;
 
-  // Считаем авто-значение ТОЛЬКО по B2C-карточкам
-  let b2cAuto = 0;
-  if (typeof ROUTE_TIMES !== 'undefined' &&
-      typeof routeState !== 'undefined' &&
-      routeState && routeState.lists) {
-    ROUTE_TIMES.forEach(t => {
-      (routeState.lists[t.id] || []).forEach(item => {
-        if (!item) return;
-        if (!item.addr || !item.addr.trim()) return;
-        const cat = item.category || 'b2c';   // ← по умолчанию B2C
-        if (cat === 'b2c') b2cAuto++;         // ← считаем только B2C!
-      });
-    });
+function daySummaryHtml() {
+  const f2 = v => (Math.round(v * 100) / 100).toFixed(2).replace('.', ',');
+  const fdItems = SECTIONS1.find(x => x.title === 'Встречи').items;
+  const bizItems = SECTIONS1.find(x => x.title === 'Бизнес').items;
+  const planned = plannedMeetingsCounts();
+  const usePlan = planned.cards > 0;                                   
+  const cnt = id => usePlan ? (planned.counts[id] || 0) : num(getCount1(id));
+  
+  const fd = fdItems.map(i => ({ name: i.name, n: cnt(i.id), up: i.up }));
+  const biz = bizItems.map(i => ({ name: i.name, n: cnt(i.id), up: i.up }));
+  biz.push({ name: 'ЗК', n: usePlan ? (planned.counts.zk || 0) : num(getZK1()), up: ZK_COEF });
+  
+  const fdN = fd.reduce((a, x) => a + x.n, 0), bizN = biz.reduce((a, x) => a + x.n, 0);
+  const fdUp = fd.reduce((a, x) => a + x.n * x.up, 0), bizUp = biz.reduce((a, x) => a + x.n * x.up, 0);
+  const meetUp = fdUp + bizUp;
+  const total = fdN + bizN;
+  
+  // Считаем УП на ФД (продажи) из общего расчета
+  const tGlobal = calcTotals1();
+  const fdUpSales = tGlobal.upFD; 
+  const doneMeets = planned.done; 
+
+  const chip = x => `<span class="ds-chip${x.n ? ' on' : ''}">${x.name}<b>${x.n}</b></span>`;
+  const row = (name, val, sub, color) => `<div class="ds-row"><div class="ds-name">${name}</div><div class="ds-val"${color ? ' style="color:' + color + '"' : ''}>${val}${sub ? '<small>' + sub + '</small>' : ''}</div></div>`;
+
+  let html = `<div class="ds-title">📅 Сегодня · встречи и УП</div><div class="ds-body">`;
+  
+  // ═══════════════════════════════════════════════
+  // НОВЫЙ БЛОК ИЗ 3 КОЛОНОК
+  // ═══════════════════════════════════════════════
+  html += `
+  <div style="display: flex; justify-content: space-between; align-items: stretch; gap: 6px; padding: 12px 14px 10px;">
+      <!-- Слева: УП по встречам -->
+      <div style="flex: 1; border-radius: 14px; padding: 10px 4px; background: rgba(46,134,193,.10); text-align: center;">
+          <span style="display: block; font-size: 22px; font-weight: 800; color: #2471a3;">${f2(meetUp)}</span>
+          <small style="display: block; margin-top: 4px; font-size: 10px; font-weight: 700; opacity: 0.7; line-height: 1.2;">УП по встречам<br>(без продаж)</small>
+      </div>
+      
+      <!-- ПО ЦЕНТРУ: Встречи -->
+      <div style="flex: 1.2; border-radius: 14px; padding: 10px 4px; background: rgba(142,68,173,.10); text-align: center;">
+          <span style="display: block; font-size: 22px; font-weight: 800; color: #7d3c98;">${doneMeets} / ${total}</span>
+          <small style="display: block; margin-top: 4px; font-size: 10px; font-weight: 700; opacity: 0.7; line-height: 1.2;">Проведено<br>встреч</small>
+      </div>
+
+      <!-- Справа: УП на ФД (продажи) -->
+      <div style="flex: 1; border-radius: 14px; padding: 10px 4px; background: rgba(243,156,18,.10); text-align: center;">
+          <span style="display: block; font-size: 22px; font-weight: 800; color: #d35400;">${f2(fdUpSales)}</span>
+          <small style="display: block; margin-top: 4px; font-size: 10px; font-weight: 700; opacity: 0.7; line-height: 1.2;">УП на ФД<br>(продажи)</small>
+      </div>
+  </div>
+  `;
+
+  // ═══════════════════════════════════════════════
+  // ПРОГРЕСС-БАР ДНЕВНОЙ НОРМЫ (1.0 УП)
+  // ═══════════════════════════════════════════════
+  const dailyTarget = 1.0;
+  const progressPct = Math.min(100, (fdUpSales / dailyTarget) * 100);
+  
+  let barColor = '#e74c3c';
+  if (progressPct >= 50) barColor = '#f39c12';
+  if (progressPct >= 100) barColor = '#27ae60';
+  
+  let statusText = fdUpSales >= dailyTarget 
+      ? '🎉 Дневная норма выполнена!' 
+      : `До нормы (1.0 УП) осталось: <b>${f2(dailyTarget - fdUpSales)}</b> УП`;
+
+  html += `
+  <div style="padding: 0 14px 12px;">
+      <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; margin-bottom: 6px;">
+          <span>Дневная норма на ФД</span>
+          <span style="color: ${barColor}">${f2(fdUpSales)} / 1.00 УП</span>
+      </div>
+      <div style="height: 8px; background: rgba(120,120,128,0.2); border-radius: 4px; overflow: hidden; margin-bottom: 6px;">
+          <div style="height: 100%; width: ${progressPct}%; background: ${barColor}; border-radius: 4px; transition: width 0.3s;"></div>
+      </div>
+      <div style="font-size: 11px; color: #666; text-align: center; font-weight: 600;">
+          ${statusText}
+      </div>
+  </div>
+  `;
+
+  // ═══════════════════════════════════════════════
+  // ДЕТАЛИЗАЦИЯ (остается как было, но без старых плашек)
+  // ═══════════════════════════════════════════════
+  html += `<div class="ds-group"><div class="ds-gl">B2C · ${fdN}</div><div class="ds-chips">${fd.map(chip).join('')}</div></div>`;
+  if (bizN > 0) html += `<div class="ds-group"><div class="ds-gl biz">B2B · ${bizN}</div><div class="ds-chips">${biz.map(chip).join('')}</div></div>`;
+
+  // ── сценарии ──
+  const findItem = id => SECTIONS1.reduce((r, sec) => r || (sec.items || []).find(i => i.id === id), null);
+  const sim = findItem('sim_my'), topup = findItem('sim_topup'), port = findItem('perenos_sim');
+  html += `<div class="ds-sep">🎯 Сколько УП можно сделать <span style="font-weight:600;opacity:.7">· продажи только на B2C</span></div>`;
+  if (fdN === 0) {
+    html += row('Добавь B2C-встречи', '—', 'отметь тип на карточке в «Активностях»');
+  } else if (sim && topup && port) {
+    const s1 = meetUp + fdN * sim.up;
+    const extra = fdN * (topup.up + port.up);
+    html += row('Только встречи', f2(meetUp), 'B2C ' + f2(fdUp) + (bizN > 0 ? ' · B2B ' + f2(bizUp) : ''));
+    html += row('+ «Сим для своих» на каждой B2C-встрече', f2(s1), fdN + ' × ' + f2(sim.up) + ' = +' + f2(fdN * sim.up), '#2471a3');
+    html += row('+ пополнение тарифа и перенос номера', f2(s1 + extra), 'еще ' + fdN + ' × (' + f2(topup.up) + ' + ' + f2(port.up) + ') = +' + f2(extra), '#3949ab');
   }
+  if (bizN > 0) html += row('B2B-встречи: ' + bizN, '+' + f2(bizUp), 'без продаж — только УП за встречу', '#7d3c98');
 
-  // Ручной режим — не трогаем
-  const manualVal = String(getManual1('b2c_total') || '').trim();
-  const isManual = manualVal !== '' && manualVal !== '0';
-  if (isManual) return;
-
-  // Авто-режим — обновляем, если изменилось
-  if (field.value !== String(b2cAuto)) {
-    field.value = b2cAuto;
+  // ── подробности ──
+  const hist = avgUpFdPerMeeting();
+  let det = '';
+  let potTxt = '';
+  det += `<div class="ds-sep">📈 По твоей статистике</div>`;
+  det += row('Продано сейчас', f2(tGlobal.upFD), 'УП ФД (продажи)');
+  if (fdN === 0) {
+    det += row('Потенциал', '—', 'нужны B2C-встречи');
+  } else if (hist) {
+    const pot = fdN * hist.avg;
+    potTxt = '≈ ' + f2(pot);
+    det += row('В среднем на ' + fdN + ' B2C-встреч', '≈ ' + f2(pot), f2(hist.avg) + ' УП ФД на встречу (за ' + hist.days + ' дн.)', '#3949ab');
+    const gap = pot - tGlobal.upFD;
+    det += row(gap > 0 ? 'До среднего не хватает' : 'Уже выше среднего', gap > 0 ? f2(gap) : '+' + f2(-gap), '', gap > 0 ? '#e67e22' : '#27ae60');
+  } else {
+    det += row('По твоей статистике', '—', 'пока нет прошлых дней с встречами');
   }
-
-  // ─── Заодно обновим B2B ───
-  const b2bField = document.querySelector('#app1 .b2b-input');
-  if (b2bField) {
-    let b2bAuto = 0;
-    ROUTE_TIMES.forEach(t => {
-      (routeState.lists[t.id] || []).forEach(item => {
-        if (!item) return;
-        if (!item.addr || !item.addr.trim()) return;
-        const cat = item.category || 'b2c';
-        if (cat === 'b2b') b2bAuto++;         // ← считаем только B2B!
-      });
-    });
-
-    const manualB2B = String(getManual1('b2b_total') || '').trim();
-    const isManualB2B = manualB2B !== '' && manualB2B !== '0';
-    if (!isManualB2B && b2bField.value !== String(b2bAuto)) {
-      b2bField.value = b2bAuto;
-    }
+  det += `<div class="ds-sep">📊 По дню</div>`;
+  det += row('Всего УП сегодня', f2(tGlobal.up), 'ОД ' + tGlobal.od);
+  const avgDay = avgDayUpFromHistory();
+  if (avgDay) {
+    const d = tGlobal.up - avgDay.avg;
+    det += row('К среднему дню месяца', (d >= 0 ? '+' : '') + f2(d), 'в среднем ' + f2(avgDay.avg) + ' УП (за ' + avgDay.days + ' дн.)', d >= 0 ? '#27ae60' : '#e67e22');
   }
-}
-
-function loadQuickReport() {
+  if (tGlobal.up > 0) det += row('Доля встреч в УП', Math.round(meetUp / tGlobal.up * 100) + '%', 'остальное — продажи');
+  const assigned = (tGlobal.b2cTotal || 0) + (tGlobal.b2bTotal || 0), doneM = (tGlobal.b2cDone || 0) + (tGlobal.b2bDone || 0);
+  if (assigned > 0) det += row('Проведено / назначено', doneM + ' / ' + assigned, Math.round(doneM / assigned * 100) + '% TR');
   try {
-    const q = JSON.parse(localStorage.getItem(QUICK_REPORT_KEY)) || {};
-    return {
-      planDay: q.planDay || '',
-      b2cNag: q.b2cNag || '',
-      b2bNag: q.b2bNag || '',
-      willDo: q.willDo || '',
-      willDoB2B: q.willDoB2B || '',
-      fdNotes: q.fdNotes || ''
-    };
-  } catch (e) {
-    return { planDay: '', b2cNag: '', b2bNag: '', willDo: '', willDoB2B: '', fdNotes: '' };
-  }
-}
-function saveQuickReport(q) { localStorage.setItem(QUICK_REPORT_KEY, JSON.stringify(q)); }
-
-function checkQuickReportReset() {
-  const lastDay = localStorage.getItem(QUICK_REPORT_DAY_KEY);
-  const todayKey = getTodayKey23();
-  if (lastDay !== todayKey) {
-    localStorage.removeItem(QUICK_REPORT_KEY);
-    localStorage.removeItem(QUICK_REPORT_SENT_KEY);
-    localStorage.removeItem(QUICK_REPORT_REMIND_KEY);
-    localStorage.removeItem(MORNING_REPORT_SENT_KEY);
-    localStorage.setItem(QUICK_REPORT_DAY_KEY, todayKey);
-    return true;
-  }
-  return false;
-}
-
-function buildQuickProductsList() {
-  const lines = [];
-  SECTIONS1.forEach(s => s.items.forEach(i => {
-    if (i.type === 'meeting' || i.type === 'biz') return;
-    const c = getCount1(i.id);
-    if (!c) return;
-    lines.push(`${c}${i.name.toLowerCase()}`);
-  }));
-  const zkCount = num(getZK1());
-  if (zkCount > 0) lines.push(`${zkCount}зк (зарплатная карта)`);
-  (state1.extra || []).forEach(x => {
-    if (x.name && x.name.trim()) {
-      const n = num(x.up);
-      const cnt = n > 0 ? n : 1;
-      lines.push(`${cnt}${x.name.trim().toLowerCase()}`);
+    const kmE = kmLoadHistory()[kmDayKey()];
+    if (kmE && kmE.km) {
+      const fu = fuelLoad();
+      det += row('Километраж сегодня', (kmE.approx && !kmE.manual ? '≈ ' : '') + kmFmt(kmE.km), fu.cons > 0 && fu.price > 0 ? 'бензин ≈ ' + fuelMoney(kmE.km * fu.cons / 100 * fu.price) : '');
     }
-  });
-  return lines;
-}
-function buildQuickReportText() {
-  const q = loadQuickReport();
-  const t = calcTotals1();
+  } catch (e) {}
 
-  const planDay = q.planDay || '—';
-  const upToday = t.up.toFixed(2);
-
-  // B2C — из нового поля, если не введено — из общего
-  const b2cNag = (q.b2cNag && q.b2cNag.trim()) ? q.b2cNag.trim() : (t.b2cTotal || '—');
-  const b2cDone = t.meetings;
-  const b2cWill = q.willDo || '—';
-
-  // B2B — из нового поля, если пусто — прочерк
-  const b2bNagRaw = (q.b2bNag || '').trim();
-  const b2bNag = b2bNagRaw || '—';
-  const b2bDone = t.bizMeetings;
-  const b2bWillRaw = (q.willDoB2B || '').trim();
-  const b2bWill = b2bWillRaw || '—';
-
-  const fdNotes = (q.fdNotes || '').trim();
-  const products = buildQuickProductsList();
-  const productsText = products.length > 0 ? products.join('\n') : '';
-
-  // B2B-строка: если назначено 0 или прочерк — показываем с прочерком
-  const b2bLine = (b2bNagRaw === '' || b2bNagRaw === '0')
-    ? `—/${b2bDone}/${b2bWill}`
-    : `${b2bNag}/${b2bDone}/${b2bWill}`;
-
-  const parts = [
-    `${planDay}/${upToday}`,
-    `${b2cNag}/${b2cDone}/${b2cWill}`,
-    b2bLine
-  ];
-  if (fdNotes) parts.push(fdNotes);
-  if (productsText) parts.push(productsText);
-  return parts.join('\n');
+  const open = !!window._dsMoreOpen;
+  const head = [potTxt ? '📈 по статистике ' + potTxt : '', '📊 УП ' + f2(tGlobal.up)].filter(Boolean).join(' · ');
+  html += `<div class="ds-more"><span>Подробнее: ${head}</span><span class="ds-arrow" style="${open ? 'transform:rotate(180deg)' : ''}">▼</span></div>`;
+  html += `<div class="ds-details" style="display:${open ? 'block' : 'none'}">${det}</div>`;
+  html += `</div>`;
+  return html;
 }
 function openQuickReport() {
   checkQuickReportReset();
