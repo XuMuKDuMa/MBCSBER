@@ -5971,6 +5971,21 @@ body.dark .dadata-suggestions-container .dadata-suggestion-item:hover,
 body.dark .dadata-suggestions-container .dadata-suggestion-item.selected {
   background-color: #263340 !important;
 }
+
+/* Уточнение детской карты с верификацией при завершении встречи */
+.fd-verify-overlay{position:fixed;inset:0;z-index:100500;background:rgba(7,16,28,.62);display:flex;align-items:center;justify-content:center;padding:18px;}
+.fd-verify-dialog{width:min(420px,100%);background:var(--card-bg,#fff);color:var(--text-color,#1d2733);border:1px solid rgba(120,140,160,.25);border-radius:18px;padding:22px;box-shadow:0 20px 70px rgba(0,0,0,.35);}
+.fd-verify-title{font-size:18px;font-weight:800;line-height:1.35;margin:0 0 9px;}
+.fd-verify-desc{font-size:14px;line-height:1.5;opacity:.82;margin-bottom:20px;}
+.fd-verify-actions{display:flex;gap:12px;}
+.fd-verify-actions button{flex:1;border:0;border-radius:12px;padding:13px 12px;font-size:15px;font-weight:800;cursor:pointer;}
+.fd-verify-no{background:#e9edf2;color:#293544;}
+.fd-verify-yes{background:#16834a;color:#fff;}
+body.dark .fd-verify-dialog{background:#202b37;color:#e8eef5;border-color:#3a4a5a;}
+body.dark .fd-verify-no{background:#354454;color:#edf3f8;}
+.route-finished-label{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#16834a;padding:7px 10px;border-radius:9px;background:rgba(22,131,74,.09);}
+body.dark .route-finished-label{color:#62d999;background:rgba(98,217,153,.1);}
+
 </style>
 
 
@@ -8701,70 +8716,16 @@ if (item.startedAt) {
   finishBtn.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
   statusLine.appendChild(finishBtn);
 }
-// ─── Бейдж «Сбер Завершено» для done ───
+// ─── Для завершённой встречи — обычная надпись, без печати ───
 else if (item.status === 'done') {
-  const stamp = document.createElement('div');
-  stamp.className = 'status-stamp stamp-done';
-  stamp.innerHTML = `
-    <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-      <!-- Внешний круг -->
-      <circle cx="60" cy="60" r="56" fill="none" stroke="currentColor" stroke-width="4" opacity="0.9"/>
-      <circle cx="60" cy="60" r="50" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.7"/>
-      <!-- Внутренний круг -->
-      <circle cx="60" cy="60" r="36" fill="none" stroke="currentColor" stroke-width="2" opacity="0.8"/>
-      
-      <!-- Текст по кругу (верх): ЗАВЕРШЕНО -->
-      <path id="topArc" d="M 22,60 A 38,38 0 0 1 98,60" fill="none"/>
-      <text font-size="15" font-weight="800" fill="currentColor" letter-spacing="1.2">
-  <textPath href="#topArc" startOffset="50%" text-anchor="middle">ЗАВЕРШЕНО</textPath>
-</text>
-      
-      <!-- Текст по кругу (низ): ЗАВЕРШЕНО (перевёрнутый) -->
-      <path id="bottomArc" d="M 98,60 A 38,38 0 0 1 22,60" fill="none"/>
-      <text font-size="13" font-weight="800" fill="currentColor" letter-spacing="1.2">
-        <textPath href="#bottomArc" startOffset="50%" text-anchor="middle">ЗАВЕРШЕНО</textPath>
-      </text>
-      
-      <!-- Галочка в центре -->
-      <path d="M 42,60 L 55,73 L 80,48" 
-      fill="none" stroke="currentColor" stroke-width="8" 
-      stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-  `;
-  statusLine.appendChild(stamp);
+  const finished = document.createElement('div');
+  finished.className = 'route-finished-label';
+  finished.textContent = '✓ Завершено';
+  statusLine.appendChild(finished);
 }
-// ─── Бейдж «Сбер Отмена» для perenos ───
+// Для отменённой встречи печать не показываем — достаточно статуса в карточке
 else if (item.status === 'perenos') {
-  const stamp = document.createElement('div');
-  stamp.className = 'status-stamp stamp-cancel';
-  stamp.innerHTML = `
-    <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-      <!-- Внешний круг -->
-      <circle cx="60" cy="60" r="56" fill="none" stroke="currentColor" stroke-width="4" opacity="0.9"/>
-      <circle cx="60" cy="60" r="50" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.7"/>
-      <!-- Внутренний круг -->
-      <circle cx="60" cy="60" r="36" fill="none" stroke="currentColor" stroke-width="2" opacity="0.8"/>
-      
-      <!-- Текст по кругу (верх): ОТМЕНЕНО -->
-      <path id="topArcCancel" d="M 22,60 A 38,38 0 0 1 98,60" fill="none"/>
-      <text font-size="12" font-weight="800" fill="currentColor" letter-spacing="1">
-        <textPath href="#topArcCancel" startOffset="50%" text-anchor="middle">ОТМЕНЕНО</textPath>
-      </text>
-      
-      <!-- Текст по кругу (низ): ОТМЕНЕНО -->
-      <path id="bottomArcCancel" d="M 98,60 A 38,38 0 0 1 22,60" fill="none"/>
-      <text font-size="12" font-weight="800" fill="currentColor" letter-spacing="1">
-        <textPath href="#bottomArcCancel" startOffset="50%" text-anchor="middle">ОТМЕНЕНО</textPath>
-      </text>
-      
-      <!-- Крестик в центре -->
-      <line x1="46" y1="46" x2="74" y2="74" 
-      stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
-<line x1="74" y1="46" x2="46" y2="74" 
-      stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
-    </svg>
-  `;
-  statusLine.appendChild(stamp);
+  // намеренно без печати
 }
 // ─── Обычный режим — кнопка «Начать» ───
 else {
@@ -8972,26 +8933,62 @@ function resetMtypeForCategory(item) {
   syncCardCredit(item);   // у «Готово» УП перейдёт на тип по умолчанию новой категории
 }
 
-// ─── Завершить встречу одной кнопкой (то же, что «Завершить» в меню статуса) ───
+// ─── Уточнение: действительно ли детская карта оформлена с верификацией ───
+function askChildVerification(onAnswer) {
+  const old = document.querySelector('.fd-verify-overlay');
+  if (old) old.remove();
+  const overlay = document.createElement('div');
+  overlay.className = 'fd-verify-overlay';
+  overlay.innerHTML = `
+    <div class="fd-verify-dialog" role="dialog" aria-modal="true" aria-labelledby="fdVerifyTitle">
+      <div class="fd-verify-title" id="fdVerifyTitle">Детская карта с верификацией?</div>
+      <div class="fd-verify-desc">Подтверди, что это именно детская карта с верификацией. Если это перевыпуск или стикер, ФД будет обычной — 0,20 УП.</div>
+      <div class="fd-verify-actions">
+        <button type="button" class="fd-verify-no">Нет</button>
+        <button type="button" class="fd-verify-yes">Да</button>
+      </div>
+    </div>`;
+  const finish = (answer) => { overlay.remove(); onAnswer(answer); };
+  overlay.querySelector('.fd-verify-no').addEventListener('click', () => finish(false));
+  overlay.querySelector('.fd-verify-yes').addEventListener('click', () => finish(true));
+  overlay.addEventListener('click', e => { if (e.target === overlay) finish(null); });
+  document.body.appendChild(overlay);
+  overlay.querySelector('.fd-verify-yes').focus();
+}
+
+// ─── Завершить встречу одной кнопкой ───
 function quickFinishMeeting(item) {
-  const _began = item.startedAt;
-  item.status = 'done';
-  item.startedAt = null;
-  syncCardCredit(item);
-  saveRouteState(routeState);
-  renderRoute();
-  if (typeof updateDrawerRoutes === 'function') updateDrawerRoutes();
-  updateActivitiesBadge();
-  _mapHash = '';
-  if (map) renderMapMarkers();
-  vibro(15);
-  let _dur = '';
-  if (_began) {
-    const mins = Math.max(1, Math.round((Date.now() - _began) / 60000));
-    _dur = 'Длилась ' + (mins < 60 ? mins + ' мин' : Math.floor(mins / 60) + ' ч ' + String(mins % 60).padStart(2, '0') + ' мин');
+  const complete = (verified) => {
+    // «Нет» или перевыпуск/стикер: заменить детскую ФД с верификацией на обычную ФД (0,20 УП)
+    if (verified === false) item.mtype = 'fd_meet_02';
+    const _began = item.startedAt;
+    item.status = 'done';
+    item.startedAt = null;
+    syncCardCredit(item);
+    saveRouteState(routeState);
+    renderRoute();
+    if (typeof updateDrawerRoutes === 'function') updateDrawerRoutes();
+    updateActivitiesBadge();
+    _mapHash = '';
+    if (map) renderMapMarkers();
+    vibro(15);
+    let _dur = '';
+    if (_began) {
+      const mins = Math.max(1, Math.round((Date.now() - _began) / 60000));
+      _dur = 'Длилась ' + (mins < 60 ? mins + ' мин' : Math.floor(mins / 60) + ' ч ' + String(mins % 60).padStart(2, '0') + ' мин');
+    }
+    showSuccessNotification('Встреча проведена' + creditUpLabel(item.credited), 'done', _dur);
+    noTypeHint(item);
+  };
+  if (effectiveMtype(item) === 'fd_meet_035') {
+    askChildVerification(answer => {
+      // Закрытие диалога крестом/кликом вне окна не должно случайно завершить встречу.
+      if (answer === null) return;
+      complete(answer);
+    });
+  } else {
+    complete(true);
   }
-  showSuccessNotification('Встреча проведена' + creditUpLabel(item.credited), 'done', _dur);
-  noTypeHint(item);
 }
 
 // ─── Адрес уже пробовали искать на карте и не нашли? ───
