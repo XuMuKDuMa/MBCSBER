@@ -8355,10 +8355,61 @@ addrWrap.appendChild(btnMic);
     } catch (err) {
       if (err && err.name === 'AbortError') return;
       if (seq !== requestSeq) return;
-      window.__addrDiag = { t: Date.now(), q: query, street: true, src: 'DaData API', n: 0, err: String((err && err.message) || err).slice(0, 160) };
-      closeList();
-      console.warn('DaData address search failed:', err);
-      if (typeof showToast === 'function') showToast('Не удалось выполнить поиск адреса DaData. Проверьте подключение и API-ключ.');
+      const dadataError = String((err && err.message) || err).slice(0, 160);
+      console.warn('DaData address search failed; trying fallback geocoders:', err);
+      // Резервный поиск: если соединение с DaData закрыто сетью/браузером, пробуем Photon (OpenStreetMap).
+      // Это позволяет продолжать искать адреса без ожидания восстановления DaData.
+      let fallbackItems = [];
+      try {
+        const fallbackQuery = [city, query].filter(Boolean).join(' ');
+        const u = new URL('https://photon.komoot.io/api/');
+        u.searchParams.set('q', fallbackQuery);
+        u.searchParams.set('limit', '8');
+        u.searchParams.set('lang', 'en');
+        const r = await fetch(u.toString(), { signal: controller.signal });
+        if (r.ok) {
+          const j = await r.json();
+          fallbackItems = (j.features || []).map(f => {
+            const p = f.properties || {}, c = f.geometry && f.geometry.coordinates || [];
+            const street = p.street || p.name || '';
+            const house = p.housenumber || '';
+            const place = [p.postcode, p.city || p.town || p.village || p.locality, street, house].filter(Boolean).join(', ');
+            const value = place || p.name || p.street || '';
+            if (!value) return null;
+            return { value, data: { postal_code: p.postcode || '', region: p.state || '', city_district: p.district || p.suburb || '', street, house, geo_lat: c.length > 1 ? String(c[1]) : '', geo_lon: c.length > 1 ? String(c[0]) : '' } };
+          }).filter(Boolean);
+        }
+      } catch (fallbackError) {
+        console.warn('Photon fallback failed:', fallbackError);
+      }
+      if (!fallbackItems.length) {
+        try {
+          const u = new URL('https://nominatim.openstreetmap.org/search');
+          u.searchParams.set('format', 'jsonv2');
+          u.searchParams.set('addressdetails', '1');
+          u.searchParams.set('limit', '8');
+          u.searchParams.set('accept-language', 'ru');
+          u.searchParams.set('q', [city, query].filter(Boolean).join(', '));
+          const r = await fetch(u.toString(), { signal: controller.signal, headers: { 'Accept': 'application/json' } });
+          if (r.ok) {
+            const j = await r.json();
+            fallbackItems = (j || []).map(x => {
+              const a = x.address || {};
+              return { value: x.display_name || '', data: { postal_code: a.postcode || '', region: a.state || '', city_district: a.suburb || a.city_district || '', street: a.road || '', house: a.house_number || '', geo_lat: x.lat || '', geo_lon: x.lon || '' } };
+            }).filter(x => x.value);
+          }
+        } catch (fallbackError) {
+          console.warn('Nominatim fallback failed:', fallbackError);
+        }
+      }
+      if (seq === requestSeq && fallbackItems.length) {
+        window.__addrDiag = { t: Date.now(), q: query, street: true, src: 'OpenStreetMap fallback', n: fallbackItems.length, err: dadataError };
+        show(fallbackItems);
+      } else if (seq === requestSeq) {
+        window.__addrDiag = { t: Date.now(), q: query, street: true, src: 'DaData + OpenStreetMap', n: 0, err: dadataError };
+        closeList();
+        if (typeof showToast === 'function') showToast('Поиск адресов недоступен: DaData не отвечает, резервный поиск тоже не вернул адреса. Адрес можно ввести вручную.');
+      }
     }
   }
   addrInput.setAttribute('autocomplete', 'off');
