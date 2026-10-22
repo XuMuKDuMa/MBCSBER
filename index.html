@@ -10670,7 +10670,7 @@ function daySummaryHtml() {
   let doneOutOfSlot = 0;
   try {
     ROUTE_TIMES.forEach(rt => (routeState.lists[rt.id] || []).forEach(item => {
-      if (item && item.status === 'done' && item.addr && item.addr.trim() && isOutOfSlot(item, rt.id)) doneOutOfSlot++;
+      if (item && item.status === 'done' && isOutOfSlot(item, rt.id)) doneOutOfSlot++;
     }));
   } catch (e) {}
   const trPct = totalMeets > 0 ? Math.round(doneMeets / totalMeets * 100) : 0;
@@ -10698,17 +10698,19 @@ function daySummaryHtml() {
     </div>
   </div>
   `;
-  // Отдельная шкала встреч, проведённых не в слот.
-  html += `
-  <div style="margin:0 14px 12px;padding:10px 12px;border-radius:12px;background:rgba(230,126,34,.10);border:1px solid rgba(230,126,34,.22);">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;font-weight:750;">
-      <span>⏱ Встречи не в слот</span><span style="font-size:18px;color:#d35400;">${doneOutOfSlot}</span>
-    </div>
-    <div style="height:5px;background:rgba(120,120,128,.2);border-radius:4px;overflow:hidden;margin-top:7px;">
-      <div style="height:100%;width:${doneMeets > 0 ? Math.min(100, doneOutOfSlot / doneMeets * 100) : 0}%;background:#e67e22;border-radius:4px;"></div>
-    </div>
-    <div style="font-size:10px;opacity:.7;margin-top:5px;">Учитываются завершённые встречи, начатые вне временного окна слота</div>
-  </div>`;
+  // Шкала появляется только при наличии хотя бы одной завершённой встречи не в слот.
+  if (doneOutOfSlot > 0) {
+    html += `
+    <div style="margin:0 14px 12px;padding:10px 12px;border-radius:12px;background:rgba(230,126,34,.10);border:1px solid rgba(230,126,34,.22);">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;font-weight:750;">
+        <span>⏱ Встречи не в слот</span><span style="font-size:18px;color:#d35400;">${doneOutOfSlot}</span>
+      </div>
+      <div style="height:5px;background:rgba(120,120,128,.2);border-radius:4px;overflow:hidden;margin-top:7px;">
+        <div style="height:100%;width:${doneMeets > 0 ? Math.min(100, doneOutOfSlot / doneMeets * 100) : 0}%;background:#e67e22;border-radius:4px;"></div>
+      </div>
+      <div style="font-size:10px;opacity:.7;margin-top:5px;">Учитываются завершённые встречи, отмеченные как проведённые не в слот</div>
+    </div>`;
+  }
   // Норма: 0,25 УП на ФД на каждую проведённую встречу; средний ориентир — 1,00 УП в день.
   const dailyTarget = Math.max(1.0, doneMeets * 0.25);
   const progressPct = Math.min(100, (fdUpSales / dailyTarget) * 100);
