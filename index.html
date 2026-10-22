@@ -10666,6 +10666,13 @@ function daySummaryHtml() {
   const doneTR = (tGlobal.b2cDone || 0) + (tGlobal.b2bDone || 0);
   const doneMeets = assignedTR > 0 ? doneTR : planned.done;
   const totalMeets = assignedTR > 0 ? assignedTR : (usePlan ? planned.cards : total);
+  // Отдельно считаем проведённые встречи вне слотов по карточкам активностей.
+  let doneOutOfSlot = 0;
+  try {
+    ROUTE_TIMES.forEach(rt => (routeState.lists[rt.id] || []).forEach(item => {
+      if (item && item.status === 'done' && item.addr && item.addr.trim() && isOutOfSlot(item, rt.id)) doneOutOfSlot++;
+    }));
+  } catch (e) {}
   const trPct = totalMeets > 0 ? Math.round(doneMeets / totalMeets * 100) : 0;
   const trProgressPct = Math.min(100, trPct / 90 * 100);
   const trColor = trPct >= 90 ? '#27ae60' : '#e74c3c';
@@ -10691,6 +10698,17 @@ function daySummaryHtml() {
     </div>
   </div>
   `;
+  // Отдельная шкала встреч, проведённых не в слот.
+  html += `
+  <div style="margin:0 14px 12px;padding:10px 12px;border-radius:12px;background:rgba(230,126,34,.10);border:1px solid rgba(230,126,34,.22);">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;font-weight:750;">
+      <span>⏱ Встречи не в слот</span><span style="font-size:18px;color:#d35400;">${doneOutOfSlot}</span>
+    </div>
+    <div style="height:5px;background:rgba(120,120,128,.2);border-radius:4px;overflow:hidden;margin-top:7px;">
+      <div style="height:100%;width:${doneMeets > 0 ? Math.min(100, doneOutOfSlot / doneMeets * 100) : 0}%;background:#e67e22;border-radius:4px;"></div>
+    </div>
+    <div style="font-size:10px;opacity:.7;margin-top:5px;">Учитываются завершённые встречи, начатые вне временного окна слота</div>
+  </div>`;
   // Норма: 0,25 УП на ФД на каждую проведённую встречу; средний ориентир — 1,00 УП в день.
   const dailyTarget = Math.max(1.0, doneMeets * 0.25);
   const progressPct = Math.min(100, (fdUpSales / dailyTarget) * 100);
