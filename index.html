@@ -6589,10 +6589,10 @@ body.dark #screen4 .mvs-dadata-option:hover, body.dark #screen4 .mvs-dadata-opti
   <div class="quick-modal">
     <h2>📋 Предварительный отчёт</h2>
     <div class="quick-field"><label>УП план на день</label><input class="quick-input" id="qPlanDay" type="text" inputmode="decimal" placeholder="например, 3.4"></div>
-    <div class="quick-field"><label>B2C назначено встреч</label><input class="quick-input" id="qB2cNag" type="text" inputmode="numeric" placeholder="например, 6"></div>
-    <div class="quick-field"><label>B2B назначено встреч</label><input class="quick-input" id="qB2bNag" type="text" inputmode="numeric" placeholder="— если нет"></div>
-    <div class="quick-field"><label>B2C «точно будет сделано»</label><input class="quick-input" id="qWillDo" type="text" inputmode="numeric" placeholder="например, 12"></div>
-    <div class="quick-field"><label>B2B «точно будет сделано»</label><input class="quick-input" id="qWillDoB2B" type="text" inputmode="numeric" placeholder="например, 5"></div>
+    <div class="quick-field"><label>B2C назначено встреч <span style="font-weight:400;color:#7b8794">(из Активностей, можно изменить)</span></label><input class="quick-input" id="qB2cNag" type="text" inputmode="numeric" placeholder="например, 6"></div>
+    <div class="quick-field"><label>B2B назначено встреч <span style="font-weight:400;color:#7b8794">(из Активностей, можно изменить)</span></label><input class="quick-input" id="qB2bNag" type="text" inputmode="numeric" placeholder="— если нет"></div>
+    <div class="quick-field"><label>B2C «точно будет сделано» <span style="font-weight:400;color:#7b8794">(проведены + ждут)</span></label><input class="quick-input" id="qWillDo" type="text" inputmode="numeric" placeholder="например, 12"></div>
+    <div class="quick-field"><label>B2B «точно будет сделано» <span style="font-weight:400;color:#7b8794">(проведены + ждут)</span></label><input class="quick-input" id="qWillDoB2B" type="text" inputmode="numeric" placeholder="например, 5"></div>
     <div class="quick-field"><label>ФД, которые не состоятся (заметки)</label><textarea class="quick-textarea" id="qFdNotes" placeholder="Введите заметки по ФД, которые не состоятся..."></textarea></div>
     <div class="quick-preview" id="qPreview">—</div>
     <div class="quick-actions">
@@ -10794,6 +10794,24 @@ function updateB2cField() {
   }
 }
 
+// Предварительный отчёт: авторасчёт по карточкам раздела «Активности».
+// «Назначено» = все карточки с адресом; «точно будет сделано» = проведённые + статус «Ждёт».
+function getQuickActivityCounts() {
+  const result = { b2cNag: 0, b2bNag: 0, willDo: 0, willDoB2B: 0 };
+  if (typeof ROUTE_TIMES === 'undefined' || typeof routeState === 'undefined' || !routeState || !routeState.lists) return result;
+  ROUTE_TIMES.forEach(t => {
+    (routeState.lists[t.id] || []).forEach(item => {
+      if (!item || !String(item.addr || '').trim()) return;
+      const cat = item.category || 'b2c';
+      const isB2B = cat === 'b2b';
+      if (isB2B) result.b2bNag++; else result.b2cNag++;
+      if (item.status === 'done' || item.status === 'wait') {
+        if (isB2B) result.willDoB2B++; else result.willDo++;
+      }
+    });
+  });
+  return result;
+}
 function loadQuickReport() {
   try {
     const q = JSON.parse(localStorage.getItem(QUICK_REPORT_KEY)) || {};
@@ -10803,10 +10821,14 @@ function loadQuickReport() {
       b2bNag: q.b2bNag || '',
       willDo: q.willDo || '',
       willDoB2B: q.willDoB2B || '',
-      fdNotes: q.fdNotes || ''
+      fdNotes: q.fdNotes || '',
+      b2cNagManual: !!q.b2cNagManual,
+      b2bNagManual: !!q.b2bNagManual,
+      willDoManual: !!q.willDoManual,
+      willDoB2BManual: !!q.willDoB2BManual
     };
   } catch (e) {
-    return { planDay: '', b2cNag: '', b2bNag: '', willDo: '', willDoB2B: '', fdNotes: '' };
+    return { planDay: '', b2cNag: '', b2bNag: '', willDo: '', willDoB2B: '', fdNotes: '', b2cNagManual: false, b2bNagManual: false, willDoManual: false, willDoB2BManual: false };
   }
 }
 function saveQuickReport(q) { localStorage.setItem(QUICK_REPORT_KEY, JSON.stringify(q)); }
@@ -10884,11 +10906,17 @@ function buildQuickReportText() {
 function openQuickReport() {
   checkQuickReportReset();
   const q = loadQuickReport();
+  const auto = getQuickActivityCounts();
+  if (!q.b2cNagManual) q.b2cNag = String(auto.b2cNag);
+  if (!q.b2bNagManual) q.b2bNag = String(auto.b2bNag);
+  if (!q.willDoManual) q.willDo = String(auto.willDo);
+  if (!q.willDoB2BManual) q.willDoB2B = String(auto.willDoB2B);
+  saveQuickReport(q);
   document.getElementById('qPlanDay').value   = q.planDay || '';
-  document.getElementById('qB2cNag').value    = q.b2cNag || '';
-  document.getElementById('qB2bNag').value    = q.b2bNag || '';
-  document.getElementById('qWillDo').value    = q.willDo || '';
-  document.getElementById('qWillDoB2B').value = q.willDoB2B || '';
+  document.getElementById('qB2cNag').value    = q.b2cNag;
+  document.getElementById('qB2bNag').value    = q.b2bNag;
+  document.getElementById('qWillDo').value    = q.willDo;
+  document.getElementById('qWillDoB2B').value = q.willDoB2B;
   document.getElementById('qFdNotes').value   = q.fdNotes || '';
   updateQuickPreview();
   updateQuickSendBtn();
@@ -11722,10 +11750,10 @@ document.getElementById('r1Totals').addEventListener('click', (e) => {
   openQuickReport();
 });
 document.getElementById('qPlanDay').addEventListener('input', (e) => { const q = loadQuickReport(); q.planDay = e.target.value; saveQuickReport(q); updateQuickPreview(); });
-document.getElementById('qB2cNag').addEventListener('input', (e) => { const q = loadQuickReport(); q.b2cNag = e.target.value; saveQuickReport(q); updateQuickPreview(); updateQuickSendBtn(); });
-document.getElementById('qB2bNag').addEventListener('input', (e) => { const q = loadQuickReport(); q.b2bNag = e.target.value; saveQuickReport(q); updateQuickPreview(); });
-document.getElementById('qWillDo').addEventListener('input', (e) => { const q = loadQuickReport(); q.willDo = e.target.value; saveQuickReport(q); updateQuickPreview(); });
-document.getElementById('qWillDoB2B').addEventListener('input', (e) => { const q = loadQuickReport(); q.willDoB2B = e.target.value; saveQuickReport(q); updateQuickPreview(); });
+document.getElementById('qB2cNag').addEventListener('input', (e) => { const q = loadQuickReport(); q.b2cNag = e.target.value; q.b2cNagManual = true; saveQuickReport(q); updateQuickPreview(); updateQuickSendBtn(); });
+document.getElementById('qB2bNag').addEventListener('input', (e) => { const q = loadQuickReport(); q.b2bNag = e.target.value; q.b2bNagManual = true; saveQuickReport(q); updateQuickPreview(); });
+document.getElementById('qWillDo').addEventListener('input', (e) => { const q = loadQuickReport(); q.willDo = e.target.value; q.willDoManual = true; saveQuickReport(q); updateQuickPreview(); });
+document.getElementById('qWillDoB2B').addEventListener('input', (e) => { const q = loadQuickReport(); q.willDoB2B = e.target.value; q.willDoB2BManual = true; saveQuickReport(q); updateQuickPreview(); });
 document.getElementById('qFdNotes').addEventListener('input', (e) => { const q = loadQuickReport(); q.fdNotes = e.target.value; saveQuickReport(q); updateQuickPreview(); });
 document.getElementById('qCancel').addEventListener('click', closeQuickReport);
 document.getElementById('qSend').addEventListener('click', async () => {
