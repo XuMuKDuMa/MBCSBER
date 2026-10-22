@@ -10,7 +10,6 @@
 (function () {
   var errs = [];
   window.__appReady = false;
-
   // ─── Журнал запусков для диагностики: последние 10 запусков в localStorage ───
   var boot = { t: Date.now(), w: window.innerWidth, h: window.innerHeight, sw: !!(navigator.serviceWorker && navigator.serviceWorker.controller), vis: document.visibilityState, ol: navigator.onLine, nav: '' };
   try { var nv = performance.getEntriesByType('navigation')[0]; boot.nav = nv ? nv.type : ''; } catch (e) {}
@@ -79,6 +78,7 @@
 <title>МВС отчёты</title>
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#101820">
+<!-- Подключение DaData для подсказок адресов (локально) -->
 <link href="./suggestions.min.css" rel="stylesheet" />
 <script src="./suggestions.min.js"></script>
 <style>
@@ -722,6 +722,43 @@ body.dark .drawer-totals-panel .dtp-value.magenta {
   .manual {
   display: flex; align-items: center;
   padding: 8px 10px; border-bottom: 1px solid #f0f0f0;
+}
+/* ─── Подгонка размеров выпадающего списка DaData ─── */
+.dadata-suggestions-container {
+  /* Ограничиваем ширину по экрану телефона */
+  width: calc(100vw - 24px) !important; 
+  max-width: 400px !important;
+  
+  /* Позиционируем по центру или под полем ввода */
+  left: 12px !important; 
+  right: 12px !important;
+  
+  /* Делаем аккуратные скругления и тень */
+  border-radius: 12px !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15) !important;
+  overflow: hidden !important;
+  
+  /* Чтобы не перекрывало клавиатуру */
+  z-index: 99999 !important; 
+}
+
+/* Настройка самих строк в списке */
+.dadata-suggestions-container .dadata-suggestion-item {
+  padding: 10px 14px !important;
+  font-size: 14px !important;
+  white-space: normal !important; /* Разрешаем перенос длинного текста на новую строку */
+  line-height: 1.3 !important;
+}
+
+/* Если у вас включена темная тема в приложении, можно добавить стили для нее */
+body.dark .dadata-suggestions-container {
+  background-color: #1c2733 !important;
+  color: #e8eef5 !important;
+  border: 1px solid #2c3a48 !important;
+}
+
+body.dark .dadata-suggestions-container .dadata-suggestion-item:hover {
+  background-color: #263340 !important;
 }
 /* ═══════════════════════════════════════════════
    ПОЛНОЭКРАННЫЙ РЕДАКТОР «ПРИЧИНЫ НЕ ДОСТАВОК»
@@ -5889,6 +5926,49 @@ body.dark .reasons-textarea:focus {
   background: #37485a;
   border-color: #3498db;
 }
+/* ═══ ЖЕСТКАЯ ПОДГОНКА ОКНА DADATA ═══ */
+/* Находим контейнер подсказок по классу, который использует DaData */
+.dadata-suggestions-container {
+  /* Ограничиваем ширину экрана, оставляя отступы */
+  width: calc(100vw - 20px) !important;
+  max-width: calc(100vw - 20px) !important;
+  
+  /* Прибиваем к левому краю с небольшим отступом */
+  left: 10px !important;
+  right: auto !important;
+  
+  /* Убираем возможные вылеты */
+  box-sizing: border-box !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  z-index: 999999 !important;
+}
+
+/* Принудительно разрешаем перенос текста в длинных названиях */
+.dadata-suggestions-container * {
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+/* Делаем шрифт чуть аккуратнее */
+.dadata-suggestions-container .dadata-suggestion-item {
+  padding: 12px 14px !important;
+  font-size: 14px !important;
+  line-height: 1.3 !important;
+}
+
+/* Темная тема для выпадающего окна */
+body.dark .dadata-suggestions-container {
+  background-color: #1c2733 !important;
+  color: #e8eef5 !important;
+  border: 1px solid #2c3a48 !important;
+}
+
+body.dark .dadata-suggestions-container .dadata-suggestion-item:hover,
+body.dark .dadata-suggestions-container .dadata-suggestion-item.selected {
+  background-color: #263340 !important;
+}
 </style>
 
 
@@ -6304,6 +6384,18 @@ body.dark .route-list-title { background: linear-gradient(135deg, #46607a, #3449
 .route-type-btn .rtb-arrow { font-size: 11px; opacity: .85; }
 .route-type-btn:active { transform: scale(.94); }
 </style>
+
+<style id="mvs-dadata-autocomplete-style">
+#screen4 .route-addr-wrap { position: relative; }
+#screen4 .mvs-dadata-list { position:absolute; z-index:100000; left:0; right:0; top:calc(100% + 4px); max-height: min(330px, 55vh); overflow-y:auto; background:#fff; color:#263944; border:1px solid #d5dfe6; border-radius:10px; box-shadow:0 10px 28px rgba(0,0,0,.18); padding:4px; }
+#screen4 .mvs-dadata-option { display:flex; flex-direction:column; gap:3px; width:100%; text-align:left; padding:10px 11px; border:0; border-radius:7px; background:transparent; color:inherit; font:inherit; cursor:pointer; }
+#screen4 .mvs-dadata-option:hover, #screen4 .mvs-dadata-option.active { background:#eaf3fb; }
+#screen4 .mvs-dadata-main { font-size:14px; line-height:1.35; font-weight:650; }
+#screen4 .mvs-dadata-sub { font-size:11px; line-height:1.3; opacity:.72; }
+body.dark #screen4 .mvs-dadata-list { background:#202b33; color:#e7eef2; border-color:#43525d; }
+body.dark #screen4 .mvs-dadata-option:hover, body.dark #screen4 .mvs-dadata-option.active { background:#344854; }
+</style>
+
 </head>
 <body class="tab-4">
 
@@ -6686,72 +6778,6 @@ var currentMapFilter = 'all';
 var _mapHash = '';
   // ─── Глобальное состояние слайдера встреч ───
 let meetingsSlide = 0;
-/* ═══════════════════════════════════════════════
-   ВОССТАНОВЛЕНИЕ ПРОПАВШИХ ФУНКЦИЙ
-   ═══════════════════════════════════════════════ */
-
-// 1. Сброс утреннего отчёта
-function checkQuickReportReset() {
-  const lastDay = localStorage.getItem(QUICK_REPORT_DAY_KEY);
-  const todayKey = getTodayKey23();
-  if (lastDay !== todayKey) {
-    localStorage.removeItem(QUICK_REPORT_KEY);
-    localStorage.removeItem(QUICK_REPORT_SENT_KEY);
-    localStorage.removeItem(QUICK_REPORT_REMIND_KEY);
-    localStorage.removeItem(MORNING_REPORT_SENT_KEY);
-    localStorage.setItem(QUICK_REPORT_DAY_KEY, todayKey);
-    return true;
-  }
-  return false;
-}
-
-// 2. Обновление поля B2C в «Сегодня»
-function updateB2cField() {
-  const field = document.querySelector('#app1 .b2c-input');
-  if (!field) return;
-
-  let b2cAuto = 0;
-  if (typeof ROUTE_TIMES !== 'undefined' && typeof routeState !== 'undefined' && routeState && routeState.lists) {
-    ROUTE_TIMES.forEach(t => {
-      (routeState.lists[t.id] || []).forEach(item => {
-        if (!item) return;
-        if (!item.addr || !item.addr.trim()) return;
-        const cat = item.category || 'b2c';
-        if (cat === 'b2c') b2cAuto++;
-      });
-    });
-  }
-
-  const manualVal = String(getManual1('b2c_total') || '').trim();
-  const isManual = manualVal !== '' && manualVal !== '0';
-  if (isManual) return;
-
-  if (field.value !== String(b2cAuto)) {
-    field.value = b2cAuto;
-  }
-
-  const b2bField = document.querySelector('#app1 .b2b-input');
-  if (b2bField) {
-    let b2bAuto = 0;
-    ROUTE_TIMES.forEach(t => {
-      (routeState.lists[t.id] || []).forEach(item => {
-        if (!item) return;
-        if (!item.addr || !item.addr.trim()) return;
-        const cat = item.category || 'b2c';
-        if (cat === 'b2b') b2bAuto++;
-      });
-    });
-    const manualB2B = String(getManual1('b2b_total') || '').trim();
-    const isManualB2B = manualB2B !== '' && manualB2B !== '0';
-    if (!isManualB2B && b2bField.value !== String(b2bAuto)) {
-      b2bField.value = b2bAuto;
-    }
-  }
-}
-
-// 3. Исправление ошибки инициализации VPN
-// Находим проблемные строки в вашем коде и меняем их порядок.
-// (Эту правку нужно сделать вручную в коде, см. ниже)
 /* ═══════════════════════════════════════════════
    ЦИТАТА ДНЯ
    ═══════════════════════════════════════════════ */
@@ -8210,48 +8236,152 @@ btnMic.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: tru
 
 addrWrap.appendChild(addrInput);
 addrWrap.appendChild(btnMic);
-// ═══════════════════════════════════════════════════════════
-// НАЧАЛО БЛОКА DADATA
-// ═══════════════════════════════════════════════════════════
-if (window.Dadata) {
-  const cityForDadata = getMyCity();
-  
-  Dadata.createSuggestions(addrInput, {
-    token: "630e3f0765777f98ed735703ef307d64c9f7c6d8", // Ваш ключ
-    type: "address",
-    // Жесткая привязка к Красногорску по ФИАС
-    locations: [{ city_fias_id: "63fcf18a-365e-451f-baee-8d09ac50b773" }],
-    
-    onSelect: function (suggestion) {
-      // Когда пользователь выбрал адрес из списка:
-      const selectedAddress = suggestion.value;
-      
-      // Записываем в модель данных
-      item.addr = selectedAddress;
-      saveRouteState(routeState);
-      
-      // Обновляем значение в самом поле
-      addrInput.value = selectedAddress;
-      
-      // Автоматически подгоняем высоту textarea
-      autoGrow(addrInput);
-      
-      // Если DaData вернула координаты — сохраняем их в кэш карты!
-      if (suggestion.data && suggestion.data.geo_lat && suggestion.data.geo_lon) {
-        const lat = parseFloat(suggestion.data.geo_lat);
-        const lon = parseFloat(suggestion.data.geo_lon);
-        
-        // Сохраняем в кэш, чтобы карта сразу поставила точку
+// ─── НАДЁЖНЫЕ ПОДСКАЗКИ АДРЕСОВ DADATA ───
+// Используем прямой API, чтобы поиск не зависел от локальных suggestions.min.js/css.
+// Ограничение по city_fias_id удалено: ранее был указан неверный идентификатор региона.
+(function initMvsDaDataAutocomplete() {
+  const DADATA_API_KEY = "630e3f0765777f98ed735703ef307d64c9f7c6d8";
+  const endpoint = 'https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/address';
+  let timer = null;
+  let controller = null;
+  let requestSeq = 0;
+  let activeIndex = -1;
+  let suggestions = [];
+
+  const list = document.createElement('div');
+  list.className = 'mvs-dadata-list';
+  list.setAttribute('role', 'listbox');
+  list.style.display = 'none';
+  addrWrap.appendChild(list);
+
+  function closeList() {
+    list.style.display = 'none';
+    list.replaceChildren();
+    suggestions = [];
+    activeIndex = -1;
+  }
+  function choose(s) {
+    if (!s) return;
+    const selectedAddress = s.value || (s.data && s.data.address);
+    if (!selectedAddress) return;
+    addrInput.value = selectedAddress;
+    item.addr = selectedAddress;
+    saveRouteState(routeState);
+    autoGrow(addrInput);
+    if (s.data && s.data.geo_lat && s.data.geo_lon) {
+      const lat = Number(s.data.geo_lat), lon = Number(s.data.geo_lon);
+      if (Number.isFinite(lat) && Number.isFinite(lon)) {
         mapGeocache[selectedAddress] = [lat, lon];
         saveGeocache();
-        
-        // Обновляем карту, если она открыта
         _mapHash = '';
         if (map) renderMapMarkers();
       }
     }
+    closeList();
+  }
+  function show(items) {
+    suggestions = items || [];
+    activeIndex = -1;
+    list.replaceChildren();
+    if (!suggestions.length) { closeList(); return; }
+    suggestions.forEach((s, i) => {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'mvs-dadata-option';
+      row.setAttribute('role', 'option');
+      const main = document.createElement('span');
+      main.className = 'mvs-dadata-main';
+      main.textContent = s.value || '';
+      row.appendChild(main);
+      const d = s.data || {};
+      const parts = [d.postal_code, d.region, d.city_district, d.street, d.house].filter(Boolean);
+      const subText = [...new Set(parts)].join(' · ');
+      if (subText && subText !== s.value) {
+        const sub = document.createElement('small');
+        sub.className = 'mvs-dadata-sub';
+        sub.textContent = subText;
+        row.appendChild(sub);
+      }
+      row.addEventListener('pointerdown', e => { e.preventDefault(); choose(s); });
+      row.addEventListener('mouseenter', () => setActive(i));
+      list.appendChild(row);
+    });
+    list.style.display = 'block';
+  }
+  function setActive(i) {
+    const rows = [...list.querySelectorAll('.mvs-dadata-option')];
+    if (!rows.length) return;
+    activeIndex = (i + rows.length) % rows.length;
+    rows.forEach((row, n) => {
+      row.classList.toggle('active', n === activeIndex);
+      row.setAttribute('aria-selected', n === activeIndex ? 'true' : 'false');
+    });
+    rows[activeIndex].scrollIntoView({block:'nearest'});
+  }
+  async function search(query, seq) {
+    if (controller) controller.abort();
+    controller = new AbortController();
+    const city = getMyCity();
+    const body = { query, count: 8, language: 'ru', locations: [{ country: '*', ...(city ? { city } : {}) }] };
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': 'Token ' + DADATA_API_KEY },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+      if (!response.ok) {
+        let detail = '';
+        try { const j = await response.json(); detail = j.message || j.detail || ''; } catch (_) {}
+        throw new Error('DaData HTTP ' + response.status + (detail ? ': ' + detail : ''));
+      }
+      const data = await response.json();
+      if (seq !== requestSeq) return;
+      let items = Array.isArray(data.suggestions) ? data.suggestions : [];
+      // Если ограничение по заданному городу дало пустой ответ, повторяем без него.
+      if (!items.length && city && seq === requestSeq) {
+        const r2 = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': 'Token ' + DADATA_API_KEY },
+          body: JSON.stringify({ query, count: 8, language: 'ru', locations: [{ country: '*' }] }),
+          signal: controller.signal
+        });
+        if (r2.ok) { const j2 = await r2.json(); items = Array.isArray(j2.suggestions) ? j2.suggestions : []; }
+      }
+      if (seq === requestSeq) {
+        window.__addrDiag = { t: Date.now(), q: query, street: true, src: 'DaData API', n: items.length, err: '' };
+        show(items);
+      }
+    } catch (err) {
+      if (err && err.name === 'AbortError') return;
+      if (seq !== requestSeq) return;
+      window.__addrDiag = { t: Date.now(), q: query, street: true, src: 'DaData API', n: 0, err: String((err && err.message) || err).slice(0, 160) };
+      closeList();
+      console.warn('DaData address search failed:', err);
+      if (typeof showToast === 'function') showToast('Не удалось выполнить поиск адреса DaData. Проверьте подключение и API-ключ.');
+    }
+  }
+  addrInput.setAttribute('autocomplete', 'off');
+  addrInput.setAttribute('aria-autocomplete', 'list');
+  addrInput.addEventListener('input', () => {
+    clearTimeout(timer);
+    const query = addrInput.value.trim();
+    const seq = ++requestSeq;
+    if (query.length < 3) { if (controller) controller.abort(); closeList(); return; }
+    timer = setTimeout(() => search(query, seq), 280);
   });
-}
+  addrInput.addEventListener('keydown', e => {
+    if (list.style.display !== 'block') return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActive(activeIndex + 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(activeIndex < 0 ? suggestions.length - 1 : activeIndex - 1); }
+    else if (e.key === 'Enter' && activeIndex >= 0) { e.preventDefault(); choose(suggestions[activeIndex]); }
+    else if (e.key === 'Escape') closeList();
+  });
+  addrInput.addEventListener('blur', () => setTimeout(closeList, 180));
+  addrInput.addEventListener('focus', () => {
+    if (addrInput.value.trim().length >= 3 && suggestions.length) list.style.display = 'block';
+  });
+})();
 // ─── Кнопка ручного ввода координат ───
 const btnCoords = document.createElement('button');
 btnCoords.type = 'button';
@@ -10413,89 +10543,80 @@ function daySummaryHtml() {
   const fdItems = SECTIONS1.find(x => x.title === 'Встречи').items;
   const bizItems = SECTIONS1.find(x => x.title === 'Бизнес').items;
   const planned = plannedMeetingsCounts();
-  const usePlan = planned.cards > 0;                                   
+  const usePlan = planned.cards > 0;                                   // есть карточки — считаем по ним
   const cnt = id => usePlan ? (planned.counts[id] || 0) : num(getCount1(id));
-  
   const fd = fdItems.map(i => ({ name: i.name, n: cnt(i.id), up: i.up }));
   const biz = bizItems.map(i => ({ name: i.name, n: cnt(i.id), up: i.up }));
   biz.push({ name: 'ЗК', n: usePlan ? (planned.counts.zk || 0) : num(getZK1()), up: ZK_COEF });
-  
   const fdN = fd.reduce((a, x) => a + x.n, 0), bizN = biz.reduce((a, x) => a + x.n, 0);
   const fdUp = fd.reduce((a, x) => a + x.n * x.up, 0), bizUp = biz.reduce((a, x) => a + x.n * x.up, 0);
   const meetUp = fdUp + bizUp;
   const total = fdN + bizN;
-  
-  // Считаем УП на ФД (продажи) из общего расчета
-  const tGlobal = calcTotals1();
-  const fdUpSales = tGlobal.upFD; 
-  const doneMeets = planned.done; 
-
+  // сколько УП по встречам уже реально засчитано (проведённые карточки / счётчики)
+  const doneUp = fdItems.reduce((a, i) => a + num(getCount1(i.id)) * i.up, 0) + bizItems.reduce((a, i) => a + num(getCount1(i.id)) * i.up, 0) + num(getZK1()) * ZK_COEF;
+  const t = calcTotals1();
   const chip = x => `<span class="ds-chip${x.n ? ' on' : ''}">${x.name}<b>${x.n}</b></span>`;
   const row = (name, val, sub, color) => `<div class="ds-row"><div class="ds-name">${name}</div><div class="ds-val"${color ? ' style="color:' + color + '"' : ''}>${val}${sub ? '<small>' + sub + '</small>' : ''}</div></div>`;
 
-  let html = `<div class="ds-title">📅 Сегодня · встречи и УП</div><div class="ds-body">`;
-  
-  // ═══════════════════════════════════════════════
-  // НОВЫЙ БЛОК ИЗ 3 КОЛОНОК
-  // ═══════════════════════════════════════════════
-  html += `
-  <div style="display: flex; justify-content: space-between; align-items: stretch; gap: 6px; padding: 12px 14px 10px;">
-      <!-- Слева: УП по встречам -->
-      <div style="flex: 1; border-radius: 14px; padding: 10px 4px; background: rgba(46,134,193,.10); text-align: center;">
-          <span style="display: block; font-size: 22px; font-weight: 800; color: #2471a3;">${f2(meetUp)}</span>
-          <small style="display: block; margin-top: 4px; font-size: 10px; font-weight: 700; opacity: 0.7; line-height: 1.2;">УП по встречам<br>(без продаж)</small>
-      </div>
-      
-      <!-- ПО ЦЕНТРУ: Встречи -->
-      <div style="flex: 1.2; border-radius: 14px; padding: 10px 4px; background: rgba(142,68,173,.10); text-align: center;">
-          <span style="display: block; font-size: 22px; font-weight: 800; color: #7d3c98;">${doneMeets} / ${total}</span>
-          <small style="display: block; margin-top: 4px; font-size: 10px; font-weight: 700; opacity: 0.7; line-height: 1.2;">Проведено<br>встреч</small>
-      </div>
+  // ─── Продажи и TR (проведённые / назначенные встречи) ───
+  const tGlobal = calcTotals1();
+  const fdUpSales = tGlobal.upFD;
+  const assignedTR = (tGlobal.b2cTotal || 0) + (tGlobal.b2bTotal || 0);
+  const doneTR = (tGlobal.b2cDone || 0) + (tGlobal.b2bDone || 0);
+  const doneMeets = assignedTR > 0 ? doneTR : planned.done;
+  const totalMeets = assignedTR > 0 ? assignedTR : (usePlan ? planned.cards : total);
+  const trPct = totalMeets > 0 ? Math.round(doneMeets / totalMeets * 100) : 0;
+  const trProgressPct = Math.min(100, trPct / 90 * 100);
+  const trColor = trPct >= 90 ? '#27ae60' : '#e74c3c';
 
-      <!-- Справа: УП на ФД (продажи) -->
-      <div style="flex: 1; border-radius: 14px; padding: 10px 4px; background: rgba(243,156,18,.10); text-align: center;">
-          <span style="display: block; font-size: 22px; font-weight: 800; color: #d35400;">${f2(fdUpSales)}</span>
-          <small style="display: block; margin-top: 4px; font-size: 10px; font-weight: 700; opacity: 0.7; line-height: 1.2;">УП на ФД<br>(продажи)</small>
+  let html = `<div class="ds-title">📅 Сегодня · встречи и УП</div><div class="ds-body">`;
+  html += `
+  <div style="display:flex;justify-content:space-between;align-items:stretch;gap:6px;padding:12px 14px 10px;">
+    <div style="flex:1;border-radius:14px;padding:10px 4px;background:rgba(46,134,193,.10);text-align:center;">
+      <span style="display:block;font-size:22px;font-weight:800;color:#2471a3;">${f2(meetUp)}</span>
+      <small style="display:block;margin-top:4px;font-size:10px;font-weight:700;opacity:.7;line-height:1.2;">УП по встречам<br>(без продаж)</small>
+    </div>
+    <div style="flex:1.2;border-radius:14px;padding:10px 5px;background:rgba(142,68,173,.10);text-align:center;">
+      <span style="display:block;font-size:22px;font-weight:800;color:#7d3c98;">${doneMeets} / ${totalMeets}</span>
+      <small style="display:block;margin-top:4px;font-size:10px;font-weight:700;opacity:.75;line-height:1.2;">Проведено встреч · TR</small>
+      <div style="font-size:13px;font-weight:800;color:${trColor};margin-top:5px;">${trPct}% <span style="font-size:10px;font-weight:700;opacity:.75;">/ цель 90%</span></div>
+      <div style="height:5px;background:rgba(120,120,128,.2);border-radius:4px;overflow:hidden;margin:5px 5px 0;">
+        <div style="height:100%;width:${trProgressPct}%;background:${trColor};border-radius:4px;transition:width .3s;"></div>
       </div>
+    </div>
+    <div style="flex:1;border-radius:14px;padding:10px 4px;background:rgba(243,156,18,.10);text-align:center;">
+      <span style="display:block;font-size:22px;font-weight:800;color:#d35400;">${f2(fdUpSales)}</span>
+      <small style="display:block;margin-top:4px;font-size:10px;font-weight:700;opacity:.7;line-height:1.2;">УП на ФД<br>(продажи)</small>
+    </div>
   </div>
   `;
-
-  // ═══════════════════════════════════════════════
-  // ПРОГРЕСС-БАР ДНЕВНОЙ НОРМЫ (1.0 УП)
-  // ═══════════════════════════════════════════════
-  const dailyTarget = 1.0;
+  // Норма: 0,25 УП на ФД на каждую проведённую встречу; средний ориентир — 1,00 УП в день.
+  const dailyTarget = Math.max(1.0, doneMeets * 0.25);
   const progressPct = Math.min(100, (fdUpSales / dailyTarget) * 100);
-  
   let barColor = '#e74c3c';
   if (progressPct >= 50) barColor = '#f39c12';
   if (progressPct >= 100) barColor = '#27ae60';
-  
-  let statusText = fdUpSales >= dailyTarget 
-      ? '🎉 Дневная норма выполнена!' 
-      : `До нормы (1.0 УП) осталось: <b>${f2(dailyTarget - fdUpSales)}</b> УП`;
-
+  const statusText = fdUpSales >= dailyTarget
+    ? '🎉 Дневная норма выполнена!'
+    : `До нормы (${f2(dailyTarget)} УП) осталось: <b>${f2(dailyTarget - fdUpSales)}</b> УП`;
   html += `
-  <div style="padding: 0 14px 12px;">
-      <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; margin-bottom: 6px;">
-          <span>Дневная норма УП на ФД</span>
-          <span style="color: ${barColor}">${f2(fdUpSales)} / 1.00 УП</span>
-      </div>
-      <div style="height: 8px; background: rgba(120,120,128,0.2); border-radius: 4px; overflow: hidden; margin-bottom: 6px;">
-          <div style="height: 100%; width: ${progressPct}%; background: ${barColor}; border-radius: 4px; transition: width 0.3s;"></div>
-      </div>
-      <div style="font-size: 11px; color: #666; text-align: center; font-weight: 600;">
-          ${statusText}
-      </div>
+  <div style="padding:0 14px 12px;">
+    <div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;font-weight:700;margin-bottom:6px;">
+      <span>Дневная норма УП на ФД</span>
+      <span style="color:${barColor};white-space:nowrap;">${f2(fdUpSales)} / ${f2(dailyTarget)} УП</span>
+    </div>
+    <div style="height:8px;background:rgba(120,120,128,.2);border-radius:4px;overflow:hidden;margin-bottom:6px;">
+      <div style="height:100%;width:${progressPct}%;background:${barColor};border-radius:4px;transition:width .3s;"></div>
+    </div>
+    <div style="font-size:11px;color:#666;text-align:center;font-weight:600;">${statusText}</div>
+    <div style="font-size:10px;opacity:.65;text-align:center;margin-top:4px;">Расчёт: ${doneMeets} встреч × 0,25 УП; минимум 1,00 УП в день</div>
   </div>
   `;
-
-  // ═══════════════════════════════════════════════
-  // ДЕТАЛИЗАЦИЯ (остается как было, но без старых плашек)
-  // ═══════════════════════════════════════════════
+  html += `<div class="ds-big"><div><span>${total}</span><small>${usePlan ? 'встреч в плане' : 'встреч всего'}</small></div><div><span>${f2(meetUp)}</span><small>УП только по встречам</small></div></div>`;
   html += `<div class="ds-group"><div class="ds-gl">B2C · ${fdN}</div><div class="ds-chips">${fd.map(chip).join('')}</div></div>`;
   if (bizN > 0) html += `<div class="ds-group"><div class="ds-gl biz">B2B · ${bizN}</div><div class="ds-chips">${biz.map(chip).join('')}</div></div>`;
 
-  // ── сценарии ──
+  // ── сценарии: что можно сделать, если на каждой ФД-встрече продавать ──
   const findItem = id => SECTIONS1.reduce((r, sec) => r || (sec.items || []).find(i => i.id === id), null);
   const sim = findItem('sim_my'), topup = findItem('sim_topup'), port = findItem('perenos_sim');
   html += `<div class="ds-sep">🎯 Сколько УП можно сделать <span style="font-weight:600;opacity:.7">· продажи только на B2C</span></div>`;
@@ -10506,36 +10627,36 @@ function daySummaryHtml() {
     const extra = fdN * (topup.up + port.up);
     html += row('Только встречи', f2(meetUp), 'B2C ' + f2(fdUp) + (bizN > 0 ? ' · B2B ' + f2(bizUp) : ''));
     html += row('+ «Сим для своих» на каждой B2C-встрече', f2(s1), fdN + ' × ' + f2(sim.up) + ' = +' + f2(fdN * sim.up), '#2471a3');
-    html += row('+ пополнение тарифа и перенос номера', f2(s1 + extra), 'еще ' + fdN + ' × (' + f2(topup.up) + ' + ' + f2(port.up) + ') = +' + f2(extra), '#3949ab');
+    html += row('+ пополнение тарифа и перенос номера', f2(s1 + extra), 'ещё ' + fdN + ' × (' + f2(topup.up) + ' + ' + f2(port.up) + ') = +' + f2(extra), '#3949ab');
   }
   if (bizN > 0) html += row('B2B-встречи: ' + bizN, '+' + f2(bizUp), 'без продаж — только УП за встречу', '#7d3c98');
 
-  // ── подробности ──
+  // ── подробности (сворачиваются): статистика и показатели дня ──
   const hist = avgUpFdPerMeeting();
   let det = '';
   let potTxt = '';
   det += `<div class="ds-sep">📈 По твоей статистике</div>`;
-  det += row('Продано сейчас', f2(tGlobal.upFD), 'УП ФД (продажи)');
+  det += row('Продано сейчас', f2(t.upFD), 'УП ФД (продажи)');
   if (fdN === 0) {
     det += row('Потенциал', '—', 'нужны B2C-встречи');
   } else if (hist) {
     const pot = fdN * hist.avg;
     potTxt = '≈ ' + f2(pot);
     det += row('В среднем на ' + fdN + ' B2C-встреч', '≈ ' + f2(pot), f2(hist.avg) + ' УП ФД на встречу (за ' + hist.days + ' дн.)', '#3949ab');
-    const gap = pot - tGlobal.upFD;
+    const gap = pot - t.upFD;
     det += row(gap > 0 ? 'До среднего не хватает' : 'Уже выше среднего', gap > 0 ? f2(gap) : '+' + f2(-gap), '', gap > 0 ? '#e67e22' : '#27ae60');
   } else {
     det += row('По твоей статистике', '—', 'пока нет прошлых дней с встречами');
   }
   det += `<div class="ds-sep">📊 По дню</div>`;
-  det += row('Всего УП сегодня', f2(tGlobal.up), 'ОД ' + tGlobal.od);
+  det += row('Всего УП сегодня', f2(t.up), 'ОД ' + t.od);
   const avgDay = avgDayUpFromHistory();
   if (avgDay) {
-    const d = tGlobal.up - avgDay.avg;
+    const d = t.up - avgDay.avg;
     det += row('К среднему дню месяца', (d >= 0 ? '+' : '') + f2(d), 'в среднем ' + f2(avgDay.avg) + ' УП (за ' + avgDay.days + ' дн.)', d >= 0 ? '#27ae60' : '#e67e22');
   }
-  if (tGlobal.up > 0) det += row('Доля встреч в УП', Math.round(meetUp / tGlobal.up * 100) + '%', 'остальное — продажи');
-  const assigned = (tGlobal.b2cTotal || 0) + (tGlobal.b2bTotal || 0), doneM = (tGlobal.b2cDone || 0) + (tGlobal.b2bDone || 0);
+  if (t.up > 0) det += row('Доля встреч в УП', Math.round(doneUp / t.up * 100) + '%', 'остальное — продажи');
+  const assigned = (t.b2cTotal || 0) + (t.b2bTotal || 0), doneM = (t.b2cDone || 0) + (t.b2bDone || 0);
   if (assigned > 0) det += row('Проведено / назначено', doneM + ' / ' + assigned, Math.round(doneM / assigned * 100) + '% TR');
   try {
     const kmE = kmLoadHistory()[kmDayKey()];
@@ -10546,7 +10667,7 @@ function daySummaryHtml() {
   } catch (e) {}
 
   const open = !!window._dsMoreOpen;
-  const head = [potTxt ? '📈 по статистике ' + potTxt : '', '📊 УП ' + f2(tGlobal.up)].filter(Boolean).join(' · ');
+  const head = [potTxt ? '📈 по статистике ' + potTxt : '', '📊 УП ' + f2(t.up)].filter(Boolean).join(' · ');
   html += `<div class="ds-more"><span>Подробнее: ${head}</span><span class="ds-arrow" style="${open ? 'transform:rotate(180deg)' : ''}">▼</span></div>`;
   html += `<div class="ds-details" style="display:${open ? 'block' : 'none'}">${det}</div>`;
   html += `</div>`;
@@ -10557,150 +10678,157 @@ function renderDaySummary1() {
   if (!el) return;
   try { el.innerHTML = daySummaryHtml(); } catch (e) { console.warn('daySummary', e); }
 }
+// сводка обновляется вместе с итогами дня
+(function () {
+  const orig = renderTotals1;
+  renderTotals1 = function () {
+    const r = orig.apply(this, arguments);
+    try { renderDaySummary1(); } catch (e) {}
+    return r;
+  };
+})();
+render1();
+renderTotals1();
+setTimeout(updateB2cField, 100);
+/* ═══════════════════════════════════════════════
+   ОБНОВЛЕНИЕ ПОЛЯ B2C В «СЕГОДНЯ»
+   ═══════════════════════════════════════════════ */
+function updateB2cField() {
+  const field = document.querySelector('#app1 .b2c-input');
+  if (!field) return;
 
-function daySummaryHtml() {
-  const f2 = v => (Math.round(v * 100) / 100).toFixed(2).replace('.', ',');
-  const fdItems = SECTIONS1.find(x => x.title === 'Встречи').items;
-  const bizItems = SECTIONS1.find(x => x.title === 'Бизнес').items;
-  const planned = plannedMeetingsCounts();
-  const usePlan = planned.cards > 0;                                   
-  const cnt = id => usePlan ? (planned.counts[id] || 0) : num(getCount1(id));
-  
-  const fd = fdItems.map(i => ({ name: i.name, n: cnt(i.id), up: i.up }));
-  const biz = bizItems.map(i => ({ name: i.name, n: cnt(i.id), up: i.up }));
-  biz.push({ name: 'ЗК', n: usePlan ? (planned.counts.zk || 0) : num(getZK1()), up: ZK_COEF });
-  
-  const fdN = fd.reduce((a, x) => a + x.n, 0), bizN = biz.reduce((a, x) => a + x.n, 0);
-  const fdUp = fd.reduce((a, x) => a + x.n * x.up, 0), bizUp = biz.reduce((a, x) => a + x.n * x.up, 0);
-  const meetUp = fdUp + bizUp;
-  const total = fdN + bizN;
-  
-  // Считаем УП на ФД (продажи) из общего расчета
-  const tGlobal = calcTotals1();
-  const fdUpSales = tGlobal.upFD; 
-  const doneMeets = planned.done; 
-
-  const chip = x => `<span class="ds-chip${x.n ? ' on' : ''}">${x.name}<b>${x.n}</b></span>`;
-  const row = (name, val, sub, color) => `<div class="ds-row"><div class="ds-name">${name}</div><div class="ds-val"${color ? ' style="color:' + color + '"' : ''}>${val}${sub ? '<small>' + sub + '</small>' : ''}</div></div>`;
-
-  let html = `<div class="ds-title">📅 Сегодня · встречи и УП</div><div class="ds-body">`;
-  
-  // ═══════════════════════════════════════════════
-  // НОВЫЙ БЛОК ИЗ 3 КОЛОНОК
-  // ═══════════════════════════════════════════════
-  html += `
-  <div style="display: flex; justify-content: space-between; align-items: stretch; gap: 6px; padding: 12px 14px 10px;">
-      <!-- Слева: УП по встречам -->
-      <div style="flex: 1; border-radius: 14px; padding: 10px 4px; background: rgba(46,134,193,.10); text-align: center;">
-          <span style="display: block; font-size: 22px; font-weight: 800; color: #2471a3;">${f2(meetUp)}</span>
-          <small style="display: block; margin-top: 4px; font-size: 10px; font-weight: 700; opacity: 0.7; line-height: 1.2;">УП по встречам<br>(без продаж)</small>
-      </div>
-      
-      <!-- ПО ЦЕНТРУ: Встречи -->
-      <div style="flex: 1.2; border-radius: 14px; padding: 10px 4px; background: rgba(142,68,173,.10); text-align: center;">
-          <span style="display: block; font-size: 22px; font-weight: 800; color: #7d3c98;">${doneMeets} / ${total}</span>
-          <small style="display: block; margin-top: 4px; font-size: 10px; font-weight: 700; opacity: 0.7; line-height: 1.2;">Проведено<br>встреч</small>
-      </div>
-
-      <!-- Справа: УП на ФД (продажи) -->
-      <div style="flex: 1; border-radius: 14px; padding: 10px 4px; background: rgba(243,156,18,.10); text-align: center;">
-          <span style="display: block; font-size: 22px; font-weight: 800; color: #d35400;">${f2(fdUpSales)}</span>
-          <small style="display: block; margin-top: 4px; font-size: 10px; font-weight: 700; opacity: 0.7; line-height: 1.2;">УП на ФД<br>(продажи)</small>
-      </div>
-  </div>
-  `;
-
-  // ═══════════════════════════════════════════════
-  // ПРОГРЕСС-БАР ДНЕВНОЙ НОРМЫ (1.0 УП)
-  // ═══════════════════════════════════════════════
-  const dailyTarget = 1.0;
-  const progressPct = Math.min(100, (fdUpSales / dailyTarget) * 100);
-  
-  let barColor = '#e74c3c';
-  if (progressPct >= 50) barColor = '#f39c12';
-  if (progressPct >= 100) barColor = '#27ae60';
-  
-  let statusText = fdUpSales >= dailyTarget 
-      ? '🎉 Дневная норма выполнена!' 
-      : `До нормы (1.0 УП) осталось: <b>${f2(dailyTarget - fdUpSales)}</b> УП`;
-
-  html += `
-  <div style="padding: 0 14px 12px;">
-      <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; margin-bottom: 6px;">
-          <span>Дневная норма на ФД</span>
-          <span style="color: ${barColor}">${f2(fdUpSales)} / 1.00 УП</span>
-      </div>
-      <div style="height: 8px; background: rgba(120,120,128,0.2); border-radius: 4px; overflow: hidden; margin-bottom: 6px;">
-          <div style="height: 100%; width: ${progressPct}%; background: ${barColor}; border-radius: 4px; transition: width 0.3s;"></div>
-      </div>
-      <div style="font-size: 11px; color: #666; text-align: center; font-weight: 600;">
-          ${statusText}
-      </div>
-  </div>
-  `;
-
-  // ═══════════════════════════════════════════════
-  // ДЕТАЛИЗАЦИЯ (остается как было, но без старых плашек)
-  // ═══════════════════════════════════════════════
-  html += `<div class="ds-group"><div class="ds-gl">B2C · ${fdN}</div><div class="ds-chips">${fd.map(chip).join('')}</div></div>`;
-  if (bizN > 0) html += `<div class="ds-group"><div class="ds-gl biz">B2B · ${bizN}</div><div class="ds-chips">${biz.map(chip).join('')}</div></div>`;
-
-  // ── сценарии ──
-  const findItem = id => SECTIONS1.reduce((r, sec) => r || (sec.items || []).find(i => i.id === id), null);
-  const sim = findItem('sim_my'), topup = findItem('sim_topup'), port = findItem('perenos_sim');
-  html += `<div class="ds-sep">🎯 Сколько УП можно сделать <span style="font-weight:600;opacity:.7">· продажи только на B2C</span></div>`;
-  if (fdN === 0) {
-    html += row('Добавь B2C-встречи', '—', 'отметь тип на карточке в «Активностях»');
-  } else if (sim && topup && port) {
-    const s1 = meetUp + fdN * sim.up;
-    const extra = fdN * (topup.up + port.up);
-    html += row('Только встречи', f2(meetUp), 'B2C ' + f2(fdUp) + (bizN > 0 ? ' · B2B ' + f2(bizUp) : ''));
-    html += row('+ «Сим для своих» на каждой B2C-встрече', f2(s1), fdN + ' × ' + f2(sim.up) + ' = +' + f2(fdN * sim.up), '#2471a3');
-    html += row('+ пополнение тарифа и перенос номера', f2(s1 + extra), 'еще ' + fdN + ' × (' + f2(topup.up) + ' + ' + f2(port.up) + ') = +' + f2(extra), '#3949ab');
+  // Считаем авто-значение ТОЛЬКО по B2C-карточкам
+  let b2cAuto = 0;
+  if (typeof ROUTE_TIMES !== 'undefined' &&
+      typeof routeState !== 'undefined' &&
+      routeState && routeState.lists) {
+    ROUTE_TIMES.forEach(t => {
+      (routeState.lists[t.id] || []).forEach(item => {
+        if (!item) return;
+        if (!item.addr || !item.addr.trim()) return;
+        const cat = item.category || 'b2c';   // ← по умолчанию B2C
+        if (cat === 'b2c') b2cAuto++;         // ← считаем только B2C!
+      });
+    });
   }
-  if (bizN > 0) html += row('B2B-встречи: ' + bizN, '+' + f2(bizUp), 'без продаж — только УП за встречу', '#7d3c98');
 
-  // ── подробности ──
-  const hist = avgUpFdPerMeeting();
-  let det = '';
-  let potTxt = '';
-  det += `<div class="ds-sep">📈 По твоей статистике</div>`;
-  det += row('Продано сейчас', f2(tGlobal.upFD), 'УП ФД (продажи)');
-  if (fdN === 0) {
-    det += row('Потенциал', '—', 'нужны B2C-встречи');
-  } else if (hist) {
-    const pot = fdN * hist.avg;
-    potTxt = '≈ ' + f2(pot);
-    det += row('В среднем на ' + fdN + ' B2C-встреч', '≈ ' + f2(pot), f2(hist.avg) + ' УП ФД на встречу (за ' + hist.days + ' дн.)', '#3949ab');
-    const gap = pot - tGlobal.upFD;
-    det += row(gap > 0 ? 'До среднего не хватает' : 'Уже выше среднего', gap > 0 ? f2(gap) : '+' + f2(-gap), '', gap > 0 ? '#e67e22' : '#27ae60');
-  } else {
-    det += row('По твоей статистике', '—', 'пока нет прошлых дней с встречами');
+  // Ручной режим — не трогаем
+  const manualVal = String(getManual1('b2c_total') || '').trim();
+  const isManual = manualVal !== '' && manualVal !== '0';
+  if (isManual) return;
+
+  // Авто-режим — обновляем, если изменилось
+  if (field.value !== String(b2cAuto)) {
+    field.value = b2cAuto;
   }
-  det += `<div class="ds-sep">📊 По дню</div>`;
-  det += row('Всего УП сегодня', f2(tGlobal.up), 'ОД ' + tGlobal.od);
-  const avgDay = avgDayUpFromHistory();
-  if (avgDay) {
-    const d = tGlobal.up - avgDay.avg;
-    det += row('К среднему дню месяца', (d >= 0 ? '+' : '') + f2(d), 'в среднем ' + f2(avgDay.avg) + ' УП (за ' + avgDay.days + ' дн.)', d >= 0 ? '#27ae60' : '#e67e22');
-  }
-  if (tGlobal.up > 0) det += row('Доля встреч в УП', Math.round(meetUp / tGlobal.up * 100) + '%', 'остальное — продажи');
-  const assigned = (tGlobal.b2cTotal || 0) + (tGlobal.b2bTotal || 0), doneM = (tGlobal.b2cDone || 0) + (tGlobal.b2bDone || 0);
-  if (assigned > 0) det += row('Проведено / назначено', doneM + ' / ' + assigned, Math.round(doneM / assigned * 100) + '% TR');
-  try {
-    const kmE = kmLoadHistory()[kmDayKey()];
-    if (kmE && kmE.km) {
-      const fu = fuelLoad();
-      det += row('Километраж сегодня', (kmE.approx && !kmE.manual ? '≈ ' : '') + kmFmt(kmE.km), fu.cons > 0 && fu.price > 0 ? 'бензин ≈ ' + fuelMoney(kmE.km * fu.cons / 100 * fu.price) : '');
+
+  // ─── Заодно обновим B2B ───
+  const b2bField = document.querySelector('#app1 .b2b-input');
+  if (b2bField) {
+    let b2bAuto = 0;
+    ROUTE_TIMES.forEach(t => {
+      (routeState.lists[t.id] || []).forEach(item => {
+        if (!item) return;
+        if (!item.addr || !item.addr.trim()) return;
+        const cat = item.category || 'b2c';
+        if (cat === 'b2b') b2bAuto++;         // ← считаем только B2B!
+      });
+    });
+
+    const manualB2B = String(getManual1('b2b_total') || '').trim();
+    const isManualB2B = manualB2B !== '' && manualB2B !== '0';
+    if (!isManualB2B && b2bField.value !== String(b2bAuto)) {
+      b2bField.value = b2bAuto;
     }
-  } catch (e) {}
+  }
+}
 
-  const open = !!window._dsMoreOpen;
-  const head = [potTxt ? '📈 по статистике ' + potTxt : '', '📊 УП ' + f2(tGlobal.up)].filter(Boolean).join(' · ');
-  html += `<div class="ds-more"><span>Подробнее: ${head}</span><span class="ds-arrow" style="${open ? 'transform:rotate(180deg)' : ''}">▼</span></div>`;
-  html += `<div class="ds-details" style="display:${open ? 'block' : 'none'}">${det}</div>`;
-  html += `</div>`;
-  return html;
+function loadQuickReport() {
+  try {
+    const q = JSON.parse(localStorage.getItem(QUICK_REPORT_KEY)) || {};
+    return {
+      planDay: q.planDay || '',
+      b2cNag: q.b2cNag || '',
+      b2bNag: q.b2bNag || '',
+      willDo: q.willDo || '',
+      willDoB2B: q.willDoB2B || '',
+      fdNotes: q.fdNotes || ''
+    };
+  } catch (e) {
+    return { planDay: '', b2cNag: '', b2bNag: '', willDo: '', willDoB2B: '', fdNotes: '' };
+  }
+}
+function saveQuickReport(q) { localStorage.setItem(QUICK_REPORT_KEY, JSON.stringify(q)); }
+
+function checkQuickReportReset() {
+  const lastDay = localStorage.getItem(QUICK_REPORT_DAY_KEY);
+  const todayKey = getTodayKey23();
+  if (lastDay !== todayKey) {
+    localStorage.removeItem(QUICK_REPORT_KEY);
+    localStorage.removeItem(QUICK_REPORT_SENT_KEY);
+    localStorage.removeItem(QUICK_REPORT_REMIND_KEY);
+    localStorage.removeItem(MORNING_REPORT_SENT_KEY);
+    localStorage.setItem(QUICK_REPORT_DAY_KEY, todayKey);
+    return true;
+  }
+  return false;
+}
+
+function buildQuickProductsList() {
+  const lines = [];
+  SECTIONS1.forEach(s => s.items.forEach(i => {
+    if (i.type === 'meeting' || i.type === 'biz') return;
+    const c = getCount1(i.id);
+    if (!c) return;
+    lines.push(`${c}${i.name.toLowerCase()}`);
+  }));
+  const zkCount = num(getZK1());
+  if (zkCount > 0) lines.push(`${zkCount}зк (зарплатная карта)`);
+  (state1.extra || []).forEach(x => {
+    if (x.name && x.name.trim()) {
+      const n = num(x.up);
+      const cnt = n > 0 ? n : 1;
+      lines.push(`${cnt}${x.name.trim().toLowerCase()}`);
+    }
+  });
+  return lines;
+}
+function buildQuickReportText() {
+  const q = loadQuickReport();
+  const t = calcTotals1();
+
+  const planDay = q.planDay || '—';
+  const upToday = t.up.toFixed(2);
+
+  // B2C — из нового поля, если не введено — из общего
+  const b2cNag = (q.b2cNag && q.b2cNag.trim()) ? q.b2cNag.trim() : (t.b2cTotal || '—');
+  const b2cDone = t.meetings;
+  const b2cWill = q.willDo || '—';
+
+  // B2B — из нового поля, если пусто — прочерк
+  const b2bNagRaw = (q.b2bNag || '').trim();
+  const b2bNag = b2bNagRaw || '—';
+  const b2bDone = t.bizMeetings;
+  const b2bWillRaw = (q.willDoB2B || '').trim();
+  const b2bWill = b2bWillRaw || '—';
+
+  const fdNotes = (q.fdNotes || '').trim();
+  const products = buildQuickProductsList();
+  const productsText = products.length > 0 ? products.join('\n') : '';
+
+  // B2B-строка: если назначено 0 или прочерк — показываем с прочерком
+  const b2bLine = (b2bNagRaw === '' || b2bNagRaw === '0')
+    ? `—/${b2bDone}/${b2bWill}`
+    : `${b2bNag}/${b2bDone}/${b2bWill}`;
+
+  const parts = [
+    `${planDay}/${upToday}`,
+    `${b2cNag}/${b2cDone}/${b2cWill}`,
+    b2bLine
+  ];
+  if (fdNotes) parts.push(fdNotes);
+  if (productsText) parts.push(productsText);
+  return parts.join('\n');
 }
 function openQuickReport() {
   checkQuickReportReset();
@@ -15573,6 +15701,7 @@ window.addEventListener('focus', runAllTimeChecksNow);
     box.style.display = 'block';
   }
   async function update(el) {
+    return; // ⛔ ОТКЛЮЧАЕМ СТАРЫЙ ПОИСК, чтобы он не мешал DaData
     const my = ++seq;
     const text = el.value;
     const city = getMyCity(), cityN = norm(city);
@@ -15658,14 +15787,15 @@ window.addEventListener('focus', runAllTimeChecksNow);
   }
 
   document.addEventListener('input', (e) => {
-    const el = e.target;
-    if (!el || !el.classList || !el.classList.contains('route-addr-input')) return;
-    if (suppress) return;
-    activeEl = el;
-    clearTimeout(timer);
-    seqAborted = true;
-    timer = setTimeout(() => { seqAborted = false; update(el); }, 300);
-  }, true);
+  return; // ⛔ СТАРЫЙ ПОИСК ОТКЛЮЧЕН НАВСЕГДА
+  const el = e.target;
+  if (!el || !el.classList || !el.classList.contains('route-addr-input')) return;
+  if (suppress) return;
+  activeEl = el;
+  clearTimeout(timer);
+  seqAborted = true;
+  timer = setTimeout(() => { seqAborted = false; update(el); }, 300);
+}, true);
   // выбор подсказки: pointerdown, чтобы поле не потеряло фокус и клавиатура не закрылась
   box.addEventListener('pointerdown', (e) => {
     const it = e.target.closest('.as-item');
