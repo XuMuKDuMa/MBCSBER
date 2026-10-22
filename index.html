@@ -6398,6 +6398,21 @@ body.dark #screen4 .mvs-dadata-list { background:#202b33; color:#e7eef2; border-
 body.dark #screen4 .mvs-dadata-option:hover, body.dark #screen4 .mvs-dadata-option.active { background:#344854; }
 </style>
 
+
+<style id="product-advisor-accordion-styles">
+.product-advisor-accordion{border:1px solid #dce3ec;border-radius:14px;background:#f4f7fb;color:#243244;overflow:hidden}
+.product-advisor-accordion>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 14px;font-weight:800;font-size:15px;user-select:none}
+.product-advisor-accordion>summary::-webkit-details-marker{display:none}
+.product-advisor-accordion .paa-chevron{transition:transform .18s ease;opacity:.75}
+.product-advisor-accordion[open]>summary .paa-chevron{transform:rotate(180deg)}
+.product-advisor-accordion .paa-content{padding:0 14px 13px}
+.product-advisor-accordion .paa-subtitle{font-size:12px;opacity:.78;margin-bottom:10px}
+.product-advisor-accordion .paa-heading{font-weight:750;margin-top:4px}
+.product-advisor-accordion .paa-heading-next{margin-top:12px}
+.product-advisor-accordion .paa-footnote{font-size:11px;opacity:.72;margin-top:9px}
+body.dark .product-advisor-accordion{background:#202b37;border-color:#3b4a5b;color:#e8eef5}
+body.dark .product-advisor-accordion .paa-content>div[style*="background:rgba(127,145,165,.10)"]{background:rgba(255,255,255,.07)!important}
+</style>
 </head>
 <body class="tab-4">
 
@@ -9456,7 +9471,7 @@ function renderProductAdvisor1() {
   const sold = all.filter(x => x.count > 0).sort((a,b) => b.count-a.count || a.name.localeCompare(b.name, 'ru')).slice(0, 4);
   const suggestions = all.filter(x => x.count <= 0).sort((a,b) => a.name.localeCompare(b.name, 'ru')).slice(0, 6);
   const chips = arr => arr.length ? arr.map(x => `<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 9px;margin-top:5px;border-radius:9px;background:rgba(127,145,165,.10);"><span>${escapeHtml(String(x.name))}${x.group ? ` <small style="opacity:.65">· ${escapeHtml(String(x.group))}</small>` : ''}</span>${x.count > 0 ? `<b>${x.count} шт.</b>` : '<span style="opacity:.7">предложить</span>'}</div>`).join('') : '<div style="opacity:.65;padding:6px 0">Пока нет данных</div>';
-  el.innerHTML = `<div style="font-weight:800;font-size:16px;margin-bottom:4px">💡 Что предложить сегодня</div><div style="font-size:12px;opacity:.72;margin-bottom:10px">Подсказки по каталогу и счётчикам текущего дня</div><div style="font-weight:700">🔥 Уже продаются сегодня</div>${chips(sold)}<div style="font-weight:700;margin-top:12px">🎯 Можно предложить клиенту</div>${chips(suggestions)}<div style="font-size:11px;opacity:.65;margin-top:9px">Продажи показаны по текущим счётчикам дня; блок не меняет отчёты и данные.</div>`;
+  el.innerHTML = `<details class="product-advisor-accordion"><summary>💡 Что предложить сегодня <span class="paa-chevron">▾</span></summary><div class="paa-content"><div class="paa-subtitle">Подсказки по каталогу и счётчикам текущего дня</div><div class="paa-heading">🔥 Уже продаются сегодня</div>${chips(sold)}<div class="paa-heading paa-heading-next">🎯 Можно предложить клиенту</div>${chips(suggestions)}<div class="paa-footnote">Продажи показаны по текущим счётчикам дня; блок не меняет отчёты и данные.</div></div></details>`;
 }
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -9476,7 +9491,7 @@ function render1() {
   // ─── Подсказки по продуктам на сегодня ───
   const advisor = document.createElement('div');
   advisor.id = 'productAdvisor1';
-  advisor.style.cssText = 'margin:10px 0 14px;padding:14px;border-radius:14px;background:var(--card, #f4f7fb);border:1px solid var(--border, #dce3ec);';
+  advisor.style.cssText = 'margin:10px 0 14px;';
   app.appendChild(advisor);
   renderProductAdvisor1();
 
