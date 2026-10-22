@@ -3632,7 +3632,7 @@ body.dark .up-chart-empty { color: #90a4ae; }
   position: sticky !important;
   top: 0 !important;
   z-index: 30 !important;
-  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
   gap: 7px !important;
   padding: 12px 12px 10px !important;
   background: rgba(245,247,250,.98) !important;
@@ -3653,6 +3653,8 @@ body.dark .up-chart-empty { color: #90a4ae; }
 #screen4 .route-stat.wait .rs-value { color: #2382c4 !important; }
 #screen4 .route-stat.done { border-bottom: 3px solid #20a464 !important; }
 #screen4 .route-stat.done .rs-value { color: #179255 !important; }
+#screen4 .route-stat.oos { border-bottom: 3px solid #f39c12 !important; }
+#screen4 .route-stat.oos .rs-value { color: #c98200 !important; }
 #screen4 .route-stat.ndz { border-bottom: 3px solid #d13c78 !important; }
 #screen4 .route-stat.ndz .rs-value { color: #c52d6b !important; background: transparent !important; text-shadow: none !important; padding: 0 !important; }
 #screen4 .route-stat.perenos { border-bottom: 3px solid #8795a1 !important; }
@@ -9012,6 +9014,15 @@ function renderRouteIfChanged() {
   _routeDataHash = hash;
   renderRoute();
 }
+function getOutOfSlotDoneCount() {
+  let count = 0;
+  if (typeof ROUTE_TIMES === 'undefined' || typeof routeState === 'undefined' || !routeState || !routeState.lists) return 0;
+  ROUTE_TIMES.forEach(rt => (routeState.lists[rt.id] || []).forEach(item => {
+    if (item && item.addr && item.addr.trim() && item.status === 'done' && isOutOfSlot(item, rt.id)) count++;
+  }));
+  return count;
+}
+
 function renderRoute() {
   const app = document.getElementById('app4');
   if (!app) return;
@@ -9026,7 +9037,8 @@ stats.innerHTML = `
   <div class="route-stat wait"><div class="rs-label">Ждут</div><div class="rs-value">${c.wait}</div></div>
   <div class="route-stat done"><div class="rs-label">Пров.</div><div class="rs-value">${c.done}</div></div>
   <div class="route-stat ndz"><div class="rs-label">НДЗ</div><div class="rs-value">${c.ndz}</div></div>
-  <div class="route-stat perenos"><div class="rs-label">ПР/ОТ</div><div class="rs-value">${c.perenos}</div></div>`;
+  <div class="route-stat perenos"><div class="rs-label">ПР/ОТ</div><div class="rs-value">${c.perenos}</div></div>
+  <div class="route-stat oos"><div class="rs-label">НЕ В СЛОТ</div><div class="rs-value">${getOutOfSlotDoneCount()}</div></div>`;
 frag.appendChild(stats);
 
 
@@ -13280,14 +13292,19 @@ function autofillMvsFromToday() {
   const kkCount = getCount1('kk') || 0;
   const pkCount = getCount1('potreb') || 0;
 
-  // 3. TR — считаем из активностей
+  // 3. TR — считаем из заполненных активностей. Проведённые не в слот
+  // входят в общий TR, но не входят в успешные TR слот.
   let totalMeetings = 0;
   let doneMeetings = 0;
+  let doneInSlot = 0;
   ROUTE_TIMES.forEach(rt => {
     (routeState.lists[rt.id] || []).forEach(item => {
-      if (!item) return;
+      if (!item || !item.addr || !item.addr.trim()) return;
       totalMeetings++;
-      if (item.status === 'done') doneMeetings++;
+      if (item.status === 'done') {
+        doneMeetings++;
+        if (!isOutOfSlot(item, rt.id)) doneInSlot++;
+      }
     });
   });
 
@@ -13298,7 +13315,7 @@ function autofillMvsFromToday() {
   state2.today.tr_nag   = String(totalMeetings);
   state2.today.tr_usp   = String(doneMeetings);
   state2.today.slot_nag = String(totalMeetings);
-  state2.today.slot_usp = String(doneMeetings);
+  state2.today.slot_usp = String(doneInSlot);
 
   saveState2(state2);
   return true;
