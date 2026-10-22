@@ -10888,6 +10888,7 @@ function loadQuickReport() {
     const q = JSON.parse(localStorage.getItem(QUICK_REPORT_KEY)) || {};
     return {
       planDay: q.planDay || '',
+      planDayManual: !!q.planDayManual,
       b2cNag: q.b2cNag || '',
       b2bNag: q.b2bNag || '',
       willDo: q.willDo || '',
@@ -10899,7 +10900,7 @@ function loadQuickReport() {
       willDoB2BManual: !!q.willDoB2BManual
     };
   } catch (e) {
-    return { planDay: '', b2cNag: '', b2bNag: '', willDo: '', willDoB2B: '', fdNotes: '', b2cNagManual: false, b2bNagManual: false, willDoManual: false, willDoB2BManual: false };
+    return { planDay: '', planDayManual: false, b2cNag: '', b2bNag: '', willDo: '', willDoB2B: '', fdNotes: '', b2cNagManual: false, b2bNagManual: false, willDoManual: false, willDoB2BManual: false };
   }
 }
 function saveQuickReport(q) { localStorage.setItem(QUICK_REPORT_KEY, JSON.stringify(q)); }
@@ -10978,6 +10979,14 @@ function openQuickReport() {
   checkQuickReportReset();
   const q = loadQuickReport();
   const auto = getQuickActivityCounts();
+  // УП план на день берём из рассчитанного показателя «Нужно УП в день» в разделе «Итоги».
+  // Берём именно отображаемый прогноз, а не поле «УП за день»; ручную правку сохраняем.
+  if (!q.planDayManual) {
+    const forecastEl = document.querySelector('.forecast-block .forecast-value');
+    const forecastText = forecastEl ? forecastEl.textContent : '';
+    const forecastMatch = forecastText.replace(',', '.').match(/-?\d+(?:\.\d+)?/);
+    q.planDay = forecastMatch ? forecastMatch[0] : '';
+  }
   if (!q.b2cNagManual) q.b2cNag = String(auto.b2cNag);
   if (!q.b2bNagManual) q.b2bNag = String(auto.b2bNag);
   if (!q.willDoManual) q.willDo = String(auto.willDo);
@@ -11820,7 +11829,7 @@ document.getElementById('r1Totals').addEventListener('click', (e) => {
   if (e.target.closest('input')) return;
   openQuickReport();
 });
-document.getElementById('qPlanDay').addEventListener('input', (e) => { const q = loadQuickReport(); q.planDay = e.target.value; saveQuickReport(q); updateQuickPreview(); });
+document.getElementById('qPlanDay').addEventListener('input', (e) => { const q = loadQuickReport(); q.planDay = e.target.value; q.planDayManual = true; saveQuickReport(q); updateQuickPreview(); });
 document.getElementById('qB2cNag').addEventListener('input', (e) => { const q = loadQuickReport(); q.b2cNag = e.target.value; q.b2cNagManual = true; saveQuickReport(q); updateQuickPreview(); updateQuickSendBtn(); });
 document.getElementById('qB2bNag').addEventListener('input', (e) => { const q = loadQuickReport(); q.b2bNag = e.target.value; q.b2bNagManual = true; saveQuickReport(q); updateQuickPreview(); });
 document.getElementById('qWillDo').addEventListener('input', (e) => { const q = loadQuickReport(); q.willDo = e.target.value; q.willDoManual = true; saveQuickReport(q); updateQuickPreview(); });
