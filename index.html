@@ -9443,6 +9443,25 @@ function setManual1(id, v) { state1.manual[id] = v; saveState1(state1); renderTo
 function getZK1() { return state1.zk || ''; }
 function setZK1(v) { state1.zk = v; saveState1(state1); renderTotals1(); }
 
+function renderProductAdvisor1() {
+  const el = document.getElementById('productAdvisor1');
+  if (!el || typeof SECTIONS1 === 'undefined') return;
+  const catalog = [];
+  SECTIONS1.forEach(section => (section.items || []).forEach(item => {
+    if (!item || item.type === 'meeting' || item.type === 'biz') return;
+    catalog.push({ id: item.id, name: item.name, count: Number(getCount1(item.id) || 0), group: item.group || section.title || '' });
+  }));
+  const extras = (state1.extra || []).filter(x => x && x.name && x.name.trim()).map(x => ({ id: 'extra_' + x.name.trim(), name: x.name.trim(), count: Number(x.up || 0), group: 'Доп. продукты' }));
+  const all = catalog.concat(extras);
+  const sold = all.filter(x => x.count > 0).sort((a,b) => b.count-a.count || a.name.localeCompare(b.name, 'ru')).slice(0, 4);
+  const suggestions = all.filter(x => x.count <= 0).sort((a,b) => a.name.localeCompare(b.name, 'ru')).slice(0, 6);
+  const chips = arr => arr.length ? arr.map(x => `<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 9px;margin-top:5px;border-radius:9px;background:rgba(127,145,165,.10);"><span>${escapeHtml(String(x.name))}${x.group ? ` <small style="opacity:.65">· ${escapeHtml(String(x.group))}</small>` : ''}</span>${x.count > 0 ? `<b>${x.count} шт.</b>` : '<span style="opacity:.7">предложить</span>'}</div>`).join('') : '<div style="opacity:.65;padding:6px 0">Пока нет данных</div>';
+  el.innerHTML = `<div style="font-weight:800;font-size:16px;margin-bottom:4px">💡 Что предложить сегодня</div><div style="font-size:12px;opacity:.72;margin-bottom:10px">Подсказки по каталогу и счётчикам текущего дня</div><div style="font-weight:700">🔥 Уже продаются сегодня</div>${chips(sold)}<div style="font-weight:700;margin-top:12px">🎯 Можно предложить клиенту</div>${chips(suggestions)}<div style="font-size:11px;opacity:.65;margin-top:9px">Продажи показаны по текущим счётчикам дня; блок не меняет отчёты и данные.</div>`;
+}
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+
 function render1() {
   const app = document.getElementById('app1');
   app.innerHTML = '';
@@ -9453,6 +9472,13 @@ function render1() {
   dayBox.id = 'daySummary1';
   dayBox.className = 'day-summary';
   app.appendChild(dayBox);
+
+  // ─── Подсказки по продуктам на сегодня ───
+  const advisor = document.createElement('div');
+  advisor.id = 'productAdvisor1';
+  advisor.style.cssText = 'margin:10px 0 14px;padding:14px;border-radius:14px;background:var(--card, #f4f7fb);border:1px solid var(--border, #dce3ec);';
+  app.appendChild(advisor);
+  renderProductAdvisor1();
 
   const prodBtn = document.createElement('button');
   prodBtn.className = 'products-toggle-btn';
@@ -10747,6 +10773,7 @@ function renderDaySummary1() {
   renderTotals1 = function () {
     const r = orig.apply(this, arguments);
     try { renderDaySummary1(); } catch (e) {}
+    try { renderProductAdvisor1(); } catch (e) {}
     return r;
   };
 })();
