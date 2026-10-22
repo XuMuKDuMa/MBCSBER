@@ -8357,7 +8357,7 @@ addrWrap.appendChild(btnMic);
       if (seq !== requestSeq) return;
       const dadataError = String((err && err.message) || err).slice(0, 160);
       console.warn('DaData address search failed; trying fallback geocoders:', err);
-      // Резервный поиск: если соединение с DaData закрыто сетью/браузером, пробуем Photon (OpenStreetMap).
+      // Резервный поиск: если соединение с DaData закрыто сетью/браузером, пробуем Photon (OpenStreetMap) с приоритетом русского языка.
       // Это позволяет продолжать искать адреса без ожидания восстановления DaData.
       let fallbackItems = [];
       try {
@@ -8365,7 +8365,7 @@ addrWrap.appendChild(btnMic);
         const u = new URL('https://photon.komoot.io/api/');
         u.searchParams.set('q', fallbackQuery);
         u.searchParams.set('limit', '8');
-        u.searchParams.set('lang', 'en');
+        u.searchParams.set('lang', 'ru');
         const r = await fetch(u.toString(), { signal: controller.signal });
         if (r.ok) {
           const j = await r.json();
@@ -14837,7 +14837,7 @@ async function geocodeAddress(address, noCity) {
   // ─── Fallback: photon.komoot.io (если Nominatim не ответил) ───
   try {
     const response = await fetch(
-      `https://photon.komoot.io/api/?q=${encodeURIComponent(cleanAddr)}&limit=1`
+      `https://photon.komoot.io/api/?q=${encodeURIComponent(cleanAddr)}&limit=1&lang=ru`
     );
     const data = await response.json();
     reached = true;
@@ -15715,7 +15715,7 @@ window.addEventListener('focus', runAllTimeChecksNow);
     return null;
   }
   async function photonFetch(q, street, signal) {
-    const p = new URLSearchParams({ q, limit: street ? '15' : '20' });
+    const p = new URLSearchParams({ q, limit: street ? '15' : '20', lang: 'ru' });
     const c = await getCityCoord(getMyCity());
     if (c) { p.set('lat', c[0]); p.set('lon', c[1]); p.set('zoom', '12'); p.set('location_bias_scale', '0.4'); }
     if (street) p.append('osm_tag', 'highway');
