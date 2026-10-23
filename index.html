@@ -8326,7 +8326,7 @@ addrWrap.appendChild(btnMic);
       main.textContent = s.value || '';
       row.appendChild(main);
       const d = s.data || {};
-      const parts = [d.postal_code, d.region, d.city_district, d.street, d.house].filter(Boolean);
+      const parts = [d.postal_code, d.city_with_type, d.settlement_with_type, d.city, d.settlement, d.city_district, d.street, d.house].filter(Boolean);
       const subText = [...new Set(parts)].join(' · ');
       if (subText && subText !== s.value) {
         const sub = document.createElement('small');
@@ -8380,8 +8380,37 @@ addrWrap.appendChild(btnMic);
         });
         if (r2.ok) { const j2 = await r2.json(); items = Array.isArray(j2.suggestions) ? j2.suggestions : []; }
       }
+      // Если пользователь задал свой город, не показываем одноимённые улицы из других
+      // населённых пунктов округа. Сначала строго предпочитаем совпадение города,
+      // а записи с явно указанным другим населённым пунктом исключаем.
+      if (city && Array.isArray(items) && items.length) {
+        const normLocality = v => String(v || '').toLocaleLowerCase('ru').replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
+        const wanted = normLocality(city);
+        const localityFields = d => [d.city, d.settlement, d.settlement_with_type, d.city_with_type, d.region_with_type]
+          .filter(Boolean).map(normLocality);
+        const scored = items.map((it, index) => {
+          const d = it.data || {};
+          const fields = localityFields(d);
+          const exactCity = fields.some(v => v === wanted || v === 'г ' + wanted || v === 'город ' + wanted || v === 'г. ' + wanted);
+          const mentionsOther = fields.some(v => v && !(
+            v === wanted || v === 'г ' + wanted || v === 'город ' + wanted || v === 'г. ' + wanted ||
+            v.startsWith(wanted + ',') || v.startsWith('г ' + wanted + ',') || v.startsWith('город ' + wanted + ',')
+          ));
+          // DaData может указывать область/район в дополнительных полях — они не должны
+          // сами по себе считаться населённым пунктом. Для решения используем именно city/settlement.
+          const loc = [d.city, d.settlement, d.settlement_with_type, d.city_with_type].filter(Boolean).map(normLocality);
+          const isExact = loc.some(v => v === wanted || v === 'г ' + wanted || v === 'город ' + wanted || v === 'г. ' + wanted);
+          const isClearlyOther = loc.length > 0 && !isExact && !loc.some(v => v.includes(wanted));
+          return { it, index, isExact, isClearlyOther, score: isExact ? 0 : (isClearlyOther ? 2 : 1) };
+        });
+        const exact = scored.filter(x => x.isExact);
+        // Если есть адреса именно в выбранном городе — показываем только их.
+        // Иначе убираем только результаты, у которых явно указан другой населённый пункт.
+        const kept = exact.length ? exact : scored.filter(x => !x.isClearlyOther);
+        items = (kept.length ? kept : scored).sort((a, b) => a.score - b.score || a.index - b.index).map(x => x.it);
+      }
       if (seq === requestSeq) {
-        window.__addrDiag = { t: Date.now(), q: query, street: true, src: 'DaData API', n: items.length, err: '' };
+        window.__addrDiag = { t: Date.now(), q: query, street: true, src: 'DaData API', n: items.length, err: '', cityFilter: city || '' };
         show(items);
       }
     } catch (err) {
