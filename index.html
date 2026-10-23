@@ -6404,7 +6404,10 @@ body.dark .route-list-title { background: linear-gradient(135deg, #46607a, #3449
 
 <style id="mvs-dadata-autocomplete-style">
 #screen4 .route-addr-wrap { position: relative; }
-#screen4 .mvs-dadata-list { position:absolute; z-index:100000; left:0; right:0; top:calc(100% + 4px); max-height: min(330px, 55vh); overflow-y:auto; background:#fff; color:#263944; border:1px solid #d5dfe6; border-radius:10px; box-shadow:0 10px 28px rgba(0,0,0,.18); padding:4px; }
+#screen4 .mvs-dadata-list { position:absolute; z-index:100000; left:0; right:0; top:calc(100% + 4px); height:auto; max-height: min(42vh, 300px); overflow-y:scroll; overflow-x:hidden; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; touch-action:pan-y; background:#fff; color:#263944; border:1px solid #d5dfe6; border-radius:10px; box-shadow:0 10px 28px rgba(0,0,0,.18); padding:4px; }
+#screen4 .mvs-dadata-option { touch-action:pan-y; user-select:none; -webkit-user-select:none; }
+#screen4 .mvs-dadata-option.active, #screen4 .mvs-dadata-option:focus-visible { background:#dff5e8; box-shadow:inset 4px 0 0 #22a568; color:#173c2c; outline:none; }
+body.dark #screen4 .mvs-dadata-option.active, body.dark #screen4 .mvs-dadata-option:focus-visible { background:#214936; box-shadow:inset 4px 0 0 #45d18a; color:#f0fff6; }
 #screen4 .mvs-dadata-option { display:flex; flex-direction:column; gap:3px; width:100%; text-align:left; padding:10px 11px; border:0; border-radius:7px; background:transparent; color:inherit; font:inherit; cursor:pointer; }
 #screen4 .mvs-dadata-option:hover, #screen4 .mvs-dadata-option.active { background:#eaf3fb; }
 #screen4 .mvs-dadata-main { font-size:14px; line-height:1.35; font-weight:650; }
@@ -8342,7 +8345,7 @@ addrWrap.appendChild(btnMic);
       const cityPart = d.city || d.settlement || d.city_with_type || d.settlement_with_type || getMyCity() || '';
       sub.textContent = cityPart + (d.postal_code ? ' · ' + d.postal_code : '');
       row.appendChild(sub);
-      row.addEventListener('pointerdown', e => { e.preventDefault(); choose(s); });
+      row.addEventListener('click', e => { e.preventDefault(); choose(s); });
       row.addEventListener('mouseenter', () => setActive(i));
       list.appendChild(row);
     });
@@ -16269,3 +16272,4 @@ document.addEventListener('click', function(ev) {
 </script>
 </body>
 </html>
+
