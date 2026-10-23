@@ -2504,23 +2504,8 @@ body.dark .modal-overlay#quickReportModal .quick-modal {
    ФОКУС-РЕЖИМ (через оверлей)
    ═══════════════════════════════════════════════ */
 
-/* Затемняющий blur-оверлей поверх всего на вкладке Активности */
-#screen4:has(#app4.has-live)::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(15, 22, 30, 0.55);
-  backdrop-filter: blur(6px) saturate(0.7);
-  -webkit-backdrop-filter: blur(6px) saturate(0.7);
-  z-index: 90;
-  pointer-events: none;
-  animation: liveFadeIn 0.35s ease;
-}
-
-@keyframes liveFadeIn {
-  from { opacity: 0; backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
-  to   { opacity: 1; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-}
+/* Фокус без замыливания: активная встреча выделяется самой карточкой. */
+#screen4:has(#app4.has-live)::before { display:none !important; }
 
 /* Активная карточка — поверх оверлея */
 #app4 .route-card.route-card-live {
@@ -5986,6 +5971,21 @@ body.dark .fd-verify-no{background:#354454;color:#edf3f8;}
 .route-finished-label{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#16834a;padding:7px 10px;border-radius:9px;background:rgba(22,131,74,.09);}
 body.dark .route-finished-label{color:#62d999;background:rgba(98,217,153,.1);}
 
+
+/* Переключаемые вкладки «Встречи» / «В работе» под слотами */
+.route-meetings-columns { display:flex; flex-direction:column; gap:10px; align-items:stretch; width:100%; margin-top:12px; }
+.route-meetings-columns .route-time-block { min-width:0; width:100%; margin:0; }
+.route-meetings-tabbar { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:8px; width:100%; }
+.route-meetings-tab { display:flex; align-items:center; justify-content:center; gap:8px; min-width:0; padding:12px 8px; border:1px solid var(--border-color, rgba(100,120,130,.22)); border-radius:13px; background:var(--card-bg, rgba(120,140,150,.08)); color:var(--text-color, inherit); font:inherit; font-weight:750; cursor:pointer; }
+.route-meetings-tab.active { background:rgba(20,145,82,.13); border-color:#15945a; color:#12834f; box-shadow:inset 0 0 0 1px rgba(21,148,90,.12); }
+.route-meetings-tab-count { display:inline-flex; min-width:23px; height:23px; padding:0 6px; align-items:center; justify-content:center; border-radius:99px; background:rgba(120,140,150,.15); font-size:12px; font-weight:800; }
+.route-meetings-tab.active .route-meetings-tab-count { background:#15945a; color:white; }
+.route-meetings-columns .route-time-header { padding:10px 8px; }
+.route-meetings-columns .route-time-header .rth-left span { font-size:13px; }
+.route-meetings-columns .route-time-body { padding:6px; }
+.route-meetings-columns .route-card { min-width:0; }
+.route-meetings-columns .route-column-empty { padding:16px 8px; font-size:13px; text-align:center; }
+
 </style>
 
 
@@ -8327,7 +8327,8 @@ addrWrap.appendChild(btnMic);
       main.textContent = s.value || '';
       row.appendChild(main);
       const d = s.data || {};
-      const parts = [d.postal_code, d.city_with_type, d.settlement_with_type, d.city, d.settlement, d.city_district, d.street, d.house].filter(Boolean);
+      const cityPart = d.city_with_type || d.settlement_with_type || d.city || d.settlement || '';
+      const parts = [cityPart, d.postal_code].filter(Boolean);
       const subText = [...new Set(parts)].join(' · ');
       if (subText && subText !== s.value) {
         const sub = document.createElement('small');
@@ -8817,6 +8818,8 @@ startBtn.addEventListener('click', (e) => {
   // ─── Начинаем встречу ───
   item.startedAt = Date.now();
   item.meetStart = item.startedAt;   // время начала — для учёта «не в слот»
+  // После начала встречи автоматически открываем вкладку «В работе».
+  window._routeMeetingsActiveTab = 'working';
   saveRouteState(routeState);
   vibro(20);
   {
@@ -9260,39 +9263,86 @@ if (_openSlotId) {
 
 frag.appendChild(grid);
 
-// ─── Непроведённые встречи (ждут / НДЗ / новые) — по очереди слотов ───
+// ─── Переключаемые разделы под слотами: «Встречи» / «В работе» ───
 let pendingCount = 0;
 let firstPendingBlock = null;
-ROUTE_TIMES.forEach(t => {
-  if (_openSlotId) return;   // слот открыт — его встречи уже показаны внутри слота
-  const pend = (routeState.lists[t.id] || []).filter(x => x.status !== 'done' && x.status !== 'perenos');
-  if (!pend.length) return;
-  pendingCount += pend.length;
-  const pblock = document.createElement('div');
-  pblock.className = 'route-time-block route-pending-block';
-  pblock.dataset.timeId = t.id;
-  const ph = document.createElement('div');
-  ph.className = 'route-time-header';
-  ph.innerHTML = `
-    <div class="rth-left"><span>${t.label}</span></div>
-    <div class="rth-right"><div class="rth-count">${pend.length}</div></div>
-  `;
-  pblock.appendChild(ph);
-  const pbody = document.createElement('div');
-  pbody.className = 'route-time-body';
-  pend.forEach(item => pbody.appendChild(buildRouteCard(item, t.id, t.label)));
-  pblock.appendChild(pbody);
-  frag.appendChild(pblock);
-  if (!firstPendingBlock) firstPendingBlock = pblock;
-});
-// Заголовок над общим списком — чтобы было видно: слот закрыт, показаны все встречи в работе
-if (firstPendingBlock) {
-  const listTitle = document.createElement('div');
-  listTitle.className = 'route-list-title';
-  listTitle.innerHTML = `<span>Встречи</span><span class="rlt-count">${pendingCount}</span>`;
-  frag.insertBefore(listTitle, firstPendingBlock);
+if (!_openSlotId) {
+  const columns = document.createElement('div');
+  columns.className = 'route-meetings-columns route-meetings-switcher';
+  const activeTab = window._routeMeetingsActiveTab === 'working' ? 'working' : 'scheduled';
+  const groups = [
+    { title: 'Встречи', key: 'scheduled', filter: item => item.status !== 'done' && item.status !== 'perenos' && !item.startedAt },
+    { title: 'В работе', key: 'working', filter: item => !!item.startedAt }
+  ];
+  const tabbar = document.createElement('div');
+  tabbar.className = 'route-meetings-tabbar';
+  groups.forEach(group => {
+    const entries = [];
+    ROUTE_TIMES.forEach(t => (routeState.lists[t.id] || []).forEach(item => {
+      if (group.filter(item)) entries.push({ item, time: t });
+    }));
+    if (group.key === 'scheduled') pendingCount = entries.length;
+    const tab = document.createElement('button');
+    tab.type = 'button';
+    tab.className = 'route-meetings-tab' + (group.key === activeTab ? ' active' : '');
+    tab.innerHTML = `<span>${group.title}</span><span class="route-meetings-tab-count">${entries.length}</span>`;
+    // Вкладки только переключают список: не запускают действия карточки и не вызывают подтверждения.
+    tab.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+      if (window._routeMeetingsActiveTab === group.key) return;
+      window._routeMeetingsActiveTab = group.key;
+      vibro(12);
+      renderRoute();
+    }, true);
+    tabbar.appendChild(tab);
+    if (group.key === activeTab) {
+      const pblock = document.createElement('div');
+      pblock.className = 'route-time-block route-pending-block route-group-' + group.key;
+      const ph = document.createElement('div');
+      ph.className = 'route-time-header';
+      ph.innerHTML = `<div class="rth-left"><span>${group.title}</span></div><div class="rth-right"><div class="rth-count">${entries.length}</div></div>`;
+      pblock.appendChild(ph);
+      const pbody = document.createElement('div');
+      pbody.className = 'route-time-body';
+      if (!entries.length) {
+        const empty = document.createElement('div');
+        empty.className = 'route-empty route-column-empty';
+        empty.textContent = group.key === 'scheduled' ? 'Нет встреч' : 'Нет встреч в работе';
+        pbody.appendChild(empty);
+      } else {
+        entries.forEach(({item, time}) => pbody.appendChild(buildRouteCard(item, time.id, time.label)));
+      }
+      pblock.appendChild(pbody);
+      columns.appendChild(tabbar);
+      columns.appendChild(pblock);
+      firstPendingBlock = pblock;
+      // Переключение между вкладками горизонтальным свайпом по области карточек.
+      let swipeStartX = null, swipeStartY = null;
+      columns.addEventListener('touchstart', (e) => {
+        const t = e.changedTouches && e.changedTouches[0];
+        if (!t) return;
+        swipeStartX = t.clientX; swipeStartY = t.clientY;
+      }, { passive: true });
+      columns.addEventListener('touchend', (e) => {
+        const t = e.changedTouches && e.changedTouches[0];
+        if (!t || swipeStartX === null) return;
+        const dx = t.clientX - swipeStartX, dy = t.clientY - swipeStartY;
+        swipeStartX = swipeStartY = null;
+        if (Math.abs(dx) > 65 && Math.abs(dx) > Math.abs(dy) * 1.25) {
+          const nextTab = dx < 0 ? 'working' : 'scheduled';
+          if (window._routeMeetingsActiveTab !== nextTab) {
+            vibro(22); // короткий тактильный отклик при переключении свайпом
+            window._routeMeetingsActiveTab = nextTab;
+            renderRoute();
+          }
+        }
+      }, { passive: true });
+    }
+  });
+  frag.appendChild(columns);
 }
-
 // ─── Подсказка ПОСЛЕ слотов (только если непроведённых нет) ───
 if (window._showTapHint && pendingCount === 0) {
   window._showTapHint = false;
@@ -16192,5 +16242,23 @@ body.mvs-splash-open{overflow:hidden}
 })();
 </script>
 
+<script>
+// FIX: intercept clicks on the two meeting tabs before any legacy/global handlers
+// can treat the tap as a confirmation/action on the active meeting card.
+document.addEventListener('click', function(ev) {
+  const tab = ev.target && ev.target.closest ? ev.target.closest('.route-meetings-tab') : null;
+  if (!tab) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  if (typeof ev.stopImmediatePropagation === 'function') ev.stopImmediatePropagation();
+  const label = (tab.textContent || '').trim();
+  const key = label.startsWith('В работе') ? 'working' : 'scheduled';
+  if (window._routeMeetingsActiveTab !== key) {
+    window._routeMeetingsActiveTab = key;
+    if (typeof vibro === 'function') vibro(12);
+    if (typeof renderRoute === 'function') renderRoute();
+  }
+}, true);
+</script>
 </body>
 </html>
