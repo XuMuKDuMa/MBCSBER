@@ -8297,7 +8297,13 @@ addrWrap.appendChild(btnMic);
     if (!s) return;
     const selectedAddress = s.value || (s.data && s.data.address);
     if (!selectedAddress) return;
-    addrInput.value = selectedAddress;
+    // В поле оставляем короткий адрес улицы и дома, полный адрес сохраняем для карты.
+    const d = s.data || {};
+    const street = d.street_with_type || d.street || d.route || '';
+    const house = d.house || d.house_fias_id || '';
+    const compactAddress = [street, d.house].filter(Boolean).join(' ').trim() || selectedAddress;
+    addrInput.value = compactAddress;
+    addrInput.dataset.fullAddress = selectedAddress;
     item.addr = selectedAddress;
     saveRouteState(routeState);
     autoGrow(addrInput);
@@ -8324,18 +8330,18 @@ addrWrap.appendChild(btnMic);
       row.setAttribute('role', 'option');
       const main = document.createElement('span');
       main.className = 'mvs-dadata-main';
-      main.textContent = s.value || '';
-      row.appendChild(main);
       const d = s.data || {};
-      const cityPart = d.city_with_type || d.settlement_with_type || d.city || d.settlement || '';
-      const parts = [cityPart, d.postal_code].filter(Boolean);
-      const subText = [...new Set(parts)].join(' · ');
-      if (subText && subText !== s.value) {
-        const sub = document.createElement('small');
-        sub.className = 'mvs-dadata-sub';
-        sub.textContent = subText;
-        row.appendChild(sub);
-      }
+      // Подсказка в две строки: улица и дом, затем населённый пункт.
+      const streetPart = d.street_with_type || d.street || '';
+      const housePart = d.house || '';
+      const mainPart = [streetPart, housePart].filter(Boolean).join(' ').trim();
+      main.textContent = mainPart || s.value || '';
+      row.appendChild(main);
+      const sub = document.createElement('span');
+      sub.className = 'mvs-dadata-sub';
+      const cityPart = d.city || d.settlement || d.city_with_type || d.settlement_with_type || getMyCity() || '';
+      sub.textContent = cityPart + (d.postal_code ? ' · ' + d.postal_code : '');
+      row.appendChild(sub);
       row.addEventListener('pointerdown', e => { e.preventDefault(); choose(s); });
       row.addEventListener('mouseenter', () => setActive(i));
       list.appendChild(row);
@@ -8478,6 +8484,7 @@ addrWrap.appendChild(btnMic);
   addrInput.setAttribute('autocomplete', 'off');
   addrInput.setAttribute('aria-autocomplete', 'list');
   addrInput.addEventListener('input', () => {
+    delete addrInput.dataset.fullAddress;
     clearTimeout(timer);
     const query = addrInput.value.trim();
     const seq = ++requestSeq;
