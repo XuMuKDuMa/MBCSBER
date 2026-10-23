@@ -16130,7 +16130,7 @@ body.mvs-splash-open{overflow:hidden}
     <h1 class="mls-title">Твой рабочий день</h1>
     <div class="mls-date" id="mlsDate"></div>
     <div class="mls-stats">
-      <div class="mls-stat"><div class="mls-stat-num" id="mlsMeetings">—</div><div class="mls-stat-label">Встреч в плане</div></div>
+      <div class="mls-stat"><div class="mls-stat-num" id="mlsMeetings">—</div><div class="mls-stat-label">Успешных / назначено</div></div>
       <div class="mls-stat"><div class="mls-stat-num" id="mlsUp">—</div><div class="mls-stat-label">УП по встречам</div></div>
     </div>
     <button type="button" class="mls-open" id="mlsOpenBtn">Открыть МВС ↑</button>
@@ -16147,20 +16147,26 @@ body.mvs-splash-open{overflow:hidden}
     try { if(typeof window.goToTab==='function') window.goToTab(5,false); } catch(e) {}
     try { const d=document.getElementById('mlsDate'); if(d) d.textContent=new Intl.DateTimeFormat('ru-RU',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date()); } catch(e) {}
     function stats(){
-      let meetings='0', up='0';
+      let assigned=0, done=0, up='—';
       try {
-        const screen=document.getElementById('screen4');
-        if(screen){
-          const t=screen.innerText||'';
-          let m=t.match(/Проведено встреч\s*[·:]?\s*(?:TR)?[\s\S]{0,50}?(\d+)\s*\/\s*(\d+)/i);
-          if(m) meetings=m[2];
-          let u=t.match(/УП по встречам[^\d]{0,30}(\d+(?:[.,]\d+)?)/i);
-          if(u) up=u[1];
+        // Источник назначенных и успешных встреч — та же сводка Активностей,
+        // что обновляет основную плашку B2C/B2B в приложении.
+        if(typeof calcTotals1==='function'){
+          const t=calcTotals1();
+          assigned=(Number(t.b2cTotal)||0)+(Number(t.b2bTotal)||0);
+          done=(Number(t.b2cDone)||0)+(Number(t.b2bDone)||0);
         }
-        if(typeof plannedMeetingsCounts==='function'){const x=plannedMeetingsCounts();if(x&&Number.isFinite(Number(x.cards))) meetings=String(Number(x.cards));}
-        if(up==='0'&&typeof daySummaryHtml==='function'){const h=daySummaryHtml();const u=h.match(/УП по встречам[\s\S]{0,180}?([0-9]+(?:[.,][0-9]+)?)/i);if(u)up=u[1];}
-      }catch(e){}
-      const a=document.getElementById('mlsMeetings'),b=document.getElementById('mlsUp');if(a)a.textContent=meetings;if(b)b.textContent=up;
+        // УП берём именно из плашки «УП по встречам» в daySummaryHtml,
+        // не из первого случайного числа на экране.
+        if(typeof daySummaryHtml==='function'){
+          const h=daySummaryHtml();
+          const m=h.match(/<span[^>]*>\s*([0-9]+(?:[.,][0-9]+)?)\s*<\/span>\s*<small[^>]*>\s*УП по встречам/i);
+          if(m) up=m[1].replace('.',',');
+        }
+      } catch(e) {}
+      const a=document.getElementById('mlsMeetings'), b=document.getElementById('mlsUp');
+      if(a) a.textContent=String(done)+' / '+String(assigned);
+      if(b) b.textContent=up;
     }
     setTimeout(stats,500);setTimeout(stats,1600);setTimeout(()=>{try{if(window.map&&window.map.invalidateSize)window.map.invalidateSize(true)}catch(e){}},500);
     let closed=false, startY=0,lastY=0,startT=0,dragging=false;
