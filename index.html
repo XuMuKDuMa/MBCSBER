@@ -16139,52 +16139,50 @@ body.mvs-splash-open{overflow:hidden}
 </div>
 <script id="mvs-liquid-splash-script">
 (function(){
-  const splash=document.getElementById('mvsLiquidSplash'); if(!splash)return;
-  document.body.classList.add('mvs-splash-open');
-  // На заставке всегда показываем настоящую карту приложения, а после свайпа оставляем её открытой.
-  const target=5;
-  try{if(typeof window.goToTab==='function')window.goToTab(5,false);}catch(e){}
-  // Leaflet часто рассчитывает размер, пока экран карты скрыт; пересчитываем после показа.
-  setTimeout(()=>{try{if(window.map&&typeof window.map.invalidateSize==='function')window.map.invalidateSize(true);else if(typeof map!=='undefined'&&map&&typeof map.invalidateSize==='function')map.invalidateSize(true);}catch(e){}},450);
-  const dateEl=document.getElementById('mlsDate');
-  try{dateEl.textContent=new Intl.DateTimeFormat('ru-RU',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date());}catch(e){}
-  function readStats(){
-    let meetings='0', up='0';
-    // Берём те же значения, что и плашка «Сегодня · встречи и УП» в блоке активностей.
-    try {
-      if (typeof plannedMeetingsCounts === 'function') {
-        const p = plannedMeetingsCounts();
-        if (p) meetings = String(Number(p.cards ?? 0) || 0);
-      }
-      const screen = document.getElementById('screen4');
-      if (screen) {
-        const text = screen.innerText || '';
-        // Приоритет — данные сводной плашки активности, а не случайные совпадения в других вкладках.
-        const upMatch = text.match(/([0-9]+(?:[.,][0-9]+)?)\\s*УП по встречам/i);
-        if (upMatch) up = upMatch[1];
-        const meetMatch = text.match(/Проведено встреч\\s*[·:]\\s*TR[\\s\\S]{0,40}?([0-9]+)\\s*\\/\\s*([0-9]+)/i);
-        if (meetMatch) meetings = meetMatch[2];
-      }
-      // Фолбэк на расчётные итоги, если функция сводки доступна.
-      if (up === '0' && typeof daySummaryHtml === 'function') {
-        const html = daySummaryHtml();
-        const m = html.match(/УП по встречам[\\s\\S]{0,180}?([0-9]+(?:[.,][0-9]+)?)/i);
-        if (m) up = m[1];
-      }
-    } catch(e) {}
-    document.getElementById('mlsMeetings').textContent = meetings;
-    document.getElementById('mlsUp').textContent = up;
+  function init(){
+    const splash=document.getElementById('mvsLiquidSplash');
+    if(!splash || splash.dataset.swipeReady==='1') return;
+    splash.dataset.swipeReady='1';
+    document.body.classList.add('mvs-splash-open');
+    try { if(typeof window.goToTab==='function') window.goToTab(5,false); } catch(e) {}
+    try { const d=document.getElementById('mlsDate'); if(d) d.textContent=new Intl.DateTimeFormat('ru-RU',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date()); } catch(e) {}
+    function stats(){
+      let meetings='0', up='0';
+      try {
+        const screen=document.getElementById('screen4');
+        if(screen){
+          const t=screen.innerText||'';
+          let m=t.match(/Проведено встреч\s*[·:]?\s*(?:TR)?[\s\S]{0,50}?(\d+)\s*\/\s*(\d+)/i);
+          if(m) meetings=m[2];
+          let u=t.match(/УП по встречам[^\d]{0,30}(\d+(?:[.,]\d+)?)/i);
+          if(u) up=u[1];
+        }
+        if(typeof plannedMeetingsCounts==='function'){const x=plannedMeetingsCounts();if(x&&Number.isFinite(Number(x.cards))) meetings=String(Number(x.cards));}
+        if(up==='0'&&typeof daySummaryHtml==='function'){const h=daySummaryHtml();const u=h.match(/УП по встречам[\s\S]{0,180}?([0-9]+(?:[.,][0-9]+)?)/i);if(u)up=u[1];}
+      }catch(e){}
+      const a=document.getElementById('mlsMeetings'),b=document.getElementById('mlsUp');if(a)a.textContent=meetings;if(b)b.textContent=up;
+    }
+    setTimeout(stats,500);setTimeout(stats,1600);setTimeout(()=>{try{if(window.map&&window.map.invalidateSize)window.map.invalidateSize(true)}catch(e){}},500);
+    let closed=false, startY=0,lastY=0,startT=0,dragging=false;
+    function close(){
+      if(closed)return; closed=true;
+      splash.classList.remove('mls-dragging'); splash.classList.add('mls-hide');
+      const done=()=>{try{splash.remove()}catch(e){};document.body.classList.remove('mvs-splash-open');document.body.style.overflow='';try{if(typeof window.goToTab==='function')window.goToTab(5,false)}catch(e){}};
+      setTimeout(done,450);
+    }
+    const btn=document.getElementById('mlsOpenBtn'); if(btn){btn.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();close()},true);btn.addEventListener('touchend',function(e){e.preventDefault();close()},{passive:false});}
+    function y(e){return e.touches&&e.touches.length?e.touches[0].clientY:e.clientY}
+    function down(e){if(closed||e.target.closest('#mlsOpenBtn'))return;if(e.type==='pointerdown'&&e.button!==0)return;startY=lastY=y(e);startT=Date.now();dragging=true;splash.classList.add('mls-dragging');}
+    function move(e){if(!dragging||closed)return;lastY=y(e);const dy=Math.min(0,lastY-startY);splash.style.setProperty('--mls-drag-y',dy+'px');const card=splash.querySelector('.mls-card');if(card){const pr=Math.min(1,Math.abs(dy)/(innerHeight*.72));card.style.transform=`translate3d(0,${dy*.12}px,0) scale(${1-pr*.045})`;card.style.opacity=String(1-pr*.18)}if(e.cancelable)e.preventDefault();}
+    function up(e){if(!dragging||closed)return;lastY=y(e);const dy=lastY-startY,elapsed=Math.max(1,Date.now()-startT),velocity=dy/elapsed;dragging=false;splash.classList.remove('mls-dragging');if(dy < -Math.min(75,innerHeight*.12)||velocity<-.35){close()}else{ splash.style.setProperty('--mls-drag-y','0px');const card=splash.querySelector('.mls-card');if(card){card.style.transform='';card.style.opacity='';}}}
+    splash.addEventListener('pointerdown',down);splash.addEventListener('pointermove',move,{passive:false});splash.addEventListener('pointerup',up);splash.addEventListener('pointercancel',up);
+    splash.addEventListener('touchstart',down,{passive:true});splash.addEventListener('touchmove',move,{passive:false});splash.addEventListener('touchend',up,{passive:true});
+    splash.addEventListener('wheel',e=>{if(e.deltaY>10)close()},{passive:true});
+    // Accessible fallback: tap the glass card itself to dismiss if swipe is unavailable.
+    splash.querySelector('.mls-card')?.addEventListener('dblclick',close);
   }
-  setTimeout(readStats,900);setTimeout(readStats,2200);
-  let startY=null,lastY=null,dragging=false,closed=false,startTime=0,activePointer=null;
-  function closeSplash(){if(closed)return;closed=true;splash.classList.remove('mls-dragging');splash.style.setProperty('--mls-drag-y','0px');splash.classList.add('mls-hide');setTimeout(()=>{document.body.classList.remove('mvs-splash-open');splash.remove();try{if(typeof window.goToTab==='function')window.goToTab(5,false);}catch(e){}},1060);}
-  function pointY(e){return e.clientY;}
-  function beginDrag(e){if(closed||e.target.closest('#mlsOpenBtn'))return;if(e.pointerType==='mouse'&&e.button!==0)return;startY=lastY=pointY(e);startTime=performance.now();dragging=true;activePointer=e.pointerId;splash.classList.add('mls-dragging');try{splash.setPointerCapture(e.pointerId);}catch(_){} }
-  function moveDrag(e){if(!dragging||closed||e.pointerId!==activePointer)return;const dy=Math.min(0,pointY(e)-startY);lastY=pointY(e);splash.style.setProperty('--mls-drag-y',dy+'px');const progress=Math.min(1,Math.abs(dy)/Math.max(1,window.innerHeight*.72));const card=splash.querySelector('.mls-card');if(card){card.style.transform='translate3d(0,'+(dy*.12)+'px,0) scale('+(1-progress*.045)+')';card.style.opacity=String(1-progress*.18);} }
-  function endDrag(e){if(!dragging||closed)return;const dy=lastY-startY;const elapsed=Math.max(1,performance.now()-startTime);const velocity=dy/elapsed;dragging=false;splash.classList.remove('mls-dragging');activePointer=null;if(dy < -Math.min(100,window.innerHeight*.16)||velocity < -.55){closeSplash();return;}splash.style.setProperty('--mls-drag-y','0px');const card=splash.querySelector('.mls-card');if(card){card.style.transform='';card.style.opacity='';}}
-  document.getElementById('mlsOpenBtn').addEventListener('click',closeSplash);
-  splash.addEventListener('pointerdown',beginDrag);splash.addEventListener('pointermove',moveDrag);splash.addEventListener('pointerup',endDrag);splash.addEventListener('pointercancel',endDrag);
-  splash.addEventListener('wheel',e=>{if(e.deltaY>15)closeSplash();},{passive:true});
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+  setTimeout(init,900);
 })();
 </script>
 
