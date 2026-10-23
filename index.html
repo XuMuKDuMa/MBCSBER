@@ -11008,13 +11008,24 @@ function openQuickReport() {
   checkQuickReportReset();
   const q = loadQuickReport();
   const auto = getQuickActivityCounts();
-  // УП план на день берём из рассчитанного показателя «Нужно УП в день» в разделе «Итоги».
-  // Берём именно отображаемый прогноз, а не поле «УП за день»; ручную правку сохраняем.
+  // Рассчитываем «Нужно УП в день» напрямую по тем же данным, что и раздел «Итоги».
+  // Не зависим от открытия/отрисовки раздела; ручную правку пользователя сохраняем.
   if (!q.planDayManual) {
-    const forecastEl = document.querySelector('.forecast-block .forecast-value');
-    const forecastText = forecastEl ? forecastEl.textContent : '';
-    const forecastMatch = forecastText.replace(',', '.').match(/-?\d+(?:\.\d+)?/);
-    q.planDay = forecastMatch ? forecastMatch[0] : '';
+    let autoPlanDay = '';
+    try {
+      const planForMonth = Number(getPlanUP()) || 0;
+      const monthUpDone = (typeof state2 !== 'undefined' && state2 && state2.month)
+        ? (Number(state2.month.upDone) || 0) : 0;
+      const remainingUp = planForMonth > 0 ? planForMonth - monthUpDone : 0;
+      const workingDays = getWorkingDaysStats();
+      const daysRemaining = Number(workingDays && workingDays.remaining) || 0;
+      if (planForMonth > 0 && remainingUp > 0 && daysRemaining > 0) {
+        autoPlanDay = (remainingUp / daysRemaining).toFixed(2);
+      }
+    } catch (e) {
+      console.warn('Не удалось рассчитать «УП план на день» автоматически:', e);
+    }
+    q.planDay = autoPlanDay;
   }
   if (!q.b2cNagManual) q.b2cNag = String(auto.b2cNag);
   if (!q.b2bNagManual) q.b2bNag = String(auto.b2bNag);
