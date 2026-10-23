@@ -10655,18 +10655,25 @@ function avgDayUpFromHistory() {
 }
 // Встречи по карточкам «Активностей»: все, кроме отменённых — в том числе ещё не проведённые
 function plannedMeetingsCounts() {
-  const counts = {};
-  let cards = 0, done = 0;
+  const counts = {}, doneCounts = {};
+  let cards = 0, done = 0, doneUp = 0;
   try {
     ROUTE_TIMES.forEach(t => (routeState.lists[t.id] || []).forEach(it => {
       if (!it || it.status === 'perenos') return;
       cards++;
-      if (it.status === 'done') done++;
       const mid = effectiveMtype(it);
       if (mid) counts[mid] = (counts[mid] || 0) + 1;
+      if (it.status === 'done') {
+        done++;
+        if (mid) {
+          doneCounts[mid] = (doneCounts[mid] || 0) + 1;
+          const mt = (getMeetingTypes()[it.category || 'b2c'] || []).find(x => x.id === mid);
+          if (mt) doneUp += Number(mt.up) || 0;
+        }
+      }
     }));
   } catch (e) {}
-  return { counts, cards, done };
+  return { counts, doneCounts, cards, done, doneUp };
 }
 function daySummaryHtml() {
   const f2 = v => (Math.round(v * 100) / 100).toFixed(2).replace('.', ',');
@@ -10762,7 +10769,10 @@ function daySummaryHtml() {
     <div style="font-size:10px;opacity:.65;text-align:center;margin-top:4px;">Расчёт: ${doneMeets} встреч × 0,25 УП; минимум 1,00 УП в день</div>
   </div>
   `;
-  html += `<div class="ds-big"><div><span>${total}</span><small>${usePlan ? 'встреч в плане' : 'встреч всего'}</small></div><div><span>${f2(meetUp)}</span><small>УП только по встречам</small></div></div>`;
+  // Нижние карточки показывают фактически завершённые сегодня встречи и УП за них.
+  const completedMeetings = usePlan ? planned.done : doneMeets;
+  const completedMeetingUp = usePlan ? planned.doneUp : doneUp;
+  html += `<div class="ds-big"><div><span>${completedMeetings}</span><small>встреч проведено сегодня</small></div><div><span>${f2(completedMeetingUp)}</span><small>УП за проведённые встречи</small></div></div>`;
   html += `<div class="ds-group"><div class="ds-gl">B2C · ${fdN}</div><div class="ds-chips">${fd.map(chip).join('')}</div></div>`;
   if (bizN > 0) html += `<div class="ds-group"><div class="ds-gl biz">B2B · ${bizN}</div><div class="ds-chips">${biz.map(chip).join('')}</div></div>`;
 
