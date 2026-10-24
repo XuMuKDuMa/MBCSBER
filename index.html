@@ -3250,9 +3250,25 @@ body.dark #screen4 .slot-btn.active[data-slot-id="t16_18"] .slot-summary-main {
 
   body.kbd-open .r1-totals,
   body.kbd-open .actions,
-  body.kbd-open .r2-actions,
-  body.kbd-open .bottom-bar {
+  body.kbd-open .r2-actions {
     display: none !important;
+  }
+  /* Нижняя навигация плавно уезжает при клавиатуре и возвращается после её закрытия */
+  .bottom-bar {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+    visibility: visible;
+    transition: transform .34s cubic-bezier(.22,.8,.25,1), opacity .24s ease, background .25s, border-color .25s, box-shadow .25s;
+    will-change: transform, opacity;
+  }
+  body.kbd-open .bottom-bar {
+    transform: translate3d(0, calc(100% + 24px), 0);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bottom-bar { transition: none !important; }
   }
 
   /* ─── Модалка «Анализ за месяц» ─── */
@@ -14373,31 +14389,57 @@ setInterval(clearStartedAtOnNewDay, 60 * 1000);
 setTimeout(checkReminder, 800);
 setInterval(checkReminder, 60 * 1000);
 (function initKeyboardHide() {
-  let initialHeight = window.innerHeight;
-  function isInputFocused() {
-    const el = document.activeElement;
-    return !!(el && el.matches && el.matches('input, textarea, select'));
+  const body = document.body;
+  const vv = window.visualViewport;
+  let baseline = Math.max(window.innerHeight || 0, vv ? vv.height : 0);
+  let settleTimer = 0;
+  const isTextField = el => !!(el && el.matches && el.matches('input, textarea, select, [contenteditable="true"]'));
+  function keyboardLooksOpen() {
+    const h = vv ? vv.height : window.innerHeight;
+    return baseline - h > Math.max(120, baseline * 0.18);
   }
-  function showBars() { if (!isInputFocused()) document.body.classList.remove('kbd-open'); }
-  document.addEventListener('focusin', (e) => {
-    const el = e.target;
-    if (el && el.matches && el.matches('input, textarea, select')) document.body.classList.add('kbd-open');
-  });
-  document.addEventListener('focusout', (e) => {
-    const el = e.target;
-    if (el && el.matches && el.matches('input, textarea, select')) setTimeout(showBars, 80);
-  });
-  function onResize() {
-    const currentHeight = window.innerHeight;
-    if (currentHeight >= initialHeight - 50) showBars();
-    if (currentHeight > initialHeight) initialHeight = currentHeight;
+  function updateViewport() {
+    const h = vv ? vv.height : window.innerHeight;
+    if (keyboardLooksOpen()) {
+      body.classList.add('kbd-open');
+    } else {
+      // Не ждём blur: Android WebView часто оставляет поле в фокусе после скрытия клавиатуры.
+      body.classList.remove('kbd-open');
+      if (h > baseline) baseline = h;
+    }
   }
-  window.addEventListener('resize', onResize);
+  document.addEventListener('focusin', e => {
+    if (isTextField(e.target)) body.classList.add('kbd-open');
+  });
+  document.addEventListener('focusout', () => {
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(updateViewport, 120);
+  });
+  window.addEventListener('resize', () => {
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(updateViewport, 90);
+  });
+  if (vv) {
+    vv.addEventListener('resize', () => {
+      clearTimeout(settleTimer);
+      settleTimer = setTimeout(updateViewport, 90);
+    });
+  }
   window.addEventListener('orientationchange', () => {
-    setTimeout(() => { initialHeight = window.innerHeight; showBars(); }, 300);
+    setTimeout(() => {
+      baseline = Math.max(window.innerHeight || 0, vv ? vv.height : 0);
+      body.classList.remove('kbd-open');
+    }, 350);
   });
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) showBars(); });
-})();
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) setTimeout(updateViewport, 120);
+  });
+  // Подхватываем начальный размер после того, как WebView закончит первый layout.
+  setTimeout(() => {
+    baseline = Math.max(window.innerHeight || 0, vv ? vv.height : 0);
+    updateViewport();
+  }, 500);
+})();;
 (function initHeaderCompact() {
   const screenToHeader = {
     2: document.querySelector('#screen2 .r2-header'),
