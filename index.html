@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -9195,7 +9194,7 @@ function getOutOfSlotDoneCount() {
 (function installVoiceBatchStyles(){
   if(document.getElementById('mvs-voice-batch-style')) return;
   const st=document.createElement('style'); st.id='mvs-voice-batch-style';
-  st.textContent=`.mvs-voice-batch-launch{display:flex;align-items:center;justify-content:center;gap:8px;width:calc(100% - 16px);margin:8px;padding:12px;border:1px solid #9bc8ad;border-radius:14px;background:linear-gradient(135deg,#eaf8ef,#d9f1e2);color:#17633a;font-weight:800;font-size:14px;box-shadow:0 3px 10px #0000000c}.mvs-vb-backdrop{position:fixed;inset:0;z-index:100000;background:#11182799;display:flex;align-items:center;justify-content:center;padding:14px;box-sizing:border-box}.mvs-vb-modal{width:min(560px,100%);max-height:90dvh;overflow:auto;background:var(--card-bg,#fff);color:var(--text-color,#1e293b);border-radius:20px;padding:18px;box-shadow:0 20px 70px #0005}.mvs-vb-modal h3{margin:0 0 7px;font-size:19px}.mvs-vb-muted{font-size:12px;opacity:.72;margin-bottom:13px}.mvs-vb-row{border:1px solid #dbe4ea;border-radius:13px;padding:10px;margin:9px 0;background:#f8fafc}.mvs-vb-rowtop{display:flex;align-items:center;gap:8px;margin-bottom:7px;font-weight:800}.mvs-vb-row input,.mvs-vb-row select,.mvs-vb-slot{box-sizing:border-box;width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px;background:white;color:#172033;font:inherit;margin:4px 0}.mvs-vb-rowbuttons{display:flex;gap:7px}.mvs-vb-rowbuttons button,.mvs-vb-actions button,.mvs-vb-addrow{border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px;background:white;color:#172033;font-weight:700}.mvs-vb-rowbuttons button{flex:1}.mvs-vb-actions{display:flex;gap:8px;margin-top:14px}.mvs-vb-actions button{flex:1}.mvs-vb-confirm{background:#167548!important;color:white!important;border-color:#167548!important}.mvs-vb-hint{font-size:12px;opacity:.75;margin-top:5px}.mvs-vb-listening{background:#fee2e2!important;border-color:#ef4444!important;color:#991b1b!important}body.dark .mvs-vb-modal{background:#1d2733;color:#eef3f8}body.dark .mvs-vb-row{background:#263442;border-color:#435365}body.dark .mvs-vb-row input,body.dark .mvs-vb-row select,body.dark .mvs-vb-slot{background:#111b26;color:#f1f5f9;border-color:#475569}body.dark .mvs-vb-rowbuttons button,body.dark .mvs-vb-actions button,body.dark .mvs-vb-addrow{background:#263442;color:#f1f5f9;border-color:#475569}`;
+  st.textContent=`.mvs-voice-batch-launch{display:flex;align-items:center;justify-content:center;gap:8px;width:calc(100% - 28px);margin:6px 14px;padding:8px 10px;border:1px solid #9bc8ad;border-radius:11px;background:linear-gradient(135deg,#eaf8ef,#d9f1e2);color:#17633a;font-weight:750;font-size:12px;box-shadow:0 2px 6px #0000000a}.mvs-vb-backdrop{position:fixed;inset:0;z-index:100000;background:#11182799;display:flex;align-items:center;justify-content:center;padding:14px;box-sizing:border-box}.mvs-vb-modal{width:min(560px,100%);max-height:90dvh;overflow:auto;background:var(--card-bg,#fff);color:var(--text-color,#1e293b);border-radius:20px;padding:18px;box-shadow:0 20px 70px #0005}.mvs-vb-modal h3{margin:0 0 7px;font-size:19px}.mvs-vb-muted{font-size:12px;opacity:.72;margin-bottom:13px}.mvs-vb-row{border:1px solid #dbe4ea;border-radius:13px;padding:10px;margin:9px 0;background:#f8fafc}.mvs-vb-rowtop{display:flex;align-items:center;gap:8px;margin-bottom:7px;font-weight:800}.mvs-vb-row input,.mvs-vb-row select,.mvs-vb-slot{box-sizing:border-box;width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px;background:white;color:#172033;font:inherit;margin:4px 0}.mvs-vb-rowbuttons{display:flex;gap:7px}.mvs-vb-rowbuttons button,.mvs-vb-actions button,.mvs-vb-addrow{border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px;background:white;color:#172033;font-weight:700}.mvs-vb-rowbuttons button{flex:1}.mvs-vb-actions{display:flex;gap:8px;margin-top:14px}.mvs-vb-actions button{flex:1}.mvs-vb-confirm{background:#167548!important;color:white!important;border-color:#167548!important}.mvs-vb-hint{font-size:12px;opacity:.75;margin-top:5px}.mvs-vb-listening{background:#fee2e2!important;border-color:#ef4444!important;color:#991b1b!important}body.dark .mvs-vb-modal{background:#1d2733;color:#eef3f8}body.dark .mvs-vb-row{background:#263442;border-color:#435365}body.dark .mvs-vb-row input,body.dark .mvs-vb-row select,body.dark .mvs-vb-slot{background:#111b26;color:#f1f5f9;border-color:#475569}body.dark .mvs-vb-rowbuttons button,body.dark .mvs-vb-actions button,body.dark .mvs-vb-addrow{background:#263442;color:#f1f5f9;border-color:#475569}`;
   st.textContent += `.mvs-vb-head{display:flex;align-items:center;gap:12px;margin-bottom:12px}.mvs-vb-orb{width:48px;height:48px;display:grid;place-items:center;border-radius:50%;background:#dcfce7;font-size:25px;flex-shrink:0}.mvs-vb-dialogue{width:min(540px,100%)}.mvs-vb-chat{display:flex;flex-direction:column;gap:8px;max-height:34vh;overflow:auto;padding:5px 0 12px}.mvs-vb-bubble{max-width:88%;padding:10px 13px;border-radius:15px;line-height:1.35;font-size:14px;overflow-wrap:anywhere}.mvs-vb-bubble.assistant{align-self:flex-start;background:#edf3f7;border-bottom-left-radius:4px}.mvs-vb-bubble.user{align-self:flex-end;background:#dcfce7;border-bottom-right-radius:4px}.mvs-vb-heard{font-size:12px;opacity:.75;margin:6px 0 12px;min-height:18px}.mvs-vb-dialog-actions{display:flex;gap:8px}.mvs-vb-dialog-actions button{flex:1;border:1px solid #cbd5e1;border-radius:12px;padding:12px;background:white;color:#172033;font-weight:800}.mvs-vb-dialog-actions .mvs-vb-mic-main{background:#167548;color:white;border-color:#167548}.mvs-vb-review{margin-top:14px}.mvs-vb-review h4{margin:0 0 8px}.mvs-vb-review-item{padding:9px 10px;border:1px solid #dbe4ea;border-radius:10px;margin:6px 0;background:#f8fafc;font-size:13px;overflow-wrap:anywhere}.mvs-vb-review-item div{opacity:.75;margin-top:3px}.mvs-vb-review-slot{margin:10px 0;font-size:13px}.mvs-vb-review-buttons{display:flex;gap:8px}.mvs-vb-review-buttons button{flex:1;border:1px solid #cbd5e1;border-radius:10px;padding:11px;font-weight:800;background:white;color:#172033}body.dark .mvs-vb-bubble.assistant{background:#263442;color:#f1f5f9}body.dark .mvs-vb-bubble.user{background:#174b35;color:#f1f5f9}body.dark .mvs-vb-review-item{background:#263442;border-color:#435365}body.dark .mvs-vb-dialog-actions button,body.dark .mvs-vb-review-buttons button{background:#263442;color:#f1f5f9;border-color:#475569}`;
   document.head.appendChild(st);
 })();
@@ -9253,6 +9252,7 @@ const voiceBatchBtn = document.createElement('button');
 voiceBatchBtn.type = 'button';
 voiceBatchBtn.className = 'mvs-voice-batch-launch';
 voiceBatchBtn.innerHTML = '🎙 Добавить адреса в слот';
+voiceBatchBtn.style.minHeight = '34px';
 voiceBatchBtn.addEventListener('click', openMvsVoiceBatch);
 frag.appendChild(voiceBatchBtn);
 
@@ -16400,6 +16400,9 @@ body:not(.dark) #screen4 .route-card .route-addr-input::placeholder,
 body:not(.dark) #screen4 .route-card .route-note-input::placeholder {
   color: #73818b !important; opacity: 1 !important;
 }
+/* По просьбе пользователя полностью скрываем цитаты во всех разделах */
+.daily-quote, .dq-text, .dq-author, .dq-icon, .dq-day { display:none !important; }
+
 </style>
 
 
@@ -16494,6 +16497,7 @@ document.addEventListener('click', function(ev) {
     #mvs-floating-voice:active{opacity:.9;cursor:grabbing}
     #mvs-floating-voice.listening{background:#dc2626cc;opacity:.92;animation:mvsVoicePulse 1.1s infinite}
     #mvs-floating-voice:disabled{opacity:.8}
+    #mvs-floating-voice-close{position:fixed;z-index:99991;width:22px;height:22px;padding:0;border:1px solid #ffffffaa;border-radius:50%;background:#263442;color:#fff;font:700 15px/20px Arial,sans-serif;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px #0003}
     @keyframes mvsVoicePulse{50%{box-shadow:0 0 0 10px #ef444433,0 5px 18px #0004}}
     #mvs-floating-voice-status{position:fixed;right:12px;bottom:calc(140px + env(safe-area-inset-bottom,0px));z-index:99989;max-width:min(310px,calc(100vw - 24px));padding:9px 11px;border-radius:12px;background:#17212beF;color:#fff;font-size:13px;line-height:1.35;box-shadow:0 4px 16px #0003;display:none}
     #mvs-floating-voice-status.mvs-success{top:calc(12px + env(safe-area-inset-top,0px));bottom:auto;left:12px;right:12px;max-width:520px;margin:0 auto;text-align:center;background:#167447f2;border:1px solid #ffffff45;padding:12px 15px;border-radius:14px;font-weight:600;box-shadow:0 5px 20px #0003;animation:mvsNoticeIn .22s ease-out}
@@ -16502,7 +16506,11 @@ document.addEventListener('click', function(ev) {
   document.head.appendChild(css);
   const btn=document.createElement('button'); btn.id='mvs-floating-voice'; btn.type='button'; btn.title='Добавить встречу голосом'; btn.setAttribute('aria-label','Добавить встречу голосом'); btn.innerHTML='🎙';
   const status=document.createElement('div'); status.id='mvs-floating-voice-status'; status.setAttribute('role','status');
-  document.body.append(btn,status);
+  const closeBtn=document.createElement('button'); closeBtn.id='mvs-floating-voice-close'; closeBtn.type='button'; closeBtn.textContent='×'; closeBtn.title='Скрыть голосовую кнопку'; closeBtn.setAttribute('aria-label','Скрыть голосовую кнопку');
+  document.body.append(btn,status,closeBtn);
+  function positionClose(){const r=btn.getBoundingClientRect();closeBtn.style.left=Math.max(0,Math.min(window.innerWidth-22,r.right-12))+'px';closeBtn.style.top=Math.max(0,r.top-8)+'px';}
+  positionClose(); window.addEventListener('resize',positionClose);
+  closeBtn.addEventListener('click',()=>{if(listening){sayStatus('Сначала останови голосовой ввод, затем скрой кнопку.');return;}btn.remove();closeBtn.remove();status.remove();});
   let recognition=null, listening=false;
   function sayStatus(message, speak=false){status.classList.remove('mvs-success');status.textContent=message;status.style.display='block';if(speak && 'speechSynthesis' in window){try{window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(message);u.lang='ru-RU';u.rate=1.03;window.speechSynthesis.speak(u);}catch(e){}}}
   function norm(s){return String(s||'').toLowerCase().replace(/ё/g,'е').replace(/[.,!?;:]/g,' ').replace(/\s+/g,' ').trim();}
@@ -16568,7 +16576,7 @@ document.addEventListener('click', function(ev) {
     if(!dragged)return;
     const x=Math.max(0,Math.min(window.innerWidth-btn.offsetWidth,drag.left+dx));
     const y=Math.max(0,Math.min(window.innerHeight-btn.offsetHeight,drag.top+dy));
-    btn.style.left=x+'px';btn.style.top=y+'px';btn.style.right='auto';btn.style.bottom='auto';
+    btn.style.left=x+'px';btn.style.top=y+'px';btn.style.right='auto';btn.style.bottom='auto';positionClose();
   });
   function finishDrag(){if(dragged){suppressClick=true;setTimeout(()=>suppressClick=false,250)}drag=null;}
   btn.addEventListener('pointerup',finishDrag);btn.addEventListener('pointercancel',finishDrag);
