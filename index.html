@@ -9346,18 +9346,16 @@ if (_openSlotId) {
       // На мобильных браузерах первый focus сразу после перерисовки иногда
       // открывает клавиатуру, но ввод не попадает в textarea. Сначала прокручиваем
       // карточку без анимации, затем фокусируем уже вставленное в DOM поле.
-      const focusNewAddress = () => {
+      // Focus exactly once after the new card is mounted. Re-focusing on delayed
+      // timers can interrupt the mobile keyboard's input/composition session:
+      // the keyboard appears, but typed characters are dropped until re-render.
+      requestAnimationFrame(() => {
         const inputs = document.querySelectorAll(`#app4 .route-time-block[data-time-id="${t.id}"] .route-addr-input`);
-        const target = Array.from(inputs).find(i => !i.value.trim()) || inputs[inputs.length - 1];
+        const target = inputs[inputs.length - 1]; // the card we just added
         if (!target || !target.isConnected) return;
         target.scrollIntoView({ behavior: 'auto', block: 'center' });
         try { target.focus({ preventScroll: true }); } catch (_) { target.focus(); }
         try { const n = target.value.length; target.setSelectionRange(n, n); } catch (_) {}
-      };
-      requestAnimationFrame(() => {
-        focusNewAddress();
-        setTimeout(focusNewAddress, 180);
-        setTimeout(focusNewAddress, 450);
       });
     });
     body.appendChild(addBtn);
