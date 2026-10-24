@@ -9202,32 +9202,34 @@ function openMvsVoiceBatch(){
   const times = typeof ROUTE_TIMES !== 'undefined' ? ROUTE_TIMES : [];
   if(!times.length) return;
   const overlay=document.createElement('div'); overlay.className='mvs-vb-backdrop';
-  const modal=document.createElement('div'); modal.className='mvs-vb-modal mvs-vb-dialogue';
-  modal.innerHTML=`<div class="mvs-vb-head"><div class="mvs-vb-orb">🎙️</div><div><h3>Голосовой помощник МВС</h3><div class="mvs-vb-muted">Поговорим и вместе добавим встречи</div></div></div><div class="mvs-vb-chat" id="mvs-vb-chat" aria-live="polite"></div><div class="mvs-vb-heard" id="mvs-vb-heard">Нажми на микрофон и ответь помощнику.</div><div class="mvs-vb-dialog-actions"><button type="button" class="mvs-vb-mic-main" id="mvs-vb-talk">🎙 Ответить</button><button type="button" id="mvs-vb-cancel">Завершить</button></div><div class="mvs-vb-review" id="mvs-vb-review" hidden></div>`;
+  const modal=document.createElement('div'); modal.className='mvs-vb-modal';
+  modal.innerHTML=`<h3>Добавить адреса в слот</h3><div class="mvs-vb-muted">Выбери время, введи адреса — каждый с новой строки. Можно надиктовать адреса по одному.</div><label for="mvs-vb-slot">Временной слот</label><select id="mvs-vb-slot" class="mvs-vb-slot">${times.map(t=>`<option value="${t.id}" ${t.id===getCurrentSlotId()?'selected':''}>${t.label}</option>`).join('')}</select><label for="mvs-vb-addresses">Адреса</label><textarea id="mvs-vb-addresses" rows="5" placeholder="Например: Красногорск, улица Ленина, дом 5\nКрасногорск, улица Мира, дом 10" style="box-sizing:border-box;width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font:inherit;resize:vertical"></textarea><div class="mvs-vb-hint" id="mvs-vb-hint">Адресов: 0</div><div class="mvs-vb-actions"><button type="button" id="mvs-vb-mic">🎙 Надиктовать адрес</button><button type="button" id="mvs-vb-cancel">Отмена</button></div><div class="mvs-vb-actions"><button type="button" class="mvs-vb-confirm" id="mvs-vb-yes">Добавить в слот</button></div>`;
   overlay.appendChild(modal); document.body.appendChild(overlay);
-  const chat=modal.querySelector('#mvs-vb-chat'), heard=modal.querySelector('#mvs-vb-heard'), talk=modal.querySelector('#mvs-vb-talk');
-  let step='start', slotId='t10_12', count=0, entries=[], current=0, recognition=null, busy=false;
-  const say=(text)=>{try{if(!('speechSynthesis' in window))return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='ru-RU';u.rate=1;window.speechSynthesis.speak(u);}catch(e){}};
-  const bubble=(who,text)=>{const b=document.createElement('div');b.className='mvs-vb-bubble '+(who==='assistant'?'assistant':'user');b.textContent=text;chat.appendChild(b);chat.scrollTop=chat.scrollHeight;};
-  const ask=(text,next)=>{step=next;bubble('assistant',text);heard.textContent='Нажми «Ответить» и скажи ответ.';talk.disabled=false;talk.textContent='🎙 Ответить';say(text);};
-  const normalize=s=>(s||'').toLowerCase().replace(/ё/g,'е').trim();
-  const parseSlot=(text)=>{const t=normalize(text);const found=times.find(x=>{const m=(x.label||'').match(/(\d{1,2})\s*[:.]?\d*\s*[–—-]\s*(\d{1,2})/);return m&&(t.includes(m[1])&&t.includes(m[2]));});if(found)return found.id;if(/10\s*(до|по|[-–—])\s*12|десяти.*двенадцат/.test(t))return 't10_12';if(/12\s*(до|по|[-–—])\s*14|двенадцат.*четырнадцат/.test(t))return 't12_14';if(/14\s*(до|по|[-–—])\s*16|четырнадцат.*шестнадцат/.test(t))return 't14_16';if(/16\s*(до|по|[-–—])\s*18|шестнадцат.*восемнадцат/.test(t))return 't16_18';return null;};
-  const parseEntry=(transcript)=>{let addr=transcript.trim(),mtype='fd_meet_02';if(/детск|вериф/i.test(transcript)){mtype='fd_meet_035';addr=addr.replace(/[,;.]?\s*(?:фд\s*)?детск(?:ая|ую)?(?:\s+карт[ау])?(?:\s+с)?\s*вериф\w*/ig,'').trim();}else if(/фд\s*дбо/i.test(transcript)){mtype='fd_meet_dbo';addr=addr.replace(/[,;.]?\s*фд\s*дбо/ig,'').trim();}else if(/фд\s*сим/i.test(transcript)){mtype='fd_meet_sim';addr=addr.replace(/[,;.]?\s*фд\s*сим/ig,'').trim();}else{addr=addr.replace(/[,;.]?\s*фд\s*обычн\w*/ig,'').trim();}return {addr:addr||transcript.trim(),mtype};};
-  const typeLabel=id=>({fd_meet_02:'ФД обычная',fd_meet_035:'ФД детская с вериф.',fd_meet_dbo:'ФД ДБО',fd_meet_sim:'ФД Сим'}[id]||'ФД обычная');
-  const slotLabel=id=>(times.find(t=>t.id===id)||{}).label||id;
-  function showReview(){step='review';talk.disabled=true;talk.textContent='🎙 Ответить';const box=modal.querySelector('#mvs-vb-review');box.hidden=false;box.innerHTML='<h4>Проверь встречи</h4>'+entries.map((e,i)=>`<div class="mvs-vb-review-item"><b>${i+1}. ${e.addr.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</b><div>${typeLabel(e.mtype)}</div></div>`).join('')+`<div class="mvs-vb-review-slot">Слот: <b>${slotLabel(slotId)}</b> · встреч: <b>${entries.length}</b></div><div class="mvs-vb-review-buttons"><button type="button" id="mvs-vb-no">Нет, исправить</button><button type="button" class="mvs-vb-confirm" id="mvs-vb-yes">Да, добавить</button></div>`;bubble('assistant',`Готово, ${entries.length} встречи в слот ${slotLabel(slotId)}. Проверь список ниже. Добавляем?`);say(`Готово. ${entries.length} встречи в слот ${slotLabel(slotId)}. Проверь список и нажми Да, добавить.`);box.querySelector('#mvs-vb-yes').onclick=()=>{if(!routeState.lists[slotId])routeState.lists[slotId]=[];entries.forEach(x=>routeState.lists[slotId].push({addr:x.addr,addrDisplay:x.addr,note:'',status:null,mtype:x.mtype}));saveRouteState(routeState);overlay.remove();renderRoute();if(typeof updateDrawerRoutes==='function')updateDrawerRoutes();_mapHash='';if(typeof map!=='undefined'&&map&&typeof renderMapMarkers==='function')renderMapMarkers();if(typeof showToast==='function')showToast('Добавлено встреч: '+entries.length);};box.querySelector('#mvs-vb-no').onclick=()=>{box.hidden=true;entries=[];current=0;ask('Хорошо, давай заново. В какой временной слот добавляем встречи?','slot');};}
-  function handle(text){bubble('user',text);heard.textContent='Распознано: «'+text+'»';const t=normalize(text);
-    if(step==='start'){if(/нет|не надо|отмен/.test(t)){ask('Хорошо, ничего не добавляю.','finished');talk.disabled=true;return;}ask('В какой временной слот добавляем встречи? Например, с десяти до двенадцати.','slot');return;}
-    if(step==='slot'){const id=parseSlot(text);if(!id){ask('Не расслышала слот. Назови, например, с десяти до двенадцати.','slot');return;}slotId=id;ask('Сколько встреч добавляем?','count');return;}
-    if(step==='count'){const m=t.match(/\d+/);const words={'одну':1,'одна':1,'один':1,'две':2,'два':2,'три':3,'четыре':4,'пять':5,'шесть':6,'семь':7,'восемь':8,'девять':9,'десять':10};count=m?parseInt(m[0],10):(Object.keys(words).find(w=>t.includes(w))?words[Object.keys(words).find(w=>t.includes(w))]:0);if(count<1||count>20){ask('Назови количество от одного до двадцати.','count');return;}entries=[];current=0;ask(`Хорошо, ${count}. Назови адрес первой встречи и тип. Если тип не скажешь, поставлю ФД обычная.`, 'entry');return;}
-    if(step==='entry'){const e=parseEntry(text);if(!e.addr||e.addr.length<3){ask(`Не расслышала адрес встречи ${current+1}. Повтори адрес и тип.`, 'entry');return;}entries.push(e);current++;if(current<count){ask(`Записала: ${e.addr}, ${typeLabel(e.mtype)}. Теперь встреча ${current+1} из ${count}: назови адрес и тип.`, 'entry');}else showReview();return;}
-    if(step==='finished'){overlay.remove();}
-  }
-  function listen(){if(busy)return;const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){heard.textContent='В этом браузере нет распознавания речи. Попробуй открыть МВС в Chrome или Яндекс Браузере.';return;}busy=true;talk.disabled=true;talk.classList.add('mvs-vb-listening');talk.textContent='🔴 Слушаю…';heard.textContent='Говори после сигнала…';recognition=new SR();recognition.lang='ru-RU';recognition.continuous=false;recognition.interimResults=false;recognition.maxAlternatives=1;recognition.onresult=e=>{const text=String(e.results?.[0]?.[0]?.transcript||'').trim();if(text)handle(text);else heard.textContent='Не расслышала. Нажми «Ответить» и повтори.';};recognition.onerror=e=>{heard.textContent='Не получилось распознать речь. '+(e.error==='not-allowed'?'Разреши доступ к микрофону.':'Попробуй ещё раз.');};recognition.onend=()=>{busy=false;talk.disabled=(step==='review'||step==='finished');talk.classList.remove('mvs-vb-listening');if(step!=='review'&&step!=='finished')talk.textContent='🎙 Ответить';recognition=null;};try{recognition.start();}catch(e){busy=false;talk.disabled=false;talk.classList.remove('mvs-vb-listening');talk.textContent='🎙 Ответить';heard.textContent='Не удалось запустить микрофон. Попробуй ещё раз.';}}
-  talk.addEventListener('click',listen);
-  modal.querySelector('#mvs-vb-cancel').addEventListener('click',()=>{if(recognition)try{recognition.stop()}catch(e){};try{window.speechSynthesis?.cancel()}catch(e){};overlay.remove();});
-  overlay.addEventListener('click',e=>{if(e.target===overlay){try{window.speechSynthesis?.cancel()}catch(e){};overlay.remove();}});
-  ask('Привет! Добавляем встречи? Скажи «да», чтобы начать.','start');
+  const area=modal.querySelector('#mvs-vb-addresses'), hint=modal.querySelector('#mvs-vb-hint'), mic=modal.querySelector('#mvs-vb-mic');
+  const updateCount=()=>{const n=area.value.split(/\n+/).map(x=>x.trim()).filter(Boolean).length;hint.textContent='Адресов: '+n;};
+  area.addEventListener('input',updateCount);
+  let recognition=null, listening=false;
+  mic.addEventListener('click',()=>{
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){hint.textContent='Распознавание речи недоступно в этом браузере. Введи адрес вручную.';return;}
+    if(listening)return;
+    recognition=new SR(); recognition.lang='ru-RU'; recognition.continuous=false; recognition.interimResults=false; recognition.maxAlternatives=1; listening=true; mic.disabled=true; mic.textContent='🔴 Слушаю…'; hint.textContent='Говори адрес…';
+    recognition.onresult=e=>{const heard=String(e.results?.[0]?.[0]?.transcript||'').trim();if(heard){area.value+=(area.value.trim()?'\n':'')+heard;updateCount();hint.textContent='Адрес распознан. Можешь надиктовать следующий.';}};
+    recognition.onerror=e=>{hint.textContent=e.error==='not-allowed'?'Разреши доступ к микрофону.':'Не получилось распознать адрес. Попробуй ещё раз или введи вручную.';};
+    recognition.onend=()=>{listening=false;mic.disabled=false;mic.textContent='🎙 Надиктовать адрес';recognition=null;};
+    try{recognition.start();}catch(e){listening=false;mic.disabled=false;mic.textContent='🎙 Надиктовать адрес';hint.textContent='Не удалось включить микрофон. Попробуй ещё раз.';}
+  });
+  const close=()=>{if(recognition)try{recognition.stop()}catch(e){};overlay.remove();};
+  modal.querySelector('#mvs-vb-cancel').addEventListener('click',close);
+  overlay.addEventListener('click',e=>{if(e.target===overlay)close();});
+  modal.querySelector('#mvs-vb-yes').addEventListener('click',()=>{
+    const addresses=area.value.split(/\n+/).map(x=>x.trim()).filter(Boolean);
+    if(!addresses.length){hint.textContent='Сначала введи или надиктуй хотя бы один адрес.';return;}
+    const slotId=modal.querySelector('#mvs-vb-slot').value;
+    if(!routeState.lists[slotId])routeState.lists[slotId]=[];
+    addresses.forEach(addr=>routeState.lists[slotId].push({addr,addrDisplay:addr,note:'',status:null}));
+    saveRouteState(routeState);close();_openSlotId=slotId;renderRoute();if(typeof updateDrawerRoutes==='function')updateDrawerRoutes();_mapHash='';if(typeof map!=='undefined'&&map&&typeof renderMapMarkers==='function')renderMapMarkers();if(typeof showToast==='function')showToast('Добавлено адресов: '+addresses.length);
+  });
 }
 function renderRoute() {
   const app = document.getElementById('app4');
@@ -9249,7 +9251,7 @@ frag.appendChild(stats);
 const voiceBatchBtn = document.createElement('button');
 voiceBatchBtn.type = 'button';
 voiceBatchBtn.className = 'mvs-voice-batch-launch';
-voiceBatchBtn.innerHTML = '🎙 Добавить встречи голосом';
+voiceBatchBtn.innerHTML = '🎙 Добавить адреса в слот';
 voiceBatchBtn.addEventListener('click', openMvsVoiceBatch);
 frag.appendChild(voiceBatchBtn);
 
@@ -16478,6 +16480,79 @@ document.addEventListener('click', function(ev) {
   }
 }, true);
 </script>
+
+<script>
+/* Плавающая голосовая кнопка МВС: команда «добавь встречу с 10 до 12 адрес…» */
+(function installMvsFloatingVoice(){
+  if (window.__mvsFloatingVoiceInstalled) return;
+  window.__mvsFloatingVoiceInstalled = true;
+  const css = document.createElement('style');
+  css.id = 'mvs-floating-voice-style';
+  css.textContent = `
+    #mvs-floating-voice{position:fixed;right:16px;bottom:calc(88px + env(safe-area-inset-bottom,0px));z-index:99990;width:62px;height:62px;border:0;border-radius:50%;background:linear-gradient(145deg,#16834f,#0d6339);color:#fff;box-shadow:0 5px 18px #0004;display:flex;align-items:center;justify-content:center;font-size:27px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+    #mvs-floating-voice:after{content:'Голос';position:absolute;top:64px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:800;white-space:nowrap;color:var(--text-color,#243244);background:var(--card-bg,#fff);padding:3px 7px;border-radius:9px;box-shadow:0 2px 8px #0002}
+    #mvs-floating-voice.listening{background:linear-gradient(145deg,#dc2626,#991b1b);animation:mvsVoicePulse 1.1s infinite}
+    #mvs-floating-voice:disabled{opacity:.8}
+    @keyframes mvsVoicePulse{50%{box-shadow:0 0 0 10px #ef444433,0 5px 18px #0004}}
+    #mvs-floating-voice-status{position:fixed;right:12px;bottom:calc(160px + env(safe-area-inset-bottom,0px));z-index:99989;max-width:min(310px,calc(100vw - 24px));padding:10px 13px;border-radius:12px;background:#17212b;color:#fff;font-size:13px;line-height:1.35;box-shadow:0 4px 16px #0003;display:none}
+  `;
+  document.head.appendChild(css);
+  const btn=document.createElement('button'); btn.id='mvs-floating-voice'; btn.type='button'; btn.title='Добавить встречу голосом'; btn.setAttribute('aria-label','Добавить встречу голосом'); btn.innerHTML='🎙';
+  const status=document.createElement('div'); status.id='mvs-floating-voice-status'; status.setAttribute('role','status');
+  document.body.append(btn,status);
+  let recognition=null, listening=false;
+  function sayStatus(message, speak=false){status.textContent=message;status.style.display='block';if(speak && 'speechSynthesis' in window){try{window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(message);u.lang='ru-RU';u.rate=1.03;window.speechSynthesis.speak(u);}catch(e){}}}
+  function norm(s){return String(s||'').toLowerCase().replace(/ё/g,'е').replace(/[.,!?;:]/g,' ').replace(/\s+/g,' ').trim();}
+  function getSlot(text){
+    const t=norm(text);
+    const pairs=[
+      ['t10_12',/(?:с\s*)?(?:10|10\s*00|десяти|десять)\s*(?:до|[-–—]\s*)\s*(?:12|12\s*00|двенадцати|двенадцать)/],
+      ['t12_14',/(?:с\s*)?(?:12|12\s*00|двенадцати|двенадцать)\s*(?:до|[-–—]\s*)\s*(?:14|14\s*00|четырнадцати|четырнадцать)/],
+      ['t14_16',/(?:с\s*)?(?:14|14\s*00|четырнадцати|четырнадцать)\s*(?:до|[-–—]\s*)\s*(?:16|16\s*00|шестнадцати|шестнадцать)/],
+      ['t16_18',/(?:с\s*)?(?:16|16\s*00|шестнадцати|шестнадцать)\s*(?:до|[-–—]\s*)\s*(?:18|18\s*00|восемнадцати|восемнадцать)/]
+    ];
+    for(const [id,re] of pairs) if(re.test(t)) return id;
+    return null;
+  }
+  function extractAddress(text){
+    let t=norm(text);
+    t=t.replace(/\b(?:пожалуйста\s*)?(?:добавь|добавить|создай|создать|запиши|записать)\s+(?:(?:новую|одну)\s+)?(?:встречу|адрес|карточку)\b/g,' ');
+    t=t.replace(/\b(?:встречу|встреча|адрес)\s+(?:на\s+)?(?:с\s*)?(?:10|12|14|16|18|десяти|десять|двенадцати|двенадцать|четырнадцати|четырнадцать|шестнадцати|шестнадцать|восемнадцати|восемнадцать)\b/g,' ');
+    t=t.replace(/\b(?:с\s*)?(?:10|12|14|16|18|10\s*00|12\s*00|14\s*00|16\s*00|18\s*00|десяти|десять|двенадцати|двенадцать|четырнадцати|четырнадцать|шестнадцати|шестнадцать|восемнадцати|восемнадцать)\s*(?:до|[-–—]\s*)\s*(?:12|14|16|18|двенадцати|двенадцать|четырнадцати|четырнадцать|шестнадцати|шестнадцать|восемнадцати|восемнадцать)\b/g,' ');
+    t=t.replace(/\b(?:в\s+)?(?:слот|временной слот)\b/g,' ').replace(/\b(?:по адресу|адрес)\b/g,' ');
+    t=t.replace(/\s+/g,' ').trim();
+    return t.replace(/^[,\s-]+|[,\s-]+$/g,'');
+  }
+  function handleTranscript(raw){
+    const slotId=getSlot(raw); const address=extractAddress(raw);
+    if(!slotId){sayStatus('Не расслышала время. Скажи, например: «Добавь встречу с 10 до 12, Красногорск, улица Ленина, дом 5».',true);return;}
+    if(!address || address.length<4){sayStatus('Время поняла. Не расслышала адрес — нажми кнопку и повтори команду целиком.',true);return;}
+    if(typeof routeState==='undefined' || typeof saveRouteState!=='function' || typeof renderRoute!=='function') {sayStatus('Не получилось открыть список встреч. Перейди в раздел «Активности» и попробуй ещё раз.',true);return;}
+    if(!routeState.lists[slotId]) routeState.lists[slotId]=[];
+    routeState.lists[slotId].push({addr:address,addrDisplay:address,note:'',status:null});
+    saveRouteState(routeState); window._openSlotId=slotId; if(typeof _openSlotId!=='undefined') _openSlotId=slotId;
+    renderRoute(); if(typeof updateDrawerRoutes==='function') updateDrawerRoutes();
+    if(typeof renderMapMarkers==='function' && typeof map!=='undefined' && map) renderMapMarkers();
+    const label=(ROUTE_TIMES.find(x=>x.id===slotId)||{}).label||slotId;
+    sayStatus('Добавлено в слот '+label+': '+address+'. Проверь карточку, когда будет безопасно остановиться.',true);
+    btn.innerHTML='✓'; setTimeout(()=>{if(!listening)btn.innerHTML='🎙';},1800);
+  }
+  btn.addEventListener('click',()=>{
+    if(listening) {try{recognition&&recognition.stop()}catch(e){};return;}
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){sayStatus('Голосовой ввод не поддерживается этим браузером. Проверь Chrome или Яндекс Браузер и разрешение на микрофон.');return;}
+    try{
+      recognition=new SR(); recognition.lang='ru-RU'; recognition.continuous=false; recognition.interimResults=false; recognition.maxAlternatives=1; listening=true;
+      btn.classList.add('listening');btn.innerHTML='🔴';sayStatus('Слушаю. Скажи слот и адрес одной фразой: «Добавь встречу с 10 до 12, Красногорск, улица Ленина, дом 5».');
+      recognition.onresult=e=>{const heard=String(e.results&&e.results[0]&&e.results[0][0]&&e.results[0][0].transcript||'').trim();if(heard){status.textContent='Распознано: '+heard;handleTranscript(heard);}else sayStatus('Не расслышала. Попробуй ещё раз, когда будет безопасно.');};
+      recognition.onerror=e=>{sayStatus(e.error==='not-allowed'?'Нет доступа к микрофону. Разреши микрофон для приложения.':'Не удалось распознать речь. Попробуй ещё раз, когда будет безопасно.');};
+      recognition.onend=()=>{listening=false;btn.classList.remove('listening');btn.innerHTML='🎙';recognition=null;};
+      recognition.start();
+    }catch(e){listening=false;btn.classList.remove('listening');btn.innerHTML='🎙';recognition=null;sayStatus('Не удалось включить микрофон. Проверь разрешение на микрофон.');}
+  });
+})();
+</script>
+
 </body>
 </html>
 
