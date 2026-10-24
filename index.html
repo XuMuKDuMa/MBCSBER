@@ -6404,16 +6404,17 @@ body.dark .route-list-title { background: linear-gradient(135deg, #46607a, #3449
 
 <style id="mvs-dadata-autocomplete-style">
 #screen4 .route-addr-wrap { position: relative; }
-#screen4 .mvs-dadata-list { position:absolute; z-index:100000; left:0; right:0; top:calc(100% + 4px); height:auto; max-height: min(42vh, 300px); overflow-y:scroll; overflow-x:hidden; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; touch-action:pan-y; background:#fff; color:#263944; border:1px solid #d5dfe6; border-radius:10px; box-shadow:0 10px 28px rgba(0,0,0,.18); padding:4px; }
-#screen4 .mvs-dadata-option { touch-action:pan-y; user-select:none; -webkit-user-select:none; }
-#screen4 .mvs-dadata-option.active, #screen4 .mvs-dadata-option:focus-visible { background:#dff5e8; box-shadow:inset 4px 0 0 #22a568; color:#173c2c; outline:none; }
-body.dark #screen4 .mvs-dadata-option.active, body.dark #screen4 .mvs-dadata-option:focus-visible { background:#214936; box-shadow:inset 4px 0 0 #45d18a; color:#f0fff6; }
-#screen4 .mvs-dadata-option { display:flex; flex-direction:column; gap:3px; width:100%; text-align:left; padding:10px 11px; border:0; border-radius:7px; background:transparent; color:inherit; font:inherit; cursor:pointer; }
-#screen4 .mvs-dadata-option:hover, #screen4 .mvs-dadata-option.active { background:#eaf3fb; }
-#screen4 .mvs-dadata-main { font-size:14px; line-height:1.35; font-weight:650; }
-#screen4 .mvs-dadata-sub { font-size:11px; line-height:1.3; opacity:.72; }
-body.dark #screen4 .mvs-dadata-list { background:#202b33; color:#e7eef2; border-color:#43525d; }
-body.dark #screen4 .mvs-dadata-option:hover, body.dark #screen4 .mvs-dadata-option.active { background:#344854; }
+.mvs-dadata-list { position:fixed; z-index:2147483000; left:8px; right:8px; top:100px; bottom:auto; height:auto; max-height:min(34vh,260px); overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; touch-action:pan-y; background:#fff; color:#263944; border:1px solid #d5dfe6; border-radius:10px; box-shadow:0 10px 28px rgba(0,0,0,.28); padding:4px; }
+.mvs-dadata-list { position:fixed !important; z-index:2147483000 !important; }
+.mvs-dadata-option { touch-action:pan-y; user-select:none; -webkit-user-select:none; }
+.mvs-dadata-option.active, .mvs-dadata-option:focus-visible { background:#dff5e8; box-shadow:inset 4px 0 0 #22a568; color:#173c2c; outline:none; }
+body.dark .mvs-dadata-option.active, body.dark .mvs-dadata-option:focus-visible { background:#214936; box-shadow:inset 4px 0 0 #45d18a; color:#f0fff6; }
+.mvs-dadata-option { display:flex; flex-direction:column; gap:3px; width:100%; text-align:left; padding:10px 11px; border:0; border-radius:7px; background:transparent; color:inherit; font:inherit; cursor:pointer; }
+.mvs-dadata-option:hover, .mvs-dadata-option.active { background:#eaf3fb; }
+.mvs-dadata-main { font-size:14px; line-height:1.35; font-weight:650; }
+.mvs-dadata-sub { font-size:11px; line-height:1.3; opacity:.72; }
+body.dark .mvs-dadata-list { background:#202b33; color:#e7eef2; border-color:#43525d; }
+body.dark .mvs-dadata-option:hover, body.dark .mvs-dadata-option.active { background:#344854; }
 </style>
 
 
@@ -8207,7 +8208,8 @@ addrWrap.className = 'route-addr-wrap';
 const addrInput = document.createElement('textarea');
 addrInput.className = 'route-addr-input';
 addrInput.placeholder = 'Адрес доставки';
-addrInput.value = item.addr || '';
+addrInput.value = item.addrDisplay || item.addr || '';
+addrInput.dataset.fullAddress = item.addr || '';
 addrInput.rows = 1;
 
 // Функция авто-высоты
@@ -8218,6 +8220,8 @@ function autoGrow(el) {
 
 addrInput.addEventListener('input', () => {
   item.addr = addrInput.value;
+  item.addrDisplay = addrInput.value;
+  delete addrInput.dataset.fullAddress;
   saveRouteState(routeState);
   autoGrow(addrInput);
   _mapHash = '';                  
@@ -8249,6 +8253,7 @@ btnMic.addEventListener('click', (e) => {
     const normalized = normalizeNumbers(clean);
     const existing = (item.addr || '').trim();
     item.addr = existing ? existing + ', ' + normalized : normalized;
+    item.addrDisplay = item.addr;
     saveRouteState(routeState);
     addrInput.value = item.addr;
     autoGrow(addrInput);
@@ -8288,7 +8293,21 @@ addrWrap.appendChild(btnMic);
   list.className = 'mvs-dadata-list';
   list.setAttribute('role', 'listbox');
   list.style.display = 'none';
-  addrWrap.appendChild(list);
+  document.body.appendChild(list);
+
+  function positionList() {
+    const r = addrInput.getBoundingClientRect();
+    const gap = 6;
+    const maxH = Math.min(260, Math.round(window.innerHeight * 0.34));
+    list.style.left = Math.max(8, r.left) + 'px';
+    list.style.width = Math.max(120, Math.min(r.width, window.innerWidth - Math.max(8, r.left) - 8)) + 'px';
+    list.style.maxHeight = maxH + 'px';
+    list.style.top = Math.max(8, r.top - Math.min(list.scrollHeight || maxH, maxH) - gap) + 'px';
+    // Если над полем недостаточно места, закрепляем список в видимой верхней области.
+    if (r.top < maxH + 24) list.style.top = '8px';
+  }
+  window.addEventListener('resize', () => { if (list.style.display === 'block') positionList(); });
+  window.addEventListener('scroll', () => { if (list.style.display === 'block') positionList(); }, true);
 
   function closeList() {
     list.style.display = 'none';
@@ -8306,6 +8325,7 @@ addrWrap.appendChild(btnMic);
     const house = d.house || d.house_fias_id || '';
     const compactAddress = [street, d.house].filter(Boolean).join(' ').trim() || selectedAddress;
     addrInput.value = compactAddress;
+    item.addrDisplay = compactAddress;
     addrInput.dataset.fullAddress = selectedAddress;
     item.addr = selectedAddress;
     saveRouteState(routeState);
@@ -8350,6 +8370,8 @@ addrWrap.appendChild(btnMic);
       list.appendChild(row);
     });
     list.style.display = 'block';
+    positionList();
+    requestAnimationFrame(positionList);
   }
   function setActive(i) {
     const rows = [...list.querySelectorAll('.mvs-dadata-option')];
@@ -8503,7 +8525,7 @@ addrWrap.appendChild(btnMic);
   });
   addrInput.addEventListener('blur', () => setTimeout(closeList, 180));
   addrInput.addEventListener('focus', () => {
-    if (addrInput.value.trim().length >= 3 && suggestions.length) list.style.display = 'block';
+    if (addrInput.value.trim().length >= 3 && suggestions.length) { list.style.display = 'block'; positionList(); requestAnimationFrame(positionList); }
   });
 })();
 // ─── Кнопка ручного ввода координат ───
@@ -15224,6 +15246,7 @@ if (usedCoords[coordKey]) {
 usedCoords[coordKey] = (usedCoords[coordKey] || 0) + 1;
 
 const marker = L.marker(finalCoords, { icon }).addTo(map);
+marker._mvsAddress = String(group.addr || '').trim().toLowerCase();
 
 // Подпись статуса
 let tooltipText, tooltipClass;
@@ -15278,9 +15301,17 @@ if (tooltipText) {
 
     const addrKey = (group.addr || '').trim().toLowerCase();
 const totalInHouse = addrCounts[addrKey] || 1;
+const popupAddrFull = String(group.addr || '').trim();
+const popupAddrShort = (() => {
+  // Show only street and house in the popup title; keep the full address in group.addr for routing.
+  const m = popupAddrFull.match(/((?:ул\.?|улица|пр-?кт|проспект|пер\.?|переулок|ш\.?|шоссе|б-р|бул\.?|набережная|наб\.?|пл\.?|площадь)\s*[^,]+(?:,?\s*(?:д\.?|дом)\s*[^,]+)?)/i);
+  if (m) return m[1].replace(/\s+/g, ' ').trim();
+  const parts = popupAddrFull.split(',').map(x => x.trim()).filter(Boolean);
+  return parts.length > 1 ? parts.slice(-2).join(', ') : popupAddrFull;
+})();
 const popupContent = `
   <div class="map-popup" onclick="openActivityFromMap('${group.items[0].timeId}', '${encodeURIComponent(group.addr || '')}')">
-    <div class="map-popup-addr">${escapeHtml(group.addr)}</div>
+    <div class="map-popup-addr">${escapeHtml(popupAddrShort)}</div>
     <div class="map-popup-status">Встреч в этом доме: <b>${totalInHouse}</b></div>
     ${itemsHtml}
   </div>
@@ -15371,79 +15402,60 @@ window.openActivityFromMap = function(timeId, addrEncoded) {
   });
 };
 // ─── Открыть карту на конкретном адресе ───
-window.openMapForAddress = function(addr) {
-  const cleanAddr = (addr || '').trim();
-  if (!cleanAddr) {
-    showToast('⚠️ Адрес пустой');
-    return;
-  }
-
+window.openMapForAddress = async function(addr) {
+  const cleanAddr = String(addr || '').trim();
+  if (!cleanAddr) { showToast('⚠️ Адрес пустой'); return; }
   vibro(15);
   goToTab(5);
 
+  // Дождаться инициализации карты после переключения вкладки.
   let attempts = 0;
-  const MAX_ATTEMPTS = 30;
+  while (!map && attempts++ < 40) await new Promise(resolve => setTimeout(resolve, 200));
+  if (!map) { showToast('⚠️ Карта не загрузилась'); return; }
 
-  const tryCenter = () => {
-    attempts++;
+  // Leaflet часто инициализируется в скрытой вкладке — пересчитать размеры после показа.
+  setTimeout(() => { try { map && map.invalidateSize(true); } catch (_) {} }, 120);
 
-    if (!map) {
-      if (attempts < MAX_ATTEMPTS) {
-        setTimeout(tryCenter, 200);
-      } else {
-        showToast('⚠️ Карта не загрузилась');
-      }
-      return;
+  // Найти координаты именно выбранного адреса; геокодировать, если кэш пуст.
+  let coords = null;
+  const target = cleanAddr.toLowerCase().replace(/\s+/g, ' ').trim();
+  for (const key of Object.keys(mapGeocache || {})) {
+    const normalized = key.toLowerCase().replace(/\s+/g, ' ').trim();
+    if (normalized === target || normalized.includes(target) || target.includes(normalized)) {
+      if (mapGeocache[key]) { coords = mapGeocache[key]; break; }
     }
+  }
+  if (!coords) {
+    try { coords = await geocodeAddress(cleanAddr); } catch (_) { coords = null; }
+  }
+  if (!coords || !map) { showToast('⚠️ Не удалось найти координаты адреса'); return; }
 
-    const targetAddr = cleanAddr.toLowerCase();
-
-    let foundCoords = null;
-    Object.keys(mapGeocache).forEach(key => {
-      if (foundCoords) return;
-      const k = key.toLowerCase();
-      if (k.includes(targetAddr) || targetAddr.includes(k)) {
-        foundCoords = mapGeocache[key];
-      }
+  map.setView(coords, 18, { animate: true, duration: 0.7 });
+  // Перерисовать маркеры, затем открыть попап нужной встречи по адресу.
+  try { await renderMapMarkers(); } catch (_) {}
+  setTimeout(() => {
+    if (!map) return;
+    let closest = null, bestDistance = Infinity;
+    (mapMarkers || []).forEach(marker => {
+      const markerAddr = String(marker._mvsAddress || '').replace(/\s+/g, ' ').trim();
+      const ll = marker.getLatLng();
+      const dist = Math.abs(ll.lat - coords[0]) + Math.abs(ll.lng - coords[1]);
+      const addressMatch = markerAddr === target || markerAddr.includes(target) || target.includes(markerAddr);
+      if (addressMatch && dist < bestDistance) { closest = marker; bestDistance = dist; }
     });
-
-    if (foundCoords) {
-      map.setView(foundCoords, 17, { animate: true });
-
-      setTimeout(() => {
-        mapMarkers.forEach(marker => {
-          const ll = marker.getLatLng();
-          if (Math.abs(ll.lat - foundCoords[0]) < 0.0001 &&
-              Math.abs(ll.lng - foundCoords[1]) < 0.0001) {
-            marker.openPopup();
-          }
-        });
-      }, 500);
-
-      showToast('📍 ' + cleanAddr);
-      return;
+    if (!closest) {
+      (mapMarkers || []).forEach(marker => {
+        const ll = marker.getLatLng();
+        const dist = Math.abs(ll.lat - coords[0]) + Math.abs(ll.lng - coords[1]);
+        if (dist < bestDistance) { closest = marker; bestDistance = dist; }
+      });
     }
-
-    if (attempts < MAX_ATTEMPTS) {
-      if (typeof renderMapMarkers === 'function') {
-        renderMapMarkers();
-      }
-      setTimeout(tryCenter, 400);
-      return;
+    if (closest) {
+      map.setView(closest.getLatLng(), 18, { animate: true, duration: 0.5 });
+      closest.openPopup();
     }
-
-    showToast('🔍 Ищу адрес...');
-    geocodeAddress(cleanAddr).then(coords => {
-      if (coords && map) {
-        map.setView(coords, 17, { animate: true });
-        showToast('📍 ' + cleanAddr);
-      } else {
-        showToast('⚠️ Адрес не найден');
-      }
-    });
-  };
-
-  setTimeout(tryCenter, 200);
+  }, 650);
+  showToast('📍 ' + cleanAddr);
 };
 window.openNavigator = function(addrEncoded) {
   vibro(15);
@@ -16181,6 +16193,20 @@ try { sessionStorage.removeItem('mvs_autoheal'); } catch (e) {}
 #mvsLiquidSplash.mls-hide:after{transform:translate3d(8vw,18vh,0) scale(.8);opacity:0}
 @media(prefers-reduced-motion:reduce){#mvsLiquidSplash{transition:none}}
 body.mvs-splash-open{overflow:hidden}
+
+/* Контраст названий встреч в светлой теме */
+body:not(.dark) #screen4 .route-card,
+body:not(.dark) #screen4 .route-card .route-addr-input,
+body:not(.dark) #screen4 .route-card .route-note-input,
+body:not(.dark) #screen4 .route-card .route-addr-collapsed,
+body:not(.dark) #screen4 .route-meetings-tab,
+body:not(.dark) #screen4 .route-time-header {
+  color: #243541 !important;
+}
+body:not(.dark) #screen4 .route-card .route-addr-input::placeholder,
+body:not(.dark) #screen4 .route-card .route-note-input::placeholder {
+  color: #73818b !important; opacity: 1 !important;
+}
 </style>
 
 
