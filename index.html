@@ -8246,11 +8246,22 @@ addrInput.dataset.fullAddress = item.addr || '';
 addrInput.rows = 1;
 // На мобильных устройствах не даём жесту карточки/переключения слота
 // перехватить первое касание поля. Это сохраняет фокус и ввод сразу после добавления адреса.
+// Android WebView: stop card gestures, but never intercept the IME/input pipeline.
+// In particular, do not stop keydown/beforeinput: some Android keyboards deliver
+// text through composition/beforeinput and propagation blockers can swallow it.
 addrInput.addEventListener('pointerdown', (e) => { e.stopPropagation(); }, { passive: true });
 addrInput.addEventListener('touchstart', (e) => { e.stopPropagation(); }, { passive: true });
-addrInput.addEventListener('click', (e) => { e.stopPropagation(); }, { passive: true });
-addrInput.addEventListener('keydown', (e) => { e.stopPropagation(); });
-addrInput.addEventListener('beforeinput', (e) => { e.stopPropagation(); });
+addrInput.addEventListener('click', (e) => { e.stopPropagation(); });
+addrInput.addEventListener('compositionstart', () => { addrInput.dataset.composing = '1'; });
+addrInput.addEventListener('compositionend', () => {
+  delete addrInput.dataset.composing;
+  item.addr = addrInput.value;
+  item.addrDisplay = addrInput.value;
+  delete addrInput.dataset.fullAddress;
+  saveRouteState(routeState);
+  autoGrow(addrInput);
+  _mapHash = '';
+});
 
 // Функция авто-высоты
 function autoGrow(el) {
@@ -8259,12 +8270,13 @@ function autoGrow(el) {
 }
 
 addrInput.addEventListener('input', () => {
+  // Let Android IME finish composing multi-stage characters before persisting.
   item.addr = addrInput.value;
   item.addrDisplay = addrInput.value;
   delete addrInput.dataset.fullAddress;
   saveRouteState(routeState);
   autoGrow(addrInput);
-  _mapHash = '';                  
+  _mapHash = '';
 });
 
 // ─── Кнопка микрофона внутри поля адреса ───
@@ -9343,19 +9355,14 @@ if (_openSlotId) {
       updateDrawerRoutes();
       _mapHash = '';
       if (map) renderMapMarkers();
-      // На мобильных браузерах первый focus сразу после перерисовки иногда
-      // открывает клавиатуру, но ввод не попадает в textarea. Сначала прокручиваем
-      // карточку без анимации, затем фокусируем уже вставленное в DOM поле.
-      // Focus exactly once after the new card is mounted. Re-focusing on delayed
-      // timers can interrupt the mobile keyboard's input/composition session:
-      // the keyboard appears, but typed characters are dropped until re-render.
+      // Android WebView requires a real user tap for a reliable IME session.
+      // Do not programmatically focus the newly-created textarea here: WebView can
+      // show the keyboard but drop text until the slot is re-rendered. Just reveal it.
       requestAnimationFrame(() => {
         const inputs = document.querySelectorAll(`#app4 .route-time-block[data-time-id="${t.id}"] .route-addr-input`);
-        const target = inputs[inputs.length - 1]; // the card we just added
+        const target = inputs[inputs.length - 1];
         if (!target || !target.isConnected) return;
         target.scrollIntoView({ behavior: 'auto', block: 'center' });
-        try { target.focus({ preventScroll: true }); } catch (_) { target.focus(); }
-        try { const n = target.value.length; target.setSelectionRange(n, n); } catch (_) {}
       });
     });
     body.appendChild(addBtn);
