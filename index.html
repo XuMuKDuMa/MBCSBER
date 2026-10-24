@@ -8249,6 +8249,8 @@ addrInput.rows = 1;
 addrInput.addEventListener('pointerdown', (e) => { e.stopPropagation(); }, { passive: true });
 addrInput.addEventListener('touchstart', (e) => { e.stopPropagation(); }, { passive: true });
 addrInput.addEventListener('click', (e) => { e.stopPropagation(); }, { passive: true });
+addrInput.addEventListener('keydown', (e) => { e.stopPropagation(); });
+addrInput.addEventListener('beforeinput', (e) => { e.stopPropagation(); });
 
 // Функция авто-высоты
 function autoGrow(el) {
@@ -9341,11 +9343,22 @@ if (_openSlotId) {
       updateDrawerRoutes();
       _mapHash = '';
       if (map) renderMapMarkers();
-      setTimeout(() => {
+      // На мобильных браузерах первый focus сразу после перерисовки иногда
+      // открывает клавиатуру, но ввод не попадает в textarea. Сначала прокручиваем
+      // карточку без анимации, затем фокусируем уже вставленное в DOM поле.
+      const focusNewAddress = () => {
         const inputs = document.querySelectorAll(`#app4 .route-time-block[data-time-id="${t.id}"] .route-addr-input`);
-        const last = Array.from(inputs).find(i => !i.value.trim()) || inputs[inputs.length - 1];
-        if (last) { last.focus(); last.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-      }, 50);
+        const target = Array.from(inputs).find(i => !i.value.trim()) || inputs[inputs.length - 1];
+        if (!target || !target.isConnected) return;
+        target.scrollIntoView({ behavior: 'auto', block: 'center' });
+        try { target.focus({ preventScroll: true }); } catch (_) { target.focus(); }
+        try { const n = target.value.length; target.setSelectionRange(n, n); } catch (_) {}
+      };
+      requestAnimationFrame(() => {
+        focusNewAddress();
+        setTimeout(focusNewAddress, 180);
+        setTimeout(focusNewAddress, 450);
+      });
     });
     body.appendChild(addBtn);
     block.appendChild(body);
