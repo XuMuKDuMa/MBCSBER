@@ -8244,6 +8244,11 @@ addrInput.placeholder = 'Адрес доставки';
 addrInput.value = item.addrDisplay || item.addr || '';
 addrInput.dataset.fullAddress = item.addr || '';
 addrInput.rows = 1;
+// На мобильных устройствах не даём жесту карточки/переключения слота
+// перехватить первое касание поля. Это сохраняет фокус и ввод сразу после добавления адреса.
+addrInput.addEventListener('pointerdown', (e) => { e.stopPropagation(); }, { passive: true });
+addrInput.addEventListener('touchstart', (e) => { e.stopPropagation(); }, { passive: true });
+addrInput.addEventListener('click', (e) => { e.stopPropagation(); }, { passive: true });
 
 // Функция авто-высоты
 function autoGrow(el) {
@@ -8926,6 +8931,13 @@ card.appendChild(statusLine);
   requestAnimationFrame(() => autoGrow(addrInput));
   setTimeout(() => autoGrow(addrInput), 100);
   setTimeout(() => autoGrow(addrInput), 300);
+  // После первого касания повторно сохраняем фокус на поле, если браузер его потерял
+  // из-за перестройки карточки; повторный focus не запускается при обычном рендере.
+  addrInput.addEventListener('focus', () => {
+    requestAnimationFrame(() => {
+      if (document.activeElement === addrInput) autoGrow(addrInput);
+    });
+  });
     addrInput.addEventListener('change', () => autoGrow(addrInput));
   addrInput.addEventListener('blur', () => autoGrow(addrInput));
 
