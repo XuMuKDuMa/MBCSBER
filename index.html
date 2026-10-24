@@ -8332,15 +8332,22 @@ addrWrap.appendChild(btnMic);
     const r = addrInput.getBoundingClientRect();
     const gap = 6;
     const maxH = Math.min(260, Math.round(window.innerHeight * 0.34));
-    list.style.left = Math.max(8, r.left) + 'px';
+    const availableAbove = Math.max(0, r.top - gap - 8);
+    const availableBelow = Math.max(0, window.innerHeight - r.bottom - gap - 8);
+    const desired = Math.min(list.scrollHeight || maxH, maxH);
+    const placeAbove = availableAbove >= Math.min(desired, 110) || availableAbove >= availableBelow;
+    const actualH = Math.min(desired, placeAbove ? availableAbove : availableBelow);
+    list.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 128)) + 'px';
     list.style.width = Math.max(120, Math.min(r.width, window.innerWidth - Math.max(8, r.left) - 8)) + 'px';
-    list.style.maxHeight = maxH + 'px';
-    list.style.top = Math.max(8, r.top - Math.min(list.scrollHeight || maxH, maxH) - gap) + 'px';
-    // Если над полем недостаточно места, закрепляем список в видимой верхней области.
-    if (r.top < maxH + 24) list.style.top = '8px';
+    list.style.maxHeight = Math.max(80, actualH) + 'px';
+    list.style.top = (placeAbove ? Math.max(8, r.top - Math.max(80, actualH) - gap) : r.bottom + gap) + 'px';
   }
   window.addEventListener('resize', () => { if (list.style.display === 'block') positionList(); });
   window.addEventListener('scroll', () => { if (list.style.display === 'block') positionList(); }, true);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => { if (list.style.display === 'block') positionList(); });
+    window.visualViewport.addEventListener('scroll', () => { if (list.style.display === 'block') positionList(); });
+  }
 
   function closeList() {
     list.style.display = 'none';
@@ -8398,7 +8405,10 @@ addrWrap.appendChild(btnMic);
       const cityPart = d.city || d.settlement || d.city_with_type || d.settlement_with_type || getMyCity() || '';
       sub.textContent = cityPart + (d.postal_code ? ' · ' + d.postal_code : '');
       row.appendChild(sub);
-      row.addEventListener('click', e => { e.preventDefault(); choose(s); });
+      // Не даём мобильному браузеру снять фокус с поля до выбора подсказки.
+      row.addEventListener('pointerdown', e => { e.preventDefault(); }, { passive: false });
+      row.addEventListener('mousedown', e => { e.preventDefault(); });
+      row.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); choose(s); });
       row.addEventListener('mouseenter', () => setActive(i));
       list.appendChild(row);
     });
@@ -8543,6 +8553,7 @@ addrWrap.appendChild(btnMic);
   }
   addrInput.setAttribute('autocomplete', 'off');
   addrInput.setAttribute('aria-autocomplete', 'list');
+  // Не перехватываем обычный ввод: автопоиск запускается только после ввода символов.
   addrInput.addEventListener('input', () => {
     delete addrInput.dataset.fullAddress;
     clearTimeout(timer);
@@ -8558,7 +8569,9 @@ addrWrap.appendChild(btnMic);
     else if (e.key === 'Enter' && activeIndex >= 0) { e.preventDefault(); choose(suggestions[activeIndex]); }
     else if (e.key === 'Escape') closeList();
   });
-  addrInput.addEventListener('blur', () => setTimeout(closeList, 180));
+  addrInput.addEventListener('blur', () => setTimeout(() => {
+    if (!list.contains(document.activeElement)) closeList();
+  }, 220));
   addrInput.addEventListener('focus', () => {
     if (addrInput.value.trim().length >= 3 && suggestions.length) { list.style.display = 'block'; positionList(); requestAnimationFrame(positionList); }
   });
