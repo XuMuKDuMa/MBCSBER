@@ -10750,8 +10750,8 @@ function plannedMeetingsCounts() {
         done++;
         if (mid) {
           doneCounts[mid] = (doneCounts[mid] || 0) + 1;
-          const mt = (getMeetingTypes()[it.category || 'b2c'] || []).find(x => x.id === mid);
-          if (mt) doneUp += Number(mt.up) || 0;
+          // Типы карточек хранят только id/label; коэффициент УП берём из общего реестра «Сегодня».
+          doneUp += Number(meetingTypeUp(mid)) || 0;
         }
       }
     }));
@@ -16216,8 +16216,8 @@ body:not(.dark) #screen4 .route-card .route-note-input::placeholder {
     <h1 class="mls-title">Твой рабочий день</h1>
     <div class="mls-date" id="mlsDate"></div>
     <div class="mls-stats">
-      <div class="mls-stat"><div class="mls-stat-num" id="mlsMeetings">—</div><div class="mls-stat-label">Успешных / назначено</div></div>
-      <div class="mls-stat"><div class="mls-stat-num" id="mlsUp">—</div><div class="mls-stat-label">УП по встречам</div></div>
+      <div class="mls-stat"><div class="mls-stat-num" id="mlsMeetings">—</div><div class="mls-stat-label">Встреч назначено</div></div>
+      <div class="mls-stat"><div class="mls-stat-num" id="mlsWaiting">—</div><div class="mls-stat-label">Встреч ждут</div></div>
     </div>
     <button type="button" class="mls-open" id="mlsOpenBtn">Открыть МВС ↑</button>
     <div class="mls-hint">Свайпни вверх, чтобы продолжить</div>
@@ -16233,26 +16233,24 @@ body:not(.dark) #screen4 .route-card .route-note-input::placeholder {
     try { if(typeof window.goToTab==='function') window.goToTab(5,false); } catch(e) {}
     try { const d=document.getElementById('mlsDate'); if(d) d.textContent=new Intl.DateTimeFormat('ru-RU',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date()); } catch(e) {}
     function stats(){
-      let assigned=0, done=0, up='—';
+      let assigned=0, waiting=0;
       try {
-        // Источник назначенных и успешных встреч — та же сводка Активностей,
-        // что обновляет основную плашку B2C/B2B в приложении.
+        // Назначено берём из тех же счётчиков B2C/B2B, что используются в разделе «Сегодня».
         if(typeof calcTotals1==='function'){
           const t=calcTotals1();
           assigned=(Number(t.b2cTotal)||0)+(Number(t.b2bTotal)||0);
-          done=(Number(t.b2cDone)||0)+(Number(t.b2bDone)||0);
         }
-        // УП берём именно из плашки «УП по встречам» в daySummaryHtml,
-        // не из первого случайного числа на экране.
-        if(typeof daySummaryHtml==='function'){
-          const h=daySummaryHtml();
-          const m=h.match(/<span[^>]*>\s*([0-9]+(?:[.,][0-9]+)?)\s*<\/span>\s*<small[^>]*>\s*УП по встречам/i);
-          if(m) up=m[1].replace('.',',');
+        // «Ждут» — число карточек активностей со статусом ожидания на текущий день.
+        if(typeof getRouteCounts==='function'){
+          const c=getRouteCounts();
+          waiting=Number(c.wait)||0;
+        } else if(typeof routeState!=='undefined' && typeof ROUTE_TIMES!=='undefined') {
+          ROUTE_TIMES.forEach(t=>(routeState.lists[t.id]||[]).forEach(item=>{if(item && item.status==='wait') waiting++;}));
         }
       } catch(e) {}
-      const a=document.getElementById('mlsMeetings'), b=document.getElementById('mlsUp');
-      if(a) a.textContent=String(done)+' / '+String(assigned);
-      if(b) b.textContent=up;
+      const a=document.getElementById('mlsMeetings'), b=document.getElementById('mlsWaiting');
+      if(a) a.textContent=String(assigned);
+      if(b) b.textContent=String(waiting);
     }
     setTimeout(stats,500);setTimeout(stats,1600);setTimeout(()=>{try{if(window.map&&window.map.invalidateSize)window.map.invalidateSize(true)}catch(e){}},500);
     let closed=false, startY=0,lastY=0,startT=0,dragging=false;
