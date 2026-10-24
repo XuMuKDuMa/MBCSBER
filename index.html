@@ -6565,6 +6565,7 @@ body.dark .product-advisor-accordion .paa-content>div[style*="background:rgba(12
 
 <div class="menu" id="menu3">
   <button id="btnOpenCityModal" style="color:#2980b9;">🏙 Мой город</button>
+  <button id="btnDaDataKey" style="color:#2980b9;">🔑 Ключ DaData (подсказки адресов)</button>
   <button id="btnOpenRoutePoints" style="color:#00897b;">🚗 Начальная и конечная точка</button>
   <button id="btnOpenFuel" style="color:#e67e22;">⛽ Расход бензина</button>
   <button id="btnOpenMaxGroups" style="color:#6c5ce7;">💬 Группы в MAX</button>
@@ -6579,6 +6580,16 @@ body.dark .product-advisor-accordion .paa-content>div[style*="background:rgba(12
   <button id="btnClearMapCache" onclick="window.__clearMapCache && window.__clearMapCache()" style="color:#e67e22;">🗺 Очистить кэш карты</button>
 </div>
 
+<div id="daDataKeyModal" class="modal" style="display:none;position:fixed;inset:0;z-index:2147483646;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:20px;">
+  <div style="width:min(460px,100%);background:var(--card-bg,#fff);color:var(--text-color,#223);border-radius:16px;padding:20px;box-shadow:0 15px 50px #0004;">
+    <div style="font-size:18px;font-weight:700;margin-bottom:8px;">🔑 Ключ DaData</div>
+    <div style="font-size:13px;opacity:.8;margin-bottom:12px;">Ключ сохраняется в этом браузере на вашем устройстве. Не публикуйте его в репозитории.</div>
+    <input id="daDataKeyInput" type="password" autocomplete="off" placeholder="Вставьте API-ключ DaData" style="box-sizing:border-box;width:100%;padding:12px;border:1px solid #aab7c0;border-radius:10px;margin-bottom:12px;">
+    <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+      <button id="daDataKeyCancel" type="button">Отмена</button><button id="daDataKeyClear" type="button">Удалить ключ</button><button id="daDataKeySave" type="button">Сохранить</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 <div class="status-overlay" id="statusOverlay"></div>
 <div class="status-menu" id="statusMenu"></div>
@@ -8281,7 +8292,7 @@ addrWrap.appendChild(btnMic);
 // Используем прямой API, чтобы поиск не зависел от локальных suggestions.min.js/css.
 // Ограничение по city_fias_id удалено: ранее был указан неверный идентификатор региона.
 (function initMvsDaDataAutocomplete() {
-  const DADATA_API_KEY = "630e3f0765777f98ed735703ef307d64c9f7c6d8";
+  const getDaDataApiKey = () => { try { return (localStorage.getItem("mvs_dadata_api_key") || "").trim(); } catch (_) { return ""; } };
   const endpoint = 'https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/address';
   let timer = null;
   let controller = null;
@@ -8389,9 +8400,11 @@ addrWrap.appendChild(btnMic);
     const city = getMyCity();
     const body = { query, count: 8, language: 'ru', locations: [{ country: '*', ...(city ? { city } : {}) }] };
     try {
+      const apiKey = getDaDataApiKey();
+      if (!apiKey) throw new Error('Не задан ключ DaData. Откройте меню «Итоги» → «Ключ DaData» и сохраните ключ.');
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': 'Token ' + DADATA_API_KEY },
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': 'Token ' + apiKey },
         body: JSON.stringify(body),
         signal: controller.signal
       });
@@ -8407,7 +8420,7 @@ addrWrap.appendChild(btnMic);
       if (!items.length && city && seq === requestSeq) {
         const r2 = await fetch(endpoint, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': 'Token ' + DADATA_API_KEY },
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': 'Token ' + getDaDataApiKey() },
           body: JSON.stringify({ query, count: 8, language: 'ru', locations: [{ country: '*' }] }),
           signal: controller.signal
         });
@@ -11846,6 +11859,30 @@ function openCityModal() {
 function closeCityModal() {
   document.getElementById('cityModal').classList.remove('show');
 }
+
+// Ключ DaData вводится через меню «Итоги», а не хранится в исходном коде.
+(() => {
+  const modal = document.getElementById('daDataKeyModal');
+  const input = document.getElementById('daDataKeyInput');
+  const close = () => { if (modal) modal.style.display = 'none'; };
+  document.getElementById('btnDaDataKey')?.addEventListener('click', () => {
+    document.getElementById('menu3')?.classList.remove('show');
+    try { input.value = localStorage.getItem('mvs_dadata_api_key') || ''; } catch (_) { input.value = ''; }
+    modal.style.display = 'flex'; input.focus();
+  });
+  document.getElementById('daDataKeyCancel')?.addEventListener('click', close);
+  document.getElementById('daDataKeySave')?.addEventListener('click', () => {
+    const value = input.value.trim();
+    if (!value) { showToast('Введите ключ DaData или нажмите «Удалить ключ».'); return; }
+    try { localStorage.setItem('mvs_dadata_api_key', value); close(); showToast('Ключ DaData сохранён в этом браузере.'); }
+    catch (_) { showToast('Не удалось сохранить ключ в браузере.'); }
+  });
+  document.getElementById('daDataKeyClear')?.addEventListener('click', () => {
+    try { localStorage.removeItem('mvs_dadata_api_key'); } catch (_) {}
+    input.value = ''; close(); showToast('Ключ DaData удалён.');
+  });
+  modal?.addEventListener('click', e => { if (e.target === modal) close(); });
+})();
 
 // Кнопка в меню ⋮
 document.getElementById('btnOpenCityModal')?.addEventListener('click', () => {
