@@ -1977,6 +1977,11 @@ body.dark .bb-item.active .bb-text { color: #4ade80; }
     position: relative;
   }
   body.dark .cal-cell { background: #1c2733; color: #e8eef5; }
+  .cal-cell.cal-vacation { background:#d5f5e3 !important; color:#196f3d !important; box-shadow:inset 0 0 0 2px #27ae60; cursor:pointer; }
+  .cal-cell.cal-sick { background:#fdebd0 !important; color:#935116 !important; box-shadow:inset 0 0 0 2px #e67e22; cursor:pointer; }
+  .cal-cell:not(.empty) { cursor:pointer; }
+  body.dark .cal-cell.cal-vacation { background:#145a32 !important; color:#eafaf1 !important; }
+  body.dark .cal-cell.cal-sick { background:#784212 !important; color:#fff3e0 !important; }
   .cal-cell.empty { background: #f4f6f8; }
   body.dark .cal-cell.empty { background: #16202a; }
   .cal-cell.weekend { color: #c0392b; }
@@ -7767,7 +7772,17 @@ function isHoliday(date) {
 }
 function isWeekend(date) { const day = date.getDay(); return day === 0 || day === 6; }
 function isWorkingDay(date) { if (isWeekend(date)) return false; if (isHoliday(date)) return false; return true; }
+const ABSENCE_CAL_KEY = 'mvs_totals_absences_v1';
+function loadCalendarAbsences() {
+  try { return JSON.parse(localStorage.getItem(ABSENCE_CAL_KEY) || '{}') || {}; }
+  catch (e) { return {}; }
+}
+function saveCalendarAbsences(data) { localStorage.setItem(ABSENCE_CAL_KEY, JSON.stringify(data)); }
+function calendarDateKey(date) {
+  return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+}
 function getWorkingDaysStats(refDate = new Date()) {
+  const absences = loadCalendarAbsences();
   const year = refDate.getFullYear();
   const month = refDate.getMonth();
   const today = new Date(year, month, refDate.getDate());
@@ -7776,11 +7791,12 @@ function getWorkingDaysStats(refDate = new Date()) {
   const days = [];
   for (let d = 1; d <= lastDay; d++) {
     const date = new Date(year, month, d);
-    const working = isWorkingDay(date);
+    const absence = absences[calendarDateKey(date)] || '';
+    const working = isWorkingDay(date) && !absence;
     const holiday = isHoliday(date);
     const weekend = isWeekend(date);
     const isToday = d === today.getDate();
-    days.push({ date: d, dateObj: date, working, holiday, weekend, isToday });
+    days.push({ date: d, dateObj: date, working, holiday, weekend, isToday, absence });
     if (working) { total++; if (d < today.getDate()) past++; else remaining++; }
   }
   return { total, past, remaining, days };
@@ -12357,6 +12373,28 @@ function kmFuelAnalysisLines() {
 function forecastBlockHtml(o) {
   const plan = o.plan, monthUP = o.monthUP, remains = o.remains, wd = o.wd;
   if (!(plan > 0)) return '';
+  const elapsedWorkdays = wd.past + wd.days.filter(d => d.working && d.isToday).length;
+  const analysisReady = elapsedWorkdays >= 5;
+  const history = loadHistory1();
+  const monthEntries = Object.keys(history).map(key => {
+    const parts = key.split('.').map(Number);
+    if (parts.length !== 3 || parts[1] !== new Date().getMonth() + 1 || parts[2] !== new Date().getFullYear()) return null;
+    return { key, date: new Date(parts[2], parts[1] - 1, parts[0]), up: Number(history[key].up || 0) };
+  }).filter(Boolean).sort((a,b) => a.date - b.date);
+  const absenceMap = loadCalendarAbsences();
+  let workdayIndex = 0, upAtMilestone = 0;
+  const milestones = [];
+  const dayUpByKey = {};
+  monthEntries.forEach(e => { dayUpByKey[calendarDateKey(e.date)] = e.up; });
+  const today = new Date();
+  for (let d = 1; d <= today.getDate(); d++) {
+    const date = new Date(today.getFullYear(), today.getMonth(), d);
+    if (!isWorkingDay(date) || absenceMap[calendarDateKey(date)]) continue;
+    workdayIndex++;
+    upAtMilestone += dayUpByKey[calendarDateKey(date)] || 0;
+    if (workdayIndex % 5 === 0) milestones.push({ days: workdayIndex, up: upAtMilestone, avg: upAtMilestone / workdayIndex });
+  }
+  const latestMilestone = milestones.length ? milestones[milestones.length - 1] : null;
   const fmt = (v, d) => (Math.round(v * Math.pow(10, d)) / Math.pow(10, d)).toFixed(d).replace('.', ',');
   const row = (name, val, sub, color) => `<div class="row" style="justify-content:space-between;align-items:center;">
       <div class="name" style="flex:1">${name}</div>
@@ -12389,7 +12427,14 @@ function forecastBlockHtml(o) {
       + row('Продаж до плана', '≈ ' + salesNeed, 'в среднем ' + fmt(avgUp, 2) + ' УП на продажу (' + avgNote + ')', '#3949ab')
       + (meetPerSale ? row('Встреч для этих продаж', '≈ ' + Math.ceil(salesNeed * meetPerSale), 'при твоей конверсии') : '');
   }
-  return `<div class="section"><div class="section-title" style="background:#3949ab;">🧮 Прогноз по плану</div>${body}</div>`;
+  const analysisHtml = !analysisReady
+    ? `<div style="padding:12px;font-size:13px;line-height:1.5;color:var(--text-secondary,#777);">Анализ появится после 5 отработанных рабочих дней. Сейчас учтено: ${elapsedWorkdays} из 5.</div>`
+    : `<div style="padding:12px;font-size:13px;line-height:1.55;">
+        <div style="font-weight:800;margin-bottom:6px;">📊 Анализ по контрольным отрезкам по 5 рабочих дней</div>
+        ${milestones.length ? milestones.map(m => `<div style="padding:9px 0;border-bottom:1px solid rgba(127,127,127,.18);"><b>${m.days} рабочих дней</b> · ${m.up.toFixed(2)} УП · в среднем ${m.avg.toFixed(2)} УП/день. ${m.avg * wd.total >= plan ? 'Текущий темп соответствует плану.' : 'Текущий темп ниже необходимого для плана.'}</div>`).join('') : 'Пока не завершён первый отрезок из 5 рабочих дней.'}
+        ${latestMilestone ? `<div style="margin-top:10px;"><b>Последний анализ:</b> при темпе ${latestMilestone.avg.toFixed(2)} УП за рабочий день прогноз на ${wd.total} рабочих дней — ${(latestMilestone.avg * wd.total).toFixed(2)} УП. ${latestMilestone.avg * wd.total >= plan ? 'По текущему темпу план достижим.' : 'Чтобы выполнить план, нужно увеличить темп до ' + (plan / Math.max(1, wd.total)).toFixed(2) + ' УП в рабочий день.'}</div>` : ''}
+      </div>`;
+  return `<div class="section"><div class="section-title history-toggle" id="planForecastToggle" style="background:#3949ab;cursor:pointer;display:flex;justify-content:space-between;align-items:center;"><span>🧮 Прогноз по плану</span><span id="planForecastArrow" style="transition:transform .2s;">▼</span></div><div id="planForecastBody" style="display:none;">${body}${analysisHtml}</div></div>`;
 }
 
 function renderTotals3() {
@@ -12502,8 +12547,8 @@ const trBlock = `
   const daysBlock = `<div class="section"><div class="section-title sec-days">📅 Рабочие дни (${getMonthNameLocal()})</div><div class="days-block"><div class="days-row"><span class="label">Всего в месяце:</span><span class="val">${wdStats.total}</span></div><div class="days-row"><span class="label">Прошло:</span><span class="val">${wdStats.past}</span></div><div class="days-row highlight"><span class="label">Осталось:</span><span class="val">${wdStats.remaining}</span></div>${plan > 0 && remains > 0 && wdStats.remaining > 0 ? `<div class="forecast-block"><div class="forecast-label">📊 Нужно УП в день</div><div class="forecast-value">${forecastUP.toFixed(2)} УП</div></div>` : ''}<button class="days-toggle" id="daysToggle">▼ Показать календарь</button>${buildCalendarHtml(wdStats)}</div></div>`;
   const chartBlock = `
     <div class="section">
-      <div class="section-title" style="background:#16a085;">📈 Динамика УП по дням</div>
-      <div class="up-chart-body">${buildUpChartSvg(monthDays, plan)}</div>
+      <div class="section-title history-toggle" id="upChartToggle" style="background:#16a085;cursor:pointer;display:flex;justify-content:space-between;align-items:center;"><span>📈 Динамика УП по дням</span><span id="upChartArrow" style="transition:transform .2s;">▼</span></div>
+      <div id="upChartBody" style="display:none;"><div class="up-chart-body">${buildUpChartSvg(monthDays, plan)}</div></div>
     </div>`;
   app.innerHTML = `
     <div class="section"><div class="section-title sec-plan">🎯 План на месяц</div><div class="row" style="padding:14px 12px;"><div class="name" style="font-size:15px;font-weight:600;">УП план:</div><input class="plan-input" id="planInput" type="text" inputmode="decimal" value="${getPlanUP()}" placeholder="0"></div></div>
@@ -12630,7 +12675,47 @@ if (salesPlanToggle && salesPlanBody && salesPlanArrow) {
       }
     });
   }
-    // Аккордеон «История по дням»
+    // Аккордеон «Динамика УП по дням»
+  const upChartToggle = document.getElementById('upChartToggle');
+  const upChartBody = document.getElementById('upChartBody');
+  const upChartArrow = document.getElementById('upChartArrow');
+  if (upChartToggle && upChartBody && upChartArrow) upChartToggle.addEventListener('click', () => {
+    const isOpen = upChartBody.style.display !== 'none';
+    upChartBody.style.display = isOpen ? 'none' : 'block';
+    upChartArrow.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+    vibro(10);
+  });
+  // Аккордеон «Прогноз по плану»
+  const planForecastToggle = document.getElementById('planForecastToggle');
+  const planForecastBody = document.getElementById('planForecastBody');
+  const planForecastArrow = document.getElementById('planForecastArrow');
+  if (planForecastToggle && planForecastBody && planForecastArrow) planForecastToggle.addEventListener('click', () => {
+    const isOpen = planForecastBody.style.display !== 'none';
+    planForecastBody.style.display = isOpen ? 'none' : 'block';
+    planForecastArrow.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+    vibro(10);
+  });
+  // Отметки отпуска и больничного в календаре: обычный -> отпуск -> больничный -> обычный
+  const calendarGrid = document.querySelector('#daysList .cal-grid');
+  if (calendarGrid) calendarGrid.addEventListener('click', (e) => {
+    const cell = e.target.closest('[data-calendar-day]');
+    if (!cell) return;
+    const date = new Date(new Date().getFullYear(), new Date().getMonth(), Number(cell.dataset.calendarDay));
+    const key = calendarDateKey(date);
+    const absences = loadCalendarAbsences();
+    const current = absences[key] || '';
+    if (!current) absences[key] = 'vacation';
+    else if (current === 'vacation') absences[key] = 'sick';
+    else delete absences[key];
+    saveCalendarAbsences(absences);
+    vibro(10);
+    renderTotals3();
+    const calBtn = document.getElementById('daysToggle');
+    const cal = document.getElementById('daysList');
+    if (cal && calBtn) { cal.classList.add('show'); calBtn.textContent = '▲ Скрыть календарь'; }
+  });
+
+  // Аккордеон «История по дням»
   const daysHistToggle = document.getElementById('daysHistoryToggle');
   const daysHistBody = document.getElementById('daysHistoryBody');
   const daysHistArrow = document.getElementById('daysHistoryArrow');
@@ -12872,16 +12957,20 @@ function buildCalendarHtml(wdStats) {
     const holiday = isHoliday(dateObj);
     const weekend = isWeekend(dateObj);
     const isToday = day === todayDate;
+    const absence = (loadCalendarAbsences()[calendarDateKey(dateObj)] || '');
     let cls = 'cal-cell';
     if (holiday) cls += ' holiday';
     else if (weekend) cls += ' weekend';
+    if (absence === 'vacation') cls += ' cal-vacation';
+    if (absence === 'sick') cls += ' cal-sick';
     if (isToday) cls += ' today';
-    cellsHtml += `<div class="${cls}">${day}</div>`;
+    const marker = absence === 'vacation' ? '🏖️' : (absence === 'sick' ? '🤒' : '');
+    cellsHtml += `<div class="${cls}" data-calendar-day="${day}" title="Нажми, чтобы отметить отпуск или больничный">${day}${marker ? `<span style="position:absolute;bottom:1px;right:2px;font-size:10px;">${marker}</span>` : ''}</div>`;
   }
   const totalCells = leadingEmpty + lastDay;
   const trailingEmpty = (7 - (totalCells % 7)) % 7;
   for (let i = 0; i < trailingEmpty; i++) cellsHtml += `<div class="cal-cell empty"></div>`;
-  const legendHtml = `<div class="cal-legend"><span><span class="dot red"></span>выходной / праздник (*)</span><span><span class="dot green"></span>сегодня</span></div>`;
+  const legendHtml = `<div class="cal-legend"><span><span class="dot red"></span>выходной / праздник (*)</span><span>🏖️ отпуск</span><span>🤒 больничный</span><span><span class="dot green"></span>сегодня</span></div><div style="font-size:11px;text-align:center;color:#7f8c8d;margin-top:6px;">Нажми на дату: обычный день → отпуск → больничный → обычный день. Отпуск и больничный исключаются из рабочих дней.</div>`;
   return `<div class="cal-wrap" id="daysList"><div class="cal-title">${monthTitle}</div><div class="cal-grid">${headHtml}${cellsHtml}</div>${legendHtml}</div>`;
 }
 
