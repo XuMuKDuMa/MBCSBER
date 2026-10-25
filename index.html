@@ -16670,7 +16670,7 @@ body:not(.dark) #screen4 .route-card .route-note-input::placeholder {
     if(!splash || splash.dataset.swipeReady==='1') return;
     splash.dataset.swipeReady='1';
     document.body.classList.add('mvs-splash-open');
-    try { if(typeof window.goToTab==='function') window.goToTab(5,false); } catch(e) {}
+    try { if(typeof window.goToTab==='function') window.goToTab(4,false); } catch(e) {}
     try { const d=document.getElementById('mlsDate'); if(d) d.textContent=new Intl.DateTimeFormat('ru-RU',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date()); } catch(e) {}
     function stats(){
       let up=0, upFD=0;
@@ -16691,7 +16691,7 @@ body:not(.dark) #screen4 .route-card .route-note-input::placeholder {
     function close(){
       if(closed)return; closed=true;
       splash.classList.remove('mls-dragging'); splash.classList.add('mls-hide');
-      const done=()=>{try{splash.remove()}catch(e){};document.body.classList.remove('mvs-splash-open');document.body.style.overflow='';try{if(typeof window.goToTab==='function')window.goToTab(5,false)}catch(e){}};
+      const done=()=>{try{splash.remove()}catch(e){};document.body.classList.remove('mvs-splash-open');document.body.style.overflow='';try{if(typeof window.goToTab==='function')window.goToTab(4,false)}catch(e){}};
       setTimeout(done,450);
     }
     const btn=document.getElementById('mlsOpenBtn'); if(btn){btn.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();close()},true);btn.addEventListener('touchend',function(e){e.preventDefault();close()},{passive:false});}
