@@ -6002,6 +6002,32 @@ body.dark .route-finished-label{color:#62d999;background:rgba(98,217,153,.1);}
 .route-meetings-columns .route-card { min-width:0; }
 .route-meetings-columns .route-column-empty { padding:16px 8px; font-size:13px; text-align:center; }
 
+
+/* Улучшенная читаемость полей ввода в тёмной теме */
+body.dark .route-nondelivery-input,
+body.dark #qFdNotes,
+body.dark .quick-textarea,
+body.dark .quick-input {
+  background: #202a35 !important;
+  color: #f1f5f9 !important;
+  border-color: #526170 !important;
+  caret-color: #ffffff !important;
+}
+body.dark .route-nondelivery-input::placeholder,
+body.dark #qFdNotes::placeholder,
+body.dark .quick-textarea::placeholder,
+body.dark .quick-input::placeholder {
+  color: #aebbc8 !important;
+  opacity: 1;
+}
+body.dark .route-nondelivery-input:focus,
+body.dark #qFdNotes:focus,
+body.dark .quick-textarea:focus,
+body.dark .quick-input:focus {
+  border-color: #73b7ff !important;
+  outline: 2px solid rgba(115,183,255,.22);
+}
+
 </style>
 
 
@@ -8043,6 +8069,7 @@ function openStatusMenu(anchor, item, timeId, mode) {
           list.splice(idx, 1);
           saveRouteState(routeState);
           renderRoute();
+          if (typeof updateAutoNonDeliveryReport === 'function') updateAutoNonDeliveryReport();
           updateDrawerRoutes();
           updateActivitiesBadge();
           _mapHash = '';
@@ -8058,6 +8085,7 @@ function openStatusMenu(anchor, item, timeId, mode) {
         syncCardCredit(item);
         saveRouteState(routeState);
         renderRoute();
+        if (typeof updateAutoNonDeliveryReport === 'function') updateAutoNonDeliveryReport();
         updateDrawerRoutes();
         updateActivitiesBadge();
         _mapHash = '';
@@ -8955,7 +8983,25 @@ startBtn.addEventListener('click', (e) => {
   statusLine.appendChild(startBtn);
 }
 
+// Причина недоставки — хранится в карточке и автоматически попадает в отчёт.
+const reasonWrap = document.createElement('div');
+reasonWrap.className = 'route-nondelivery-wrap';
+reasonWrap.style.cssText = 'padding:6px 10px 8px;border-top:1px solid rgba(120,130,140,.15);';
+const reasonInput = document.createElement('input');
+reasonInput.type = 'text';
+reasonInput.className = 'route-nondelivery-input';
+reasonInput.placeholder = 'Причина недоставки (если встреча под вопросом)';
+reasonInput.value = item.nonDeliveryReason || '';
+reasonInput.style.cssText = 'display:block;width:100%;min-width:0;box-sizing:border-box;border:1px solid #d8dee5;border-radius:8px;padding:8px 10px;font:inherit;font-size:13px;background:rgba(245,247,250,.8);color:inherit;';
+reasonInput.addEventListener('click', e => e.stopPropagation());
+reasonInput.addEventListener('input', () => {
+  item.nonDeliveryReason = reasonInput.value;
+  saveRouteState(routeState);
+  if (typeof updateAutoNonDeliveryReport === 'function') updateAutoNonDeliveryReport();
+});
+reasonWrap.appendChild(reasonInput);
 card.appendChild(statusLine);
+card.appendChild(reasonWrap);
 
   // Авто-высота для textarea — после вставки в DOM
   requestAnimationFrame(() => autoGrow(addrInput));
@@ -11159,13 +11205,14 @@ function loadQuickReport() {
       willDo: q.willDo || '',
       willDoB2B: q.willDoB2B || '',
       fdNotes: q.fdNotes || '',
+      fdNotesManual: q.fdNotesManual || '',
       b2cNagManual: !!q.b2cNagManual,
       b2bNagManual: !!q.b2bNagManual,
       willDoManual: !!q.willDoManual,
       willDoB2BManual: !!q.willDoB2BManual
     };
   } catch (e) {
-    return { planDay: '', planDayManual: false, b2cNag: '', b2bNag: '', willDo: '', willDoB2B: '', fdNotes: '', b2cNagManual: false, b2bNagManual: false, willDoManual: false, willDoB2BManual: false };
+    return { planDay: '', planDayManual: false, b2cNag: '', b2bNag: '', willDo: '', willDoB2B: '', fdNotes: '', fdNotesManual: '', b2cNagManual: false, b2bNagManual: false, willDoManual: false, willDoB2BManual: false };
   }
 }
 function saveQuickReport(q) { localStorage.setItem(QUICK_REPORT_KEY, JSON.stringify(q)); }
@@ -11203,6 +11250,38 @@ function buildQuickProductsList() {
   });
   return lines;
 }
+function getAutoNonDeliveryLines() {
+  const rows = [];
+  if (typeof ROUTE_TIMES === 'undefined' || typeof routeState === 'undefined' || !routeState || !routeState.lists) return rows;
+  ROUTE_TIMES.forEach(t => (routeState.lists[t.id] || []).forEach(item => {
+    if (!item || !String(item.addr || '').trim()) return;
+    const reason = String(item.nonDeliveryReason || '').trim();
+    // В отчёте остаются причины у всех несостоявшихся встреч, включая статус «Отмена» (perenos).
+    // Исключаем только проведённые встречи; удалённые карточки не попадут сюда, так как их уже нет в списке.
+    if (!reason || item.status === 'done') return;
+    rows.push({ addr: String(item.addrDisplay || item.addr).trim(), reason });
+  }));
+  return rows.map((x, i) => `${i + 1} ФД — ${x.reason}`);
+}
+function updateAutoNonDeliveryReport() {
+  const field = document.getElementById('qFdNotes');
+  const q = loadQuickReport();
+  const autoLines = getAutoNonDeliveryLines();
+  const autoText = autoLines.join('\n');
+  // Убираем из ручного текста старые автоматически созданные строки.
+  // Это важно, когда встречу удалили или изменили её статус.
+  const manualText = String(q.fdNotesManual || '')
+    .split(/\r?\n/)
+    .filter(line => !/^\s*\d+\s+ФД\s*[—–-]/i.test(line))
+    .join('\n').trim();
+  q.fdNotesManual = manualText;
+  const merged = [manualText, autoText].filter(Boolean).join('\n');
+  q.fdNotes = merged;
+  saveQuickReport(q);
+  if (field) field.value = merged;
+  if (typeof updateQuickPreview === 'function') updateQuickPreview();
+}
+
 function buildQuickReportText() {
   const q = loadQuickReport();
   const t = calcTotals1();
@@ -12134,7 +12213,7 @@ document.getElementById('qB2cNag').addEventListener('input', (e) => { const q = 
 document.getElementById('qB2bNag').addEventListener('input', (e) => { const q = loadQuickReport(); q.b2bNag = e.target.value; q.b2bNagManual = true; saveQuickReport(q); updateQuickPreview(); });
 document.getElementById('qWillDo').addEventListener('input', (e) => { const q = loadQuickReport(); q.willDo = e.target.value; q.willDoManual = true; saveQuickReport(q); updateQuickPreview(); });
 document.getElementById('qWillDoB2B').addEventListener('input', (e) => { const q = loadQuickReport(); q.willDoB2B = e.target.value; q.willDoB2BManual = true; saveQuickReport(q); updateQuickPreview(); });
-document.getElementById('qFdNotes').addEventListener('input', (e) => { const q = loadQuickReport(); q.fdNotes = e.target.value; saveQuickReport(q); updateQuickPreview(); });
+document.getElementById('qFdNotes').addEventListener('input', (e) => { const q = loadQuickReport(); q.fdNotesManual = e.target.value.split(/\r?\n/).filter(line => !/^\s*\d+\s+ФД\s*[—–-]/i.test(line)).join('\n').trim(); q.fdNotes = e.target.value; saveQuickReport(q); updateQuickPreview(); });
 document.getElementById('qCancel').addEventListener('click', closeQuickReport);
 document.getElementById('qSend').addEventListener('click', async () => {
   const text = buildQuickReportText();
@@ -15721,6 +15800,7 @@ document.getElementById('aapBody')?.addEventListener('click', (e) => {
 });  
 
 loadGeocache();
+try { updateAutoNonDeliveryReport(); } catch (e) {}
 
 /* ═══════════════════════════════════════════════
    ФОКУС-РЕЖИМ: тап по замыленному фону — сброс
