@@ -11082,21 +11082,21 @@ function daySummaryHtml() {
   let html = `<div class="ds-title">📅 Сегодня · встречи и УП</div><div class="ds-body">`;
   html += `
   <div style="display:flex;justify-content:space-between;align-items:stretch;gap:6px;padding:12px 14px 10px;">
-    <div style="flex:1;border-radius:14px;padding:10px 4px;background:rgba(46,134,193,.10);text-align:center;">
-      <span style="display:block;font-size:22px;font-weight:800;color:#2471a3;">${f2(meetUp)}</span>
-      <small style="display:block;margin-top:4px;font-size:10px;font-weight:700;opacity:.7;line-height:1.2;">УП по встречам<br>(без продаж)</small>
+    <div style="flex:1;border-radius:14px;padding:10px 4px;background:rgba(46,134,193,.15);border:1px solid rgba(36,113,163,.22);text-align:center;">
+      <span style="display:block;font-size:23px;font-weight:900;color:#145a86;text-shadow:0 0 .2px currentColor;">${f2(meetUp)}</span>
+      <small style="display:block;margin-top:4px;font-size:11px;font-weight:800;color:#174b6a;opacity:1;line-height:1.25;">УП по встречам<br>(без продаж)</small>
     </div>
-    <div style="flex:1.2;border-radius:14px;padding:10px 5px;background:rgba(142,68,173,.10);text-align:center;">
-      <span style="display:block;font-size:22px;font-weight:800;color:#7d3c98;">${doneMeets} / ${totalMeets}</span>
-      <small style="display:block;margin-top:4px;font-size:10px;font-weight:700;opacity:.75;line-height:1.2;">Проведено встреч · TR</small>
+    <div style="flex:1.2;border-radius:14px;padding:10px 5px;background:rgba(142,68,173,.15);border:1px solid rgba(125,60,152,.22);text-align:center;">
+      <span style="display:block;font-size:${totalMeets === 0 ? 16 : 23}px;font-weight:900;color:#642780;">${totalMeets === 0 ? 'Нет встреч' : doneMeets + ' / ' + totalMeets}</span>
+      <small style="display:block;margin-top:4px;font-size:11px;font-weight:800;color:#54216c;opacity:1;line-height:1.25;">Проведено встреч · TR</small>
       <div style="font-size:13px;font-weight:800;color:${trColor};margin-top:5px;">${trPct}% <span style="font-size:10px;font-weight:700;opacity:.75;">/ цель 90%</span></div>
       <div style="height:5px;background:rgba(120,120,128,.2);border-radius:4px;overflow:hidden;margin:5px 5px 0;">
         <div style="height:100%;width:${trProgressPct}%;background:${trColor};border-radius:4px;transition:width .3s;"></div>
       </div>
     </div>
-    <div style="flex:1;border-radius:14px;padding:10px 4px;background:rgba(243,156,18,.10);text-align:center;">
-      <span style="display:block;font-size:22px;font-weight:800;color:#d35400;">${f2(fdUpSales)}</span>
-      <small style="display:block;margin-top:4px;font-size:10px;font-weight:700;opacity:.7;line-height:1.2;">УП на ФД<br>(продажи)</small>
+    <div style="flex:1;border-radius:14px;padding:10px 4px;background:rgba(243,156,18,.16);border:1px solid rgba(211,84,0,.22);text-align:center;">
+      <span style="display:block;font-size:23px;font-weight:900;color:#a84300;text-shadow:0 0 .2px currentColor;">${f2(fdUpSales)}</span>
+      <small style="display:block;margin-top:4px;font-size:11px;font-weight:800;color:#783400;opacity:1;line-height:1.25;">УП на ФД<br>(продажи)</small>
     </div>
   </div>
   `;
