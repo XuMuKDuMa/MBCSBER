@@ -6578,6 +6578,25 @@ body.mvs-launch-motion .bottomBar .bb-item:nth-child(5){animation-delay:.42s}
 }
 </style>
 
+
+<style id="mvs-dark-theme-contrast-fix">
+/* Улучшенная контрастность статистики в тёмной теме; светлая тема не меняется */
+body.dark .ds-body > div[style*="display:flex"][style*="justify-content:space-between"] > div:nth-child(1) > span {
+  color: #58b9ff !important; text-shadow: 0 0 8px rgba(56,165,255,.18) !important;
+}
+body.dark .ds-body > div[style*="display:flex"][style*="justify-content:space-between"] > div:nth-child(1) > small { color: #a9dfff !important; }
+body.dark .ds-body > div[style*="display:flex"][style*="justify-content:space-between"] > div:nth-child(2) > span {
+  color: #d99aff !important; text-shadow: 0 0 8px rgba(190,110,255,.16) !important;
+}
+body.dark .ds-body > div[style*="display:flex"][style*="justify-content:space-between"] > div:nth-child(2) > small { color: #e2c1ff !important; }
+body.dark .ds-body > div[style*="display:flex"][style*="justify-content:space-between"] > div:nth-child(3) > span {
+  color: #ffb45f !important; text-shadow: 0 0 8px rgba(255,160,50,.16) !important;
+}
+body.dark .ds-body > div[style*="display:flex"][style*="justify-content:space-between"] > div:nth-child(3) > small { color: #ffd2a0 !important; }
+body.dark .ds-body .ds-name, body.dark .ds-body .ds-gl, body.dark .ds-body .ds-sep,
+body.dark .ds-body small, body.dark .ds-body > div[style*="font-size:11px"],
+body.dark .ds-body > div[style*="font-size:10px"] { color: #c5d0dc !important; opacity: 1 !important; }
+</style>
 </head>
 <body class="tab-4 mvs-startup-anim">
 
