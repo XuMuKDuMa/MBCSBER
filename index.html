@@ -6500,64 +6500,90 @@ body.dark .route-card.route-slot-t16_18 .route-time-col{color:#58d68d!important}
 body.dark .route-card::after{filter:saturate(1.15) brightness(1.12)}
 </style>
 
-<style>
-/* Мягкое появление ярлыков при запуске — вдохновлено анимацией iOS */
-#mvs-launch-splash{
-  position:fixed; inset:0; z-index:999999; display:flex; flex-direction:column;
-  align-items:center; justify-content:center; gap:24px;
-  background:var(--app-bg, #f4f6fb); color:var(--text, #17202a);
-  opacity:1; transition:opacity .38s ease, visibility .38s ease;
-  -webkit-tap-highlight-color:transparent;
+
+
+<style id="mvs-ios-real-screen-entry">
+/* iOS-inspired launch: animate real screen elements, never show floating placeholder icons */
+body.mvs-ios-entry #screen4 .screen-date-bar,
+body.mvs-ios-entry #screen4 #app > *,
+body.mvs-ios-entry #screen4 .activity-card,
+body.mvs-ios-entry #screen4 .slot-card,
+body.mvs-ios-entry #screen4 .screen-section {
+  animation: mvsRealItemIn .48s cubic-bezier(.2,.8,.2,1) both;
 }
-body.dark #mvs-launch-splash{background:#10151d;color:#f3f6fa}
-#mvs-launch-splash.mvs-launch-out{opacity:0;visibility:hidden;pointer-events:none}
-#mvs-launch-splash .mvs-launch-brand{
-  font-size:clamp(25px,7vw,36px);font-weight:800;letter-spacing:.4px;
-  opacity:0; transform:translateY(8px); animation:mvsBrandIn .48s .12s ease-out forwards;
+body.mvs-ios-entry #screen4 #app > *:nth-child(1){animation-delay:.04s}
+body.mvs-ios-entry #screen4 #app > *:nth-child(2){animation-delay:.09s}
+body.mvs-ios-entry #screen4 #app > *:nth-child(3){animation-delay:.14s}
+body.mvs-ios-entry #screen4 #app > *:nth-child(4){animation-delay:.19s}
+body.mvs-ios-entry #screen4 #app > *:nth-child(5){animation-delay:.24s}
+body.mvs-ios-entry #screen4 #app > *:nth-child(6){animation-delay:.29s}
+body.mvs-ios-entry .bottom-nav,
+body.mvs-ios-entry .bottom-navigation,
+body.mvs-ios-entry .nav-bar {
+  animation: mvsNavIn .55s cubic-bezier(.2,.8,.2,1) .12s both;
 }
-#mvs-launch-splash .mvs-launch-sub{font-size:13px;opacity:0;animation:mvsBrandIn .4s .25s ease-out forwards}
-#mvs-launch-splash .mvs-launch-grid{
-  display:grid;grid-template-columns:repeat(3, minmax(62px,74px));gap:18px 20px;
+@keyframes mvsRealItemIn {
+  from {opacity:0; transform:translateY(13px) scale(.985); filter:blur(2px)}
+  to {opacity:1; transform:translateY(0) scale(1); filter:blur(0)}
 }
-#mvs-launch-splash .mvs-launch-icon{
-  display:flex;flex-direction:column;align-items:center;gap:7px;
-  opacity:0;transform:translateY(22px) scale(.72);
-  animation:mvsIconPop .52s cubic-bezier(.2,.85,.25,1.25) forwards;
+@keyframes mvsNavIn {
+  from {opacity:0; transform:translateY(18px) scale(.98)}
+  to {opacity:1; transform:translateY(0) scale(1)}
 }
-#mvs-launch-splash .mvs-launch-tile{
-  width:60px;height:60px;border-radius:19px;display:grid;place-items:center;
-  font-size:28px;color:#fff;box-shadow:0 8px 18px #0002;
-}
-#mvs-launch-splash .mvs-launch-label{font-size:11px;font-weight:600;white-space:nowrap;opacity:.82}
-#mvs-launch-splash .mvs-tile-activity{background:linear-gradient(145deg,#36c98f,#159a70)}
-#mvs-launch-splash .mvs-tile-map{background:linear-gradient(145deg,#55a8ff,#2864d8)}
-#mvs-launch-splash .mvs-tile-totals{background:linear-gradient(145deg,#a58bff,#7151d8)}
-#mvs-launch-splash .mvs-tile-report{background:linear-gradient(145deg,#ffb45c,#e77729)}
-#mvs-launch-splash .mvs-tile-route{background:linear-gradient(145deg,#ff7b8d,#d94365)}
-#mvs-launch-splash .mvs-tile-profile{background:linear-gradient(145deg,#8d9aa9,#536170)}
-@keyframes mvsIconPop{to{opacity:1;transform:translateY(0) scale(1)}}
-@keyframes mvsBrandIn{to{opacity:1;transform:translateY(0)}}
-@media(prefers-reduced-motion:reduce){
- #mvs-launch-splash *,#mvs-launch-splash *::before{animation-duration:.01ms!important;animation-delay:0ms!important;transition-duration:.01ms!important}
+@media(prefers-reduced-motion:reduce) {
+ body.mvs-ios-entry #screen4 *, body.mvs-ios-entry .bottom-nav,
+ body.mvs-ios-entry .bottom-navigation, body.mvs-ios-entry .nav-bar {
+   animation:none!important; filter:none!important;
+ }
 }
 </style>
+
+
+<style id="mvs-ios-launch-motion">
+/* Более заметное появление настоящего экрана «Активности» — без отдельной заставки */
+body.mvs-launch-motion #app4 > *,
+body.mvs-launch-motion #screen4 .screen-date-bar {
+  opacity:0;
+  animation:mvsLaunchPop .62s cubic-bezier(.16,1,.3,1) forwards;
+  will-change:transform,opacity,filter;
+}
+body.mvs-launch-motion #app4 > *:nth-child(1){animation-delay:.06s}
+body.mvs-launch-motion #app4 > *:nth-child(2){animation-delay:.13s}
+body.mvs-launch-motion #app4 > *:nth-child(3){animation-delay:.20s}
+body.mvs-launch-motion #app4 > *:nth-child(4){animation-delay:.27s}
+body.mvs-launch-motion #app4 > *:nth-child(5){animation-delay:.34s}
+body.mvs-launch-motion #app4 > *:nth-child(6){animation-delay:.41s}
+body.mvs-launch-motion #app4 > *:nth-child(7){animation-delay:.48s}
+body.mvs-launch-motion .bottomBar .bb-item{
+  animation:mvsShortcutPop .68s cubic-bezier(.16,1,.3,1) both;
+}
+body.mvs-launch-motion .bottomBar .bb-item:nth-child(1){animation-delay:.14s}
+body.mvs-launch-motion .bottomBar .bb-item:nth-child(2){animation-delay:.21s}
+body.mvs-launch-motion .bottomBar .bb-item:nth-child(3){animation-delay:.28s}
+body.mvs-launch-motion .bottomBar .bb-item:nth-child(4){animation-delay:.35s}
+body.mvs-launch-motion .bottomBar .bb-item:nth-child(5){animation-delay:.42s}
+@keyframes mvsLaunchPop{
+  0%{opacity:0;transform:translateY(28px) scale(.94);filter:blur(7px)}
+  65%{opacity:1;transform:translateY(-2px) scale(1.012);filter:blur(0)}
+  100%{opacity:1;transform:translateY(0) scale(1);filter:blur(0)}
+}
+@keyframes mvsShortcutPop{
+  0%{opacity:0;transform:translateY(26px) scale(.72)}
+  68%{opacity:1;transform:translateY(-3px) scale(1.06)}
+  100%{opacity:1;transform:translateY(0) scale(1)}
+}
+@media(prefers-reduced-motion:reduce){
+ body.mvs-launch-motion #app4 > *,body.mvs-launch-motion #screen4 .screen-date-bar,
+ body.mvs-launch-motion .bottomBar .bb-item{animation:none!important;opacity:1!important;filter:none!important}
+}
+</style>
+
 </head>
 <body class="tab-4 mvs-startup-anim">
 
 
 
-<div id="mvs-launch-splash" aria-hidden="true">
-  <div class="mvs-launch-brand">МВС</div>
-  <div class="mvs-launch-sub">Ваш рабочий день — под контролем</div>
-  <div class="mvs-launch-grid">
-    <div class="mvs-launch-icon" style="animation-delay:.08s"><div class="mvs-launch-tile mvs-tile-activity">✓</div><span class="mvs-launch-label">Активности</span></div>
-    <div class="mvs-launch-icon" style="animation-delay:.16s"><div class="mvs-launch-tile mvs-tile-map">⌖</div><span class="mvs-launch-label">Карта</span></div>
-    <div class="mvs-launch-icon" style="animation-delay:.24s"><div class="mvs-launch-tile mvs-tile-totals">▥</div><span class="mvs-launch-label">Итоги</span></div>
-    <div class="mvs-launch-icon" style="animation-delay:.32s"><div class="mvs-launch-tile mvs-tile-report">▤</div><span class="mvs-launch-label">Отчёт</span></div>
-    <div class="mvs-launch-icon" style="animation-delay:.40s"><div class="mvs-launch-tile mvs-tile-route">➤</div><span class="mvs-launch-label">Маршрут</span></div>
-    <div class="mvs-launch-icon" style="animation-delay:.48s"><div class="mvs-launch-tile mvs-tile-profile">●</div><span class="mvs-launch-label">МВС</span></div>
-  </div>
-</div>
+
 
 <div class="screens-viewport" id="screensViewport">
   <div class="screens-track" id="screensTrack">
@@ -14960,10 +14986,7 @@ renderRoute();
 updateActivitiesBadge();
 
 // ─── Стартовый экран: с 10:00 до 18:00 — «Карта», иначе «Активности» ───
-const _startOnMap = (() => {
-  const h = new Date().getHours();
-  return h >= 10 && h < 18;
-})();
+const _startOnMap = false; // Всегда открываем «Активности» при запуске приложения
 
 // ─── Принудительно открываем стартовый экран ───
 function forceOpenActivitiesTab() {
@@ -16818,26 +16841,62 @@ document.addEventListener('click', function(ev) {
 </script>
 
 
-<script>
+
+
+
+
+
+
+
+
+
+
+
+
+<script id="mvs-startup-activities-final">
 (function(){
-  function mvsStartOnActivities(){
-    try {
+  var animated=false, pending=false;
+  function forceActivities(){
+    try{
+      if(typeof goToTab === 'function'){
+        if(typeof currentTab === 'undefined' || currentTab !== 4) goToTab(4, false);
+      }
+      var w=window.innerWidth||document.documentElement.clientWidth;
+      var track=document.getElementById('screensTrack');
+      if(track&&w){track.style.transition='none';track.style.transform='translateX('+(-3*w)+'px)';}
       document.body.classList.remove('tab-1','tab-2','tab-3','tab-5');
       document.body.classList.add('tab-4');
-      document.querySelectorAll('.screen').forEach(function(s){s.classList.toggle('active',s.id==='screen4');});
-      var track=document.getElementById('screensTrack');
-      if(track){track.style.transform='translateX(-60%)';}
-    } catch(e) {}
-    var splash=document.getElementById('mvs-launch-splash');
-    if(splash){
-      var done=false;
-      function closeSplash(){if(done)return;done=true;splash.classList.add('mvs-launch-out');setTimeout(function(){if(splash.parentNode)splash.parentNode.removeChild(splash);},450);}
-      splash.addEventListener('click',closeSplash,{once:true});
-      setTimeout(closeSplash,1550);
-    }
+      if(typeof updateBottomBarActive==='function')updateBottomBarActive(4);
+    }catch(e){}
   }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mvsStartOnActivities,{once:true});
-  else mvsStartOnActivities();
+  function playAfterVisible(){
+    if(animated||pending||document.visibilityState==='hidden')return;
+    pending=true;
+    // Wait until the Android/iOS-style launch overlay has had time to disappear.
+    setTimeout(function(){
+      pending=false;
+      if(animated||document.visibilityState==='hidden')return;
+      forceActivities();
+      document.body.classList.remove('mvs-launch-motion');
+      void document.body.offsetWidth;
+      document.body.classList.add('mvs-launch-motion');
+      animated=true;
+      setTimeout(function(){document.body.classList.remove('mvs-launch-motion');},1700);
+    },650);
+  }
+  function boot(){
+    forceActivities();
+    // Do not animate under the native splash screen. Trigger when the page is shown/uncovered.
+    document.addEventListener('visibilitychange',function(){
+      if(document.visibilityState==='visible')playAfterVisible();
+    });
+    window.addEventListener('pageshow',function(){playAfterVisible();});
+    window.addEventListener('focus',function(){playAfterVisible();});
+    // On first launch where visibility never changes, use a delayed fallback.
+    setTimeout(function(){if(!animated&&document.visibilityState==='visible')playAfterVisible();},2600);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});
+  else boot();
 })();
 </script>
 
