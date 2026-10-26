@@ -6647,6 +6647,22 @@ body.mvs-ios-entry .nav-bar {
   font-size:12px;line-height:1.4;color:inherit}
 </style>
 
+
+<style id="mvs-route-button-visible-fix">
+.mvs-route-action-row{
+  position:relative;z-index:5;display:flex;align-items:center;justify-content:center;
+  width:100%;box-sizing:border-box;padding:7px 12px;
+  background:rgba(255,255,255,.96);border-bottom:1px solid rgba(0,0,0,.08);
+}
+body.dark .mvs-route-action-row{background:rgba(24,29,37,.97);border-bottom-color:rgba(255,255,255,.1)}
+#mvsOptimizeRouteBtn{
+  display:flex!important;align-items:center;justify-content:center;
+  width:100%;max-width:420px;min-height:42px;box-sizing:border-box;
+  font-size:14px!important;letter-spacing:.1px;
+}
+#mapView{top:158px!important}
+</style>
+
 </head>
 <body class="tab-4 mvs-startup-anim">
 
@@ -6704,6 +6720,8 @@ body.mvs-ios-entry .nav-bar {
         <button class="map-filter" data-map-filter="t12_14">12–14</button>
         <button class="map-filter" data-map-filter="t14_16">14–16</button>
         <button class="map-filter" data-map-filter="t16_18">16–18</button>
+      </div>
+      <div class="mvs-route-action-row">
         <button class="mvs-route-optimize-btn" id="mvsOptimizeRouteBtn" type="button">🧭 Оптимизировать маршрут</button>
       </div>
       <div id="mapView"></div>
