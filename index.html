@@ -6631,38 +6631,52 @@ body.mvs-ios-entry .nav-bar {
 #screen4 .route-card:not(.mvs-compact-closed) .mvs-native-toggle span{transform:rotate(180deg)}
 </style>
 
-
-<style id="mvs-smart-route-style">
-#mvsOptimizeRouteBtn{
-  flex:0 0 auto;min-height:34px;padding:7px 12px;border:1px solid #269b69;
-  border-radius:11px;background:linear-gradient(135deg,#1ca96d,#138354);
-  color:#fff;font-size:12px;font-weight:800;white-space:nowrap;
-  box-shadow:0 3px 10px #0002;touch-action:manipulation;
-}
-#mvsOptimizeRouteBtn:disabled{opacity:.55}
-.map-toolbar{overflow-x:auto;scrollbar-width:none}
-.map-toolbar::-webkit-scrollbar{display:none}
-.mvs-route-result{margin:8px 12px;padding:10px 12px;border-radius:12px;
-  background:rgba(30,150,100,.12);border:1px solid rgba(30,150,100,.3);
-  font-size:12px;line-height:1.4;color:inherit}
+<style id="mvs-efficiency-analytics-v1">
+/* MVS Efficiency analytics refresh v1: visual layer only, existing calculations preserved */
+#screen3 { background:linear-gradient(180deg,#0e1822 0%,#111e29 45%,#101923 100%)!important;color:#edf5f8!important; }
+#screen3 .r1-header { background:linear-gradient(120deg,#087f78,#12a88b 58%,#087b68)!important;border-bottom:1px solid rgba(255,255,255,.12)!important;box-shadow:0 8px 24px rgba(0,0,0,.16); }
+#screen3 .r1-header h1 { color:#fff!important;letter-spacing:-.4px; }
+#screen3 .r1-header .date { color:rgba(255,255,255,.78)!important; }
+#screen3 #app3 { padding:12px 12px 180px!important; }
+#screen3 #app3 .section { overflow:hidden;border:1px solid rgba(148,177,194,.16)!important;border-radius:20px!important;background:linear-gradient(145deg,rgba(31,47,60,.97),rgba(20,32,43,.98))!important;box-shadow:0 8px 24px rgba(0,0,0,.16)!important;margin:0 0 14px!important; }
+#screen3 #app3 .section-title { border-radius:0!important;padding:15px 16px!important;color:#f6fbff!important;font-size:15px!important;font-weight:800!important;letter-spacing:.1px; }
+#screen3 #app3 .sec-plan { background:linear-gradient(110deg,#087f72,#13a87f)!important; }
+#screen3 #app3 .sec-total { background:linear-gradient(110deg,#153e4a,#1b6a68)!important; }
+#screen3 #app3 .sec-tr { background:linear-gradient(110deg,#254d68,#327da0)!important; }
+#screen3 #app3 .sec-days { background:linear-gradient(110deg,#4b367b,#6951a4)!important; }
+#screen3 #app3 .sec-months { background:linear-gradient(110deg,#243c50,#31586b)!important; }
+#screen3 #app3 .row,#screen3 #app3 .days-row { color:#e9f2f7!important;border-color:rgba(170,197,211,.12)!important; }
+#screen3 #app3 .name,#screen3 #app3 .label { color:#b6c8d3!important; }
+#screen3 #app3 .plan-input { color:#eafff8!important;background:#142d34!important;border:1px solid #25c79b!important;border-radius:12px!important; }
+#screen3 #app3 .total-grid { padding:12px!important;gap:10px!important; }
+#screen3 #app3 .total-card { min-height:94px;display:flex;flex-direction:column;justify-content:center;gap:3px;border-radius:17px!important;border:1px solid rgba(170,200,216,.13)!important;background:linear-gradient(145deg,#263b4a,#1b2b38)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.035); }
+#screen3 #app3 .total-card .label { font-size:10px!important;line-height:1.35;letter-spacing:.7px;color:#a9bfca!important; }
+#screen3 #app3 .total-card .value { color:#f3fbff!important;font-size:24px!important;font-weight:850!important;letter-spacing:-.5px; }
+#screen3 #app3 .total-card.full { background:linear-gradient(120deg,#078b70,#14b887)!important;border:1px solid rgba(109,255,206,.35)!important;align-items:flex-start;text-align:left;padding:18px!important; }
+#screen3 #app3 .total-card.full .label { color:#d4fff0!important;font-size:11px!important; }
+#screen3 #app3 .total-card.full .value { font-size:34px!important;color:#fff!important; }
+#screen3 #app3 .total-card.ok { background:linear-gradient(135deg,#07986e,#17bd83)!important; }
+#screen3 #app3 .total-card.btn-sales { background:linear-gradient(135deg,#a85d1b,#d98227)!important;border:1px solid rgba(255,195,120,.25)!important; }
+#screen3 #app3 .total-card.btn-meetings { background:linear-gradient(135deg,#205d91,#258ac0)!important;border:1px solid rgba(120,200,255,.25)!important; }
+#screen3 #app3 .progress-bar { height:24px!important;border-radius:14px!important;background:#10212a!important;border:1px solid rgba(255,255,255,.12); }
+#screen3 #app3 .progress-bar .fill { background:linear-gradient(90deg,#10a879,#6ee7b7)!important;border-radius:14px!important;box-shadow:0 0 16px rgba(16,168,121,.24); }
+#screen3 #app3 .progress-bar .text { color:#fff!important;font-weight:850!important;text-shadow:0 1px 3px rgba(0,0,0,.5); }
+#screen3 #app3 .days-block,#screen3 #app3 .tr-block { padding:12px!important; }
+#screen3 #app3 .days-row { padding:10px 4px!important; }
+#screen3 #app3 .days-row.highlight { color:#6ee7b7!important;font-weight:800; }
+#screen3 #app3 .forecast-block { margin-top:10px;padding:14px!important;border-radius:16px!important;background:linear-gradient(135deg,rgba(7,143,105,.22),rgba(24,88,86,.28))!important;border:1px solid rgba(55,220,166,.2)!important; }
+#screen3 #app3 .forecast-value { color:#6ee7b7!important;font-size:25px!important;font-weight:850!important; }
+#screen3 #app3 .tr-item { border-radius:15px!important;background:#1a2c39!important;border:1px solid rgba(170,200,216,.12);padding:13px!important; }
+#screen3 #app3 .history-toggle { border-radius:0!important; }
+#screen3 #app3 .up-chart-body { padding:12px!important; }
+#screen3 #app3 button.days-toggle { border-radius:12px!important;background:#126f64!important;color:#fff!important;border:1px solid rgba(255,255,255,.12)!important; }
+#screen3 #app3 #runAiAnalysis3 { border-radius:14px!important;background:linear-gradient(110deg,#087f72,#16b887)!important;box-shadow:0 5px 14px rgba(7,127,114,.25); }
+#screen3 #app3 #aiAnalysisResult3 { color:#e6f1f6!important;background:rgba(5,14,22,.45)!important;border:1px solid rgba(150,190,210,.15); }
+#screen3 #app3 .section-title[style*="background:#3949ab"],#screen3 #app3 .section-title[style*="background: #3949ab"] { background:linear-gradient(110deg,#24465c,#286f7c)!important; }
+#screen3 #app3 .section-title[style*="background:#16a085"] { background:linear-gradient(110deg,#087f72,#13a87f)!important; }
+#screen3 #app3 .section-title[style*="background:#e67e22"] { background:linear-gradient(110deg,#9b5b22,#c47b2d)!important; }
+@media(max-width:390px){#screen3 #app3{padding-left:9px!important;padding-right:9px!important}#screen3 #app3 .total-card{padding:11px!important;min-height:88px}#screen3 #app3 .total-card .value{font-size:21px!important}#screen3 #app3 .total-card.full .value{font-size:31px!important}}
 </style>
-
-
-<style id="mvs-route-button-visible-fix">
-.mvs-route-action-row{
-  position:relative;z-index:5;display:flex;align-items:center;justify-content:center;
-  width:100%;box-sizing:border-box;padding:7px 12px;
-  background:rgba(255,255,255,.96);border-bottom:1px solid rgba(0,0,0,.08);
-}
-body.dark .mvs-route-action-row{background:rgba(24,29,37,.97);border-bottom-color:rgba(255,255,255,.1)}
-#mvsOptimizeRouteBtn{
-  display:flex!important;align-items:center;justify-content:center;
-  width:100%;max-width:420px;min-height:42px;box-sizing:border-box;
-  font-size:14px!important;letter-spacing:.1px;
-}
-#mapView{top:158px!important}
-</style>
-
 </head>
 <body class="tab-4 mvs-startup-anim">
 
@@ -6720,9 +6734,6 @@ body.dark .mvs-route-action-row{background:rgba(24,29,37,.97);border-bottom-colo
         <button class="map-filter" data-map-filter="t12_14">12–14</button>
         <button class="map-filter" data-map-filter="t14_16">14–16</button>
         <button class="map-filter" data-map-filter="t16_18">16–18</button>
-      </div>
-      <div class="mvs-route-action-row">
-        <button class="mvs-route-optimize-btn" id="mvsOptimizeRouteBtn" type="button">🧭 Оптимизировать маршрут</button>
       </div>
       <div id="mapView"></div>
       <div class="map-bottom-card" id="mapInfoCard">
@@ -17008,129 +17019,6 @@ document.addEventListener('click', function(ev) {
     const root=document.querySelector('#screen4 #app4');
     if(root)new MutationObserver(scan).observe(root,{childList:true,subtree:true});
     setTimeout(scan,250);setTimeout(scan,800);setTimeout(scan,1600);
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});
-  else start();
-})();
-</script>
-
-
-<script id="mvs-smart-route-js">
-(function(){
-  const R=6371;
-  function km(a,b){
-    const rad=x=>x*Math.PI/180;
-    const dLat=rad(b[0]-a[0]),dLon=rad(b[1]-a[1]);
-    const x=Math.sin(dLat/2)**2+Math.cos(rad(a[0]))*Math.cos(rad(b[0]))*Math.sin(dLon/2)**2;
-    return 2*R*Math.asin(Math.min(1,Math.sqrt(x)));
-  }
-  function normAddr(s){return String(s||'').trim().toLocaleLowerCase().replace(/\s+/g,' ');}
-  async function coordsFor(item){
-    const addr=String(item?.addr||'').trim();
-    if(!addr)return null;
-    try{
-      const c=await geocodeAddress(addr);
-      if(Array.isArray(c)&&c.length>=2&&Number.isFinite(+c[0])&&Number.isFinite(+c[1]))return [+c[0],+c[1]];
-    }catch(e){}
-    return null;
-  }
-  function getResultBox(){
-    let el=document.getElementById('mvsRouteOptimizeResult');
-    if(!el){
-      el=document.createElement('div');el.id='mvsRouteOptimizeResult';el.className='mvs-route-result';
-      const toolbar=document.querySelector('.map-toolbar');
-      if(toolbar)toolbar.insertAdjacentElement('afterend',el);
-    }
-    return el;
-  }
-  async function optimize(){
-    const btn=document.getElementById('mvsOptimizeRouteBtn');
-    if(!btn||btn.disabled)return;
-    btn.disabled=true;const old=btn.textContent;btn.textContent='⏳ Считаю…';
-    const result=getResultBox();
-    try{
-      const all=[];
-      ROUTE_TIMES.forEach((slot,si)=>{
-        (routeState.lists[slot.id]||[]).forEach((item,idx)=>{
-          if(item&&String(item.addr||'').trim())all.push({slotId:slot.id,slotIndex:si,index:idx,item});
-        });
-      });
-      if(all.length<2){result.textContent='Для оптимизации добавь минимум два адреса с заполненными адресными полями.';return;}
-      // Resolve each appointment separately. Duplicate addresses remain separate appointments,
-      // while their shared coordinates naturally produce near-zero travel distance.
-      for(const a of all){a.coords=await coordsFor(a.item);}
-      const unresolved=all.filter(a=>!a.coords);
-      if(unresolved.length===all.length){
-        result.textContent='Не удалось определить координаты адресов. Проверь адреса на карте и попробуй ещё раз.';return;
-      }
-      // Preserve the slot assignment and chronological slots. The first appointment in the
-      // day's schedule is the anchor; then use nearest-neighbour ordering within each later slot.
-      // Completed and in-progress appointments keep their relative positions and are not moved.
-      let current=all.find(a=>a.slotIndex===0&&a.index===0)?.coords || all.find(a=>a.coords)?.coords;
-      let totalKm=0,optimizedCount=0,unknownCount=0;
-      for(let si=0;si<ROUTE_TIMES.length;si++){
-        const slot=ROUTE_TIMES[si],list=routeState.lists[slot.id]||[];
-        if(!list.length)continue;
-        const fixed=[],pending=[];
-        list.forEach((item,index)=>{
-          const entry=all.find(a=>a.slotId===slot.id&&a.index===index);
-          if(!item||!String(item.addr||'').trim()||item.startedAt||item.status==='done'||item.status==='perenos'||item.status==='ndz'){
-            fixed.push({item,index,entry});return;
-          }
-          pending.push({item,index,entry});
-        });
-        // Do not reorder a slot if some addresses cannot be geocoded.
-        if(pending.some(p=>!p.entry||!p.entry.coords)){
-          unknownCount+=pending.filter(p=>!p.entry||!p.entry.coords).length;
-          const first=list.findIndex(x=>x&&x.addr&&x.addr.trim());
-          if(first>=0){
-            const e=all.find(a=>a.slotId===slot.id&&a.index===first);
-            if(e&&e.coords)current=e.coords;
-          }
-          continue;
-        }
-        const ordered=[];
-        while(pending.length){
-          let bestI=0,bestD=Infinity;
-          if(!current){bestI=0;}
-          else pending.forEach((p,i)=>{
-            const d=km(current,p.entry.coords);
-            if(d<bestD){bestD=d;bestI=i;}
-          });
-          const next=pending.splice(bestI,1)[0];
-          if(current){totalKm+=km(current,next.entry.coords);}
-          current=next.entry.coords;ordered.push(next);optimizedCount++;
-        }
-        // Reorder only eligible (not started/completed/cancelled) activities in their existing slots.
-        let pi=0;
-        for(let i=0;i<list.length;i++){
-          const item=list[i];
-          if(item&&String(item.addr||'').trim()&&!item.startedAt&&!['done','perenos','ndz'].includes(item.status)){
-            if(ordered[pi])list[i]=ordered[pi++].item;
-          }
-        }
-        // Set the route's current anchor to the final address in this slot.
-        const last=list.slice().reverse().find(x=>x&&String(x.addr||'').trim());
-        if(last){
-          const e=all.find(a=>a.slotId===slot.id&&normAddr(a.item.addr)===normAddr(last.addr)&&a.coords);
-          if(e)current=e.coords;
-        }
-      }
-      saveRouteState(routeState);
-      if(typeof renderRoute==='function')renderRoute();
-      if(typeof updateDrawerRoutes==='function')updateDrawerRoutes();
-      if(typeof updateActivitiesBadge==='function')updateActivitiesBadge();
-      if(typeof renderMapMarkers==='function'&&typeof map!=='undefined'&&map)await renderMapMarkers();
-      result.textContent='Маршрут упорядочен по ближайшим адресам внутри каждого временного слота. Встречи не переносились между слотами; повторные встречи по одному адресу сохранены отдельно. Оценка расстояния по прямой между посещениями: '+totalKm.toFixed(1)+' км.'+(unknownCount?' Не удалось определить координаты для '+unknownCount+' адрес(ов), они оставлены на прежних местах.':'')+' Это приближённая оценка без дорожных пробок и фактических дорог.';
-      if(typeof showToast==='function')showToast('🧭 Маршрут оптимизирован');
-    }catch(e){
-      result.textContent='Не получилось оптимизировать маршрут. Проверь адреса и попробуй ещё раз.';
-      console.error('MVS route optimizer',e);
-    }finally{btn.disabled=false;btn.textContent=old;}
-  }
-  function start(){
-    const btn=document.getElementById('mvsOptimizeRouteBtn');
-    if(btn&&!btn.dataset.bound){btn.dataset.bound='1';btn.addEventListener('click',optimize);}
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});
   else start();
