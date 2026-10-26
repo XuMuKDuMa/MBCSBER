@@ -6539,64 +6539,98 @@ body.mvs-ios-entry .nav-bar {
 </style>
 
 
-<style id="mvs-ios-launch-motion">
-/* Более заметное появление настоящего экрана «Активности» — без отдельной заставки */
-body.mvs-launch-motion #app4 > *,
-body.mvs-launch-motion #screen4 .screen-date-bar {
-  opacity:0;
-  animation:mvsLaunchPop .62s cubic-bezier(.16,1,.3,1) forwards;
-  will-change:transform,opacity,filter;
-}
-body.mvs-launch-motion #app4 > *:nth-child(1){animation-delay:.06s}
-body.mvs-launch-motion #app4 > *:nth-child(2){animation-delay:.13s}
-body.mvs-launch-motion #app4 > *:nth-child(3){animation-delay:.20s}
-body.mvs-launch-motion #app4 > *:nth-child(4){animation-delay:.27s}
-body.mvs-launch-motion #app4 > *:nth-child(5){animation-delay:.34s}
-body.mvs-launch-motion #app4 > *:nth-child(6){animation-delay:.41s}
-body.mvs-launch-motion #app4 > *:nth-child(7){animation-delay:.48s}
-body.mvs-launch-motion .bottomBar .bb-item{
-  animation:mvsShortcutPop .68s cubic-bezier(.16,1,.3,1) both;
-}
-body.mvs-launch-motion .bottomBar .bb-item:nth-child(1){animation-delay:.14s}
-body.mvs-launch-motion .bottomBar .bb-item:nth-child(2){animation-delay:.21s}
-body.mvs-launch-motion .bottomBar .bb-item:nth-child(3){animation-delay:.28s}
-body.mvs-launch-motion .bottomBar .bb-item:nth-child(4){animation-delay:.35s}
-body.mvs-launch-motion .bottomBar .bb-item:nth-child(5){animation-delay:.42s}
-@keyframes mvsLaunchPop{
-  0%{opacity:0;transform:translateY(28px) scale(.94);filter:blur(7px)}
-  65%{opacity:1;transform:translateY(-2px) scale(1.012);filter:blur(0)}
-  100%{opacity:1;transform:translateY(0) scale(1);filter:blur(0)}
-}
-@keyframes mvsShortcutPop{
-  0%{opacity:0;transform:translateY(26px) scale(.72)}
-  68%{opacity:1;transform:translateY(-3px) scale(1.06)}
-  100%{opacity:1;transform:translateY(0) scale(1)}
-}
-@media(prefers-reduced-motion:reduce){
- body.mvs-launch-motion #app4 > *,body.mvs-launch-motion #screen4 .screen-date-bar,
- body.mvs-launch-motion .bottomBar .bb-item{animation:none!important;opacity:1!important;filter:none!important}
-}
-</style>
 
 
-<style id="mvs-dark-theme-contrast-fix">
-/* Улучшенная контрастность статистики в тёмной теме; светлая тема не меняется */
-body.dark .ds-body > div[style*="display:flex"][style*="justify-content:space-between"] > div:nth-child(1) > span {
-  color: #58b9ff !important; text-shadow: 0 0 8px rgba(56,165,255,.18) !important;
+
+
+
+
+<style id="mvs-activity-compact-simple">
+/* Compact card: only the original time, address and notes remain visible. */
+#screen4 .route-card.mvs-compact-closed{
+  position:relative!important;
+  display:block!important;
+  box-sizing:border-box!important;
+  height:104px!important;
+  min-height:104px!important;
+  max-height:104px!important;
+  overflow:hidden!important;
+  padding:12px 14px 27px!important;
+  border-radius:18px!important;
 }
-body.dark .ds-body > div[style*="display:flex"][style*="justify-content:space-between"] > div:nth-child(1) > small { color: #a9dfff !important; }
-body.dark .ds-body > div[style*="display:flex"][style*="justify-content:space-between"] > div:nth-child(2) > span {
-  color: #d99aff !important; text-shadow: 0 0 8px rgba(190,110,255,.16) !important;
+#screen4 .route-card.mvs-compact-closed > *:not(.route-top-row):not(.mvs-native-toggle){
+  display:none!important;
 }
-body.dark .ds-body > div[style*="display:flex"][style*="justify-content:space-between"] > div:nth-child(2) > small { color: #e2c1ff !important; }
-body.dark .ds-body > div[style*="display:flex"][style*="justify-content:space-between"] > div:nth-child(3) > span {
-  color: #ffb45f !important; text-shadow: 0 0 8px rgba(255,160,50,.16) !important;
+#screen4 .route-card.mvs-compact-closed .route-top-row{
+  display:grid!important;
+  grid-template-columns:70px minmax(0,1fr)!important;
+  grid-template-rows:auto auto!important;
+  column-gap:12px!important;
+  row-gap:3px!important;
+  align-items:start!important;
+  width:100%!important;
+  min-width:0!important;
+  margin:0!important;
+  padding:0!important;
 }
-body.dark .ds-body > div[style*="display:flex"][style*="justify-content:space-between"] > div:nth-child(3) > small { color: #ffd2a0 !important; }
-body.dark .ds-body .ds-name, body.dark .ds-body .ds-gl, body.dark .ds-body .ds-sep,
-body.dark .ds-body small, body.dark .ds-body > div[style*="font-size:11px"],
-body.dark .ds-body > div[style*="font-size:10px"] { color: #c5d0dc !important; opacity: 1 !important; }
+#screen4 .route-card.mvs-compact-closed .route-time-col{
+  grid-column:1!important;grid-row:1 / span 2!important;
+  display:flex!important;flex-direction:column!important;
+  align-items:flex-start!important;justify-content:flex-start!important;
+  width:70px!important;min-width:0!important;margin:0!important;padding:0!important;
+}
+#screen4 .route-card.mvs-compact-closed .route-time-col *{
+  font-size:15px!important;line-height:1.35!important;
+}
+#screen4 .route-card.mvs-compact-closed .route-fields{
+  grid-column:2!important;grid-row:1!important;
+  display:flex!important;flex-direction:column!important;
+  width:100%!important;min-width:0!important;gap:4px!important;margin:0!important;padding:0!important;
+}
+#screen4 .route-card.mvs-compact-closed .route-addr-wrap{
+  display:block!important;width:100%!important;min-width:0!important;margin:0!important;padding:0!important;
+}
+#screen4 .route-card.mvs-compact-closed .route-addr-input{
+  display:block!important;width:100%!important;min-width:0!important;
+  height:22px!important;min-height:22px!important;max-height:22px!important;
+  box-sizing:border-box!important;padding:0!important;margin:0!important;
+  border:0!important;background:transparent!important;box-shadow:none!important;
+  font-size:15px!important;line-height:22px!important;font-weight:800!important;
+  white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
+  resize:none!important;pointer-events:none!important;
+}
+#screen4 .route-card.mvs-compact-closed .route-note-input{
+  display:block!important;width:100%!important;min-width:0!important;
+  height:20px!important;min-height:20px!important;max-height:20px!important;
+  box-sizing:border-box!important;padding:0!important;margin:0!important;
+  border:0!important;background:transparent!important;box-shadow:none!important;
+  font-size:12px!important;line-height:20px!important;opacity:.78!important;
+  white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
+  resize:none!important;pointer-events:none!important;
+}
+#screen4 .route-card.mvs-compact-closed .route-mic-inline,
+#screen4 .route-card.mvs-compact-closed .route-address-actions,
+#screen4 .route-card.mvs-compact-closed .route-map-btn,
+#screen4 .route-card.mvs-compact-closed .route-status-row,
+#screen4 .route-card.mvs-compact-closed .route-card-actions,
+#screen4 .route-card.mvs-compact-closed .route-actions,
+#screen4 .route-card.mvs-compact-closed .route-extra,
+#screen4 .route-card.mvs-compact-closed .route-details,
+#screen4 .route-card.mvs-compact-closed .route-card-footer{
+  display:none!important;
+}
+#screen4 .route-card .mvs-native-toggle{
+  position:absolute!important;left:50%!important;bottom:1px!important;
+  transform:translateX(-50%)!important;width:46px!important;height:25px!important;
+  border:0!important;border-radius:15px!important;padding:0!important;margin:0!important;
+  display:flex!important;align-items:center!important;justify-content:center!important;
+  background:rgba(120,145,160,.18)!important;color:inherit!important;
+  font-size:20px!important;line-height:1!important;font-weight:800!important;z-index:10!important;
+}
+#screen4 .route-card .mvs-native-toggle span{display:block;transition:transform .18s ease}
+#screen4 .route-card:not(.mvs-compact-closed) .mvs-native-toggle span{transform:rotate(180deg)}
 </style>
+
 </head>
 <body class="tab-4 mvs-startup-anim">
 
@@ -9572,10 +9606,18 @@ if (_openSlotId) {
     addBtn.className = 'route-add-btn';
     addBtn.textContent = '+ Добавить адрес';
     addBtn.addEventListener('click', () => {
+      // При добавлении следующего адреса сворачиваем предыдущие карточки.
+      document.querySelectorAll('#screen4 .route-card').forEach(c => c.classList.add('mvs-compact-closed'));
       routeState.lists[t.id].push({ addr: '', note: '', status: null });
       saveRouteState(routeState);
       renderRoute();
       updateDrawerRoutes();
+      // Новая карточка должна открыться полностью, чтобы сразу заполнить адрес.
+      requestAnimationFrame(() => {
+        const cards = document.querySelectorAll(`#screen4 #app4 .route-time-block[data-time-id="${t.id}"] .route-card`);
+        const target = cards[cards.length - 1];
+        if (target) target.classList.remove('mvs-compact-closed');
+      });
       _mapHash = '';
       if (map) renderMapMarkers();
       // Android WebView requires a real user tap for a reliable IME session.
@@ -11101,21 +11143,21 @@ function daySummaryHtml() {
   let html = `<div class="ds-title">📅 Сегодня · встречи и УП</div><div class="ds-body">`;
   html += `
   <div style="display:flex;justify-content:space-between;align-items:stretch;gap:6px;padding:12px 14px 10px;">
-    <div style="flex:1;border-radius:14px;padding:10px 4px;background:rgba(46,134,193,.15);border:1px solid rgba(36,113,163,.22);text-align:center;">
-      <span style="display:block;font-size:23px;font-weight:900;color:#145a86;text-shadow:0 0 .2px currentColor;">${f2(meetUp)}</span>
-      <small style="display:block;margin-top:4px;font-size:11px;font-weight:800;color:#174b6a;opacity:1;line-height:1.25;">УП по встречам<br>(без продаж)</small>
+    <div style="flex:1;border-radius:14px;padding:10px 4px;background:rgba(46,134,193,.10);text-align:center;">
+      <span style="display:block;font-size:22px;font-weight:800;color:#2471a3;">${f2(meetUp)}</span>
+      <small style="display:block;margin-top:4px;font-size:10px;font-weight:700;opacity:.7;line-height:1.2;">УП по встречам<br>(без продаж)</small>
     </div>
-    <div style="flex:1.2;border-radius:14px;padding:10px 5px;background:rgba(142,68,173,.15);border:1px solid rgba(125,60,152,.22);text-align:center;">
-      <span style="display:block;font-size:${totalMeets === 0 ? 16 : 23}px;font-weight:900;color:#642780;">${totalMeets === 0 ? 'Нет встреч' : doneMeets + ' / ' + totalMeets}</span>
-      <small style="display:block;margin-top:4px;font-size:11px;font-weight:800;color:#54216c;opacity:1;line-height:1.25;">Проведено встреч · TR</small>
+    <div style="flex:1.2;border-radius:14px;padding:10px 5px;background:rgba(142,68,173,.10);text-align:center;">
+      <span style="display:block;font-size:22px;font-weight:800;color:#7d3c98;">${doneMeets} / ${totalMeets}</span>
+      <small style="display:block;margin-top:4px;font-size:10px;font-weight:700;opacity:.75;line-height:1.2;">Проведено встреч · TR</small>
       <div style="font-size:13px;font-weight:800;color:${trColor};margin-top:5px;">${trPct}% <span style="font-size:10px;font-weight:700;opacity:.75;">/ цель 90%</span></div>
       <div style="height:5px;background:rgba(120,120,128,.2);border-radius:4px;overflow:hidden;margin:5px 5px 0;">
         <div style="height:100%;width:${trProgressPct}%;background:${trColor};border-radius:4px;transition:width .3s;"></div>
       </div>
     </div>
-    <div style="flex:1;border-radius:14px;padding:10px 4px;background:rgba(243,156,18,.16);border:1px solid rgba(211,84,0,.22);text-align:center;">
-      <span style="display:block;font-size:23px;font-weight:900;color:#a84300;text-shadow:0 0 .2px currentColor;">${f2(fdUpSales)}</span>
-      <small style="display:block;margin-top:4px;font-size:11px;font-weight:800;color:#783400;opacity:1;line-height:1.25;">УП на ФД<br>(продажи)</small>
+    <div style="flex:1;border-radius:14px;padding:10px 4px;background:rgba(243,156,18,.10);text-align:center;">
+      <span style="display:block;font-size:22px;font-weight:800;color:#d35400;">${f2(fdUpSales)}</span>
+      <small style="display:block;margin-top:4px;font-size:10px;font-weight:700;opacity:.7;line-height:1.2;">УП на ФД<br>(продажи)</small>
     </div>
   </div>
   `;
@@ -15005,7 +15047,10 @@ renderRoute();
 updateActivitiesBadge();
 
 // ─── Стартовый экран: с 10:00 до 18:00 — «Карта», иначе «Активности» ───
-const _startOnMap = false; // Всегда открываем «Активности» при запуске приложения
+const _startOnMap = (() => {
+  const h = new Date().getHours();
+  return h >= 10 && h < 18;
+})();
 
 // ─── Принудительно открываем стартовый экран ───
 function forceOpenActivitiesTab() {
@@ -16689,7 +16734,7 @@ body:not(.dark) #screen4 .route-card .route-note-input::placeholder {
     if(!splash || splash.dataset.swipeReady==='1') return;
     splash.dataset.swipeReady='1';
     document.body.classList.add('mvs-splash-open');
-    try { if(typeof window.goToTab==='function') window.goToTab(4,false); } catch(e) {}
+    try { if(typeof window.goToTab==='function') window.goToTab(5,false); } catch(e) {}
     try { const d=document.getElementById('mlsDate'); if(d) d.textContent=new Intl.DateTimeFormat('ru-RU',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date()); } catch(e) {}
     function stats(){
       let up=0, upFD=0;
@@ -16710,7 +16755,7 @@ body:not(.dark) #screen4 .route-card .route-note-input::placeholder {
     function close(){
       if(closed)return; closed=true;
       splash.classList.remove('mls-dragging'); splash.classList.add('mls-hide');
-      const done=()=>{try{splash.remove()}catch(e){};document.body.classList.remove('mvs-splash-open');document.body.style.overflow='';try{if(typeof window.goToTab==='function')window.goToTab(4,false)}catch(e){}};
+      const done=()=>{try{splash.remove()}catch(e){};document.body.classList.remove('mvs-splash-open');document.body.style.overflow='';try{if(typeof window.goToTab==='function')window.goToTab(5,false)}catch(e){}};
       setTimeout(done,450);
     }
     const btn=document.getElementById('mlsOpenBtn'); if(btn){btn.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();close()},true);btn.addEventListener('touchend',function(e){e.preventDefault();close()},{passive:false});}
@@ -16863,59 +16908,74 @@ document.addEventListener('click', function(ev) {
 
 
 
-
-
-
-
-
-
-
-
-
-<script id="mvs-startup-activities-final">
+<script id="mvs-startup-activities-fix">
 (function(){
-  var animated=false, pending=false;
-  function forceActivities(){
-    try{
-      if(typeof goToTab === 'function'){
-        if(typeof currentTab === 'undefined' || currentTab !== 4) goToTab(4, false);
-      }
-      var w=window.innerWidth||document.documentElement.clientWidth;
-      var track=document.getElementById('screensTrack');
-      if(track&&w){track.style.transition='none';track.style.transform='translateX('+(-3*w)+'px)';}
-      document.body.classList.remove('tab-1','tab-2','tab-3','tab-5');
-      document.body.classList.add('tab-4');
-      if(typeof updateBottomBarActive==='function')updateBottomBarActive(4);
-    }catch(e){}
-  }
-  function playAfterVisible(){
-    if(animated||pending||document.visibilityState==='hidden')return;
-    pending=true;
-    // Wait until the Android/iOS-style launch overlay has had time to disappear.
-    setTimeout(function(){
-      pending=false;
-      if(animated||document.visibilityState==='hidden')return;
-      forceActivities();
-      document.body.classList.remove('mvs-launch-motion');
-      void document.body.offsetWidth;
-      document.body.classList.add('mvs-launch-motion');
-      animated=true;
-      setTimeout(function(){document.body.classList.remove('mvs-launch-motion');},1700);
-    },650);
-  }
-  function boot(){
-    forceActivities();
-    // Do not animate under the native splash screen. Trigger when the page is shown/uncovered.
-    document.addEventListener('visibilitychange',function(){
-      if(document.visibilityState==='visible')playAfterVisible();
+  function openActivities(){
+    var body=document.body;
+    if(!body) return;
+    body.classList.remove('tab-1','tab-2','tab-3','tab-5');
+    body.classList.add('tab-4','mvs-ios-entry');
+    var screens=document.querySelectorAll('.screen');
+    screens.forEach(function(el){el.classList.toggle('active',el.id==='screen4');});
+    var track=document.getElementById('screensTrack');
+    if(track){track.style.transform='translateX(-60%)';}
+    // Align any known navigation control with the Activities screen without invoking a destructive action.
+    document.querySelectorAll('[data-tab], [data-screen], .nav-item, .bottom-nav button').forEach(function(el){
+      var v=((el.getAttribute('data-tab')||'')+' '+(el.getAttribute('data-screen')||'')+' '+(el.textContent||'')).toLowerCase();
+      if(v.includes('активност')) el.classList.add('active');
     });
-    window.addEventListener('pageshow',function(){playAfterVisible();});
-    window.addEventListener('focus',function(){playAfterVisible();});
-    // On first launch where visibility never changes, use a delayed fallback.
-    setTimeout(function(){if(!animated&&document.visibilityState==='visible')playAfterVisible();},2600);
   }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});
-  else boot();
+  function start(){
+    openActivities();
+    setTimeout(openActivities,180);
+    setTimeout(function(){document.body.classList.remove('mvs-ios-entry');},1300);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start,{once:true});
+  else start();
+})();
+</script>
+
+
+
+
+
+
+
+
+<script id="mvs-activity-compact-simple-js">
+(function(){
+  function enhance(card){
+    if(!card || card.dataset.mvsSimpleAccordion==='1') return;
+    var btn=document.createElement('button');
+    btn.type='button';btn.className='mvs-native-toggle';
+    btn.setAttribute('aria-label','Раскрыть карточку активности');
+    btn.innerHTML='<span>⌄</span>';
+    function sync(){
+      const closed=card.classList.contains('mvs-compact-closed');
+      btn.setAttribute('aria-expanded',String(!closed));
+      btn.setAttribute('aria-label',closed?'Раскрыть карточку активности':'Свернуть карточку активности');
+    }
+    btn.addEventListener('click',function(e){
+      e.preventDefault();e.stopPropagation();
+      card.classList.toggle('mvs-compact-closed');
+      sync();
+    });
+    card.appendChild(btn);
+    // Активная встреча в разделе «В работе» должна быть развёрнута автоматически.
+    if(card.classList.contains('route-card-live')) card.classList.remove('mvs-compact-closed');
+    else card.classList.add('mvs-compact-closed');
+    sync();
+    card.dataset.mvsSimpleAccordion='1';
+  }
+  function scan(){document.querySelectorAll('#screen4 .route-card').forEach(enhance);}
+  function start(){
+    scan();
+    const root=document.querySelector('#screen4 #app4');
+    if(root)new MutationObserver(scan).observe(root,{childList:true,subtree:true});
+    setTimeout(scan,250);setTimeout(scan,800);setTimeout(scan,1600);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});
+  else start();
 })();
 </script>
 
