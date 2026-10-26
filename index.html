@@ -6631,6 +6631,22 @@ body.mvs-ios-entry .nav-bar {
 #screen4 .route-card:not(.mvs-compact-closed) .mvs-native-toggle span{transform:rotate(180deg)}
 </style>
 
+
+<style id="mvs-smart-route-style">
+#mvsOptimizeRouteBtn{
+  flex:0 0 auto;min-height:34px;padding:7px 12px;border:1px solid #269b69;
+  border-radius:11px;background:linear-gradient(135deg,#1ca96d,#138354);
+  color:#fff;font-size:12px;font-weight:800;white-space:nowrap;
+  box-shadow:0 3px 10px #0002;touch-action:manipulation;
+}
+#mvsOptimizeRouteBtn:disabled{opacity:.55}
+.map-toolbar{overflow-x:auto;scrollbar-width:none}
+.map-toolbar::-webkit-scrollbar{display:none}
+.mvs-route-result{margin:8px 12px;padding:10px 12px;border-radius:12px;
+  background:rgba(30,150,100,.12);border:1px solid rgba(30,150,100,.3);
+  font-size:12px;line-height:1.4;color:inherit}
+</style>
+
 </head>
 <body class="tab-4 mvs-startup-anim">
 
@@ -6688,6 +6704,7 @@ body.mvs-ios-entry .nav-bar {
         <button class="map-filter" data-map-filter="t12_14">12–14</button>
         <button class="map-filter" data-map-filter="t14_16">14–16</button>
         <button class="map-filter" data-map-filter="t16_18">16–18</button>
+        <button class="mvs-route-optimize-btn" id="mvsOptimizeRouteBtn" type="button">🧭 Оптимизировать маршрут</button>
       </div>
       <div id="mapView"></div>
       <div class="map-bottom-card" id="mapInfoCard">
@@ -16973,6 +16990,129 @@ document.addEventListener('click', function(ev) {
     const root=document.querySelector('#screen4 #app4');
     if(root)new MutationObserver(scan).observe(root,{childList:true,subtree:true});
     setTimeout(scan,250);setTimeout(scan,800);setTimeout(scan,1600);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});
+  else start();
+})();
+</script>
+
+
+<script id="mvs-smart-route-js">
+(function(){
+  const R=6371;
+  function km(a,b){
+    const rad=x=>x*Math.PI/180;
+    const dLat=rad(b[0]-a[0]),dLon=rad(b[1]-a[1]);
+    const x=Math.sin(dLat/2)**2+Math.cos(rad(a[0]))*Math.cos(rad(b[0]))*Math.sin(dLon/2)**2;
+    return 2*R*Math.asin(Math.min(1,Math.sqrt(x)));
+  }
+  function normAddr(s){return String(s||'').trim().toLocaleLowerCase().replace(/\s+/g,' ');}
+  async function coordsFor(item){
+    const addr=String(item?.addr||'').trim();
+    if(!addr)return null;
+    try{
+      const c=await geocodeAddress(addr);
+      if(Array.isArray(c)&&c.length>=2&&Number.isFinite(+c[0])&&Number.isFinite(+c[1]))return [+c[0],+c[1]];
+    }catch(e){}
+    return null;
+  }
+  function getResultBox(){
+    let el=document.getElementById('mvsRouteOptimizeResult');
+    if(!el){
+      el=document.createElement('div');el.id='mvsRouteOptimizeResult';el.className='mvs-route-result';
+      const toolbar=document.querySelector('.map-toolbar');
+      if(toolbar)toolbar.insertAdjacentElement('afterend',el);
+    }
+    return el;
+  }
+  async function optimize(){
+    const btn=document.getElementById('mvsOptimizeRouteBtn');
+    if(!btn||btn.disabled)return;
+    btn.disabled=true;const old=btn.textContent;btn.textContent='⏳ Считаю…';
+    const result=getResultBox();
+    try{
+      const all=[];
+      ROUTE_TIMES.forEach((slot,si)=>{
+        (routeState.lists[slot.id]||[]).forEach((item,idx)=>{
+          if(item&&String(item.addr||'').trim())all.push({slotId:slot.id,slotIndex:si,index:idx,item});
+        });
+      });
+      if(all.length<2){result.textContent='Для оптимизации добавь минимум два адреса с заполненными адресными полями.';return;}
+      // Resolve each appointment separately. Duplicate addresses remain separate appointments,
+      // while their shared coordinates naturally produce near-zero travel distance.
+      for(const a of all){a.coords=await coordsFor(a.item);}
+      const unresolved=all.filter(a=>!a.coords);
+      if(unresolved.length===all.length){
+        result.textContent='Не удалось определить координаты адресов. Проверь адреса на карте и попробуй ещё раз.';return;
+      }
+      // Preserve the slot assignment and chronological slots. The first appointment in the
+      // day's schedule is the anchor; then use nearest-neighbour ordering within each later slot.
+      // Completed and in-progress appointments keep their relative positions and are not moved.
+      let current=all.find(a=>a.slotIndex===0&&a.index===0)?.coords || all.find(a=>a.coords)?.coords;
+      let totalKm=0,optimizedCount=0,unknownCount=0;
+      for(let si=0;si<ROUTE_TIMES.length;si++){
+        const slot=ROUTE_TIMES[si],list=routeState.lists[slot.id]||[];
+        if(!list.length)continue;
+        const fixed=[],pending=[];
+        list.forEach((item,index)=>{
+          const entry=all.find(a=>a.slotId===slot.id&&a.index===index);
+          if(!item||!String(item.addr||'').trim()||item.startedAt||item.status==='done'||item.status==='perenos'||item.status==='ndz'){
+            fixed.push({item,index,entry});return;
+          }
+          pending.push({item,index,entry});
+        });
+        // Do not reorder a slot if some addresses cannot be geocoded.
+        if(pending.some(p=>!p.entry||!p.entry.coords)){
+          unknownCount+=pending.filter(p=>!p.entry||!p.entry.coords).length;
+          const first=list.findIndex(x=>x&&x.addr&&x.addr.trim());
+          if(first>=0){
+            const e=all.find(a=>a.slotId===slot.id&&a.index===first);
+            if(e&&e.coords)current=e.coords;
+          }
+          continue;
+        }
+        const ordered=[];
+        while(pending.length){
+          let bestI=0,bestD=Infinity;
+          if(!current){bestI=0;}
+          else pending.forEach((p,i)=>{
+            const d=km(current,p.entry.coords);
+            if(d<bestD){bestD=d;bestI=i;}
+          });
+          const next=pending.splice(bestI,1)[0];
+          if(current){totalKm+=km(current,next.entry.coords);}
+          current=next.entry.coords;ordered.push(next);optimizedCount++;
+        }
+        // Reorder only eligible (not started/completed/cancelled) activities in their existing slots.
+        let pi=0;
+        for(let i=0;i<list.length;i++){
+          const item=list[i];
+          if(item&&String(item.addr||'').trim()&&!item.startedAt&&!['done','perenos','ndz'].includes(item.status)){
+            if(ordered[pi])list[i]=ordered[pi++].item;
+          }
+        }
+        // Set the route's current anchor to the final address in this slot.
+        const last=list.slice().reverse().find(x=>x&&String(x.addr||'').trim());
+        if(last){
+          const e=all.find(a=>a.slotId===slot.id&&normAddr(a.item.addr)===normAddr(last.addr)&&a.coords);
+          if(e)current=e.coords;
+        }
+      }
+      saveRouteState(routeState);
+      if(typeof renderRoute==='function')renderRoute();
+      if(typeof updateDrawerRoutes==='function')updateDrawerRoutes();
+      if(typeof updateActivitiesBadge==='function')updateActivitiesBadge();
+      if(typeof renderMapMarkers==='function'&&typeof map!=='undefined'&&map)await renderMapMarkers();
+      result.textContent='Маршрут упорядочен по ближайшим адресам внутри каждого временного слота. Встречи не переносились между слотами; повторные встречи по одному адресу сохранены отдельно. Оценка расстояния по прямой между посещениями: '+totalKm.toFixed(1)+' км.'+(unknownCount?' Не удалось определить координаты для '+unknownCount+' адрес(ов), они оставлены на прежних местах.':'')+' Это приближённая оценка без дорожных пробок и фактических дорог.';
+      if(typeof showToast==='function')showToast('🧭 Маршрут оптимизирован');
+    }catch(e){
+      result.textContent='Не получилось оптимизировать маршрут. Проверь адреса и попробуй ещё раз.';
+      console.error('MVS route optimizer',e);
+    }finally{btn.disabled=false;btn.textContent=old;}
+  }
+  function start(){
+    const btn=document.getElementById('mvsOptimizeRouteBtn');
+    if(btn&&!btn.dataset.bound){btn.dataset.bound='1';btn.addEventListener('click',optimize);}
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});
   else start();
