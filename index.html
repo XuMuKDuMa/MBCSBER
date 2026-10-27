@@ -8760,18 +8760,8 @@ noteInput.rows = 1;
 ['pointerdown', 'touchstart', 'click'].forEach(type => {
   noteInput.addEventListener(type, e => e.stopPropagation(), type === 'touchstart' ? { passive: true } : false);
 });
-// Android WebView: при первом касании textarea иногда получает мигающий caret,
-// но IME не привязывается к полю. Повторно фокусируем после завершения касания,
-// не перерисовывая карточку и не сбрасывая текущий текст/позицию курсора.
-noteInput.addEventListener('touchend', () => {
-  setTimeout(() => {
-    if (!noteInput.isConnected || document.activeElement === noteInput) {
-      if (noteInput.isConnected) noteInput.focus({ preventScroll: true });
-      return;
-    }
-    noteInput.focus({ preventScroll: true });
-  }, 80);
-}, { passive: true });
+// Не вызываем focus() программно после касания: Android WebView должен
+// открыть IME в рамках исходного пользовательского касания.
 noteInput.addEventListener('compositionstart', () => { noteInput.dataset.composing = '1'; });
 noteInput.addEventListener('compositionend', () => {
   // Даём браузеру завершить вставку текста из IME перед сохранением.
@@ -16984,7 +16974,7 @@ document.addEventListener('click', function(ev) {
 #screen4 .route-card:not(.collapsed) .route-unresolved span { display:inline !important; min-width:0 !important; white-space:normal !important; overflow-wrap:anywhere !important; }
 </style>
 
-<!-- MVS Android note focus fix v2 -->
+<!-- MVS Android note focus: removed delayed refocus to preserve native IME activation -->
 </body>
 </html>
 
