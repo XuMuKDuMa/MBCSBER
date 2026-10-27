@@ -9324,7 +9324,7 @@ function openMvsVoiceBatch(){
   if(!times.length) return;
   const overlay=document.createElement('div'); overlay.className='mvs-vb-backdrop';
   const modal=document.createElement('div'); modal.className='mvs-vb-modal';
-  modal.innerHTML=`<h3>Добавить адреса в слот</h3><div class="mvs-vb-muted">Выбери время, введи адреса — каждый с новой строки. Можно надиктовать адреса по одному.</div><label for="mvs-vb-slot">Временной слот</label><select id="mvs-vb-slot" class="mvs-vb-slot">${times.map(t=>`<option value="${t.id}" ${t.id===getCurrentSlotId()?'selected':''}>${t.label}</option>`).join('')}</select><label for="mvs-vb-addresses">Адреса</label><textarea id="mvs-vb-addresses" rows="5" placeholder="Например: Красногорск, улица Ленина, дом 5\nКрасногорск, улица Мира, дом 10" style="box-sizing:border-box;width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font:inherit;resize:vertical"></textarea><div class="mvs-vb-hint" id="mvs-vb-hint">Адресов: 0</div><div class="mvs-vb-actions"><button type="button" id="mvs-vb-mic">🎙 Надиктовать адрес</button><button type="button" id="mvs-vb-cancel">Отмена</button></div><div class="mvs-vb-actions"><button type="button" class="mvs-vb-confirm" id="mvs-vb-yes">Добавить в слот</button></div>`;
+  modal.innerHTML=`<h3>Добавить адреса в слот</h3><div class="mvs-vb-muted">Выбери время, введи адреса — каждый с новой строки. Можно надиктовать адреса по одному.</div><label for="mvs-vb-slot">Временной слот</label><select id="mvs-vb-slot" class="mvs-vb-slot">${times.map(t=>`<option value="${t.id}" ${t.id===getCurrentSlotId()?'selected':''}>${t.label}</option>`).join('')}</select><label for="mvs-vb-addresses">Адреса</label><textarea id="mvs-vb-addresses" rows="5" placeholder="Например: Красногорск, улица Ленина, дом 5\nКрасногорск, улица Мира, дом 10" style="box-sizing:border-box;width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font:inherit;resize:vertical"></textarea><div class="mvs-vb-hint" id="mvs-vb-hint">Адресов: 0</div><div class="mvs-vb-actions"><button type="button" id="mvs-vb-cancel">Отмена</button></div><div class="mvs-vb-actions"><button type="button" class="mvs-vb-confirm" id="mvs-vb-yes">Добавить в слот</button></div>`;
   overlay.appendChild(modal); document.body.appendChild(overlay);
   const area=modal.querySelector('#mvs-vb-addresses'), hint=modal.querySelector('#mvs-vb-hint'), mic=modal.querySelector('#mvs-vb-mic');
   const updateCount=()=>{const n=area.value.split(/\n+/).map(x=>x.trim()).filter(Boolean).length;hint.textContent='Адресов: '+n;};
@@ -9372,7 +9372,7 @@ frag.appendChild(stats);
 const voiceBatchBtn = document.createElement('button');
 voiceBatchBtn.type = 'button';
 voiceBatchBtn.className = 'mvs-voice-batch-launch';
-voiceBatchBtn.innerHTML = '🎙 Добавить адреса в слот';
+voiceBatchBtn.innerHTML = '＋ Добавить встречи в слот';
 voiceBatchBtn.style.minHeight = '34px';
 voiceBatchBtn.addEventListener('click', openMvsVoiceBatch);
 frag.appendChild(voiceBatchBtn);
@@ -17041,6 +17041,11 @@ document.addEventListener('click', function(ev) {
   #app4 .route-card:not(.collapsed) .route-note-input, #app4 .route-card:not(.collapsed) .route-status-row,
   #screen4 .route-card:not(.collapsed) .route-note-input, #screen4 .route-card:not(.collapsed) .route-status-row { animation: none !important; }
 }
+</style>
+
+
+<style id="mvs-remove-voice-microphone">
+#mvs-floating-voice, #mvs-floating-voice-close, #mvs-floating-voice-status { display:none !important; }
 </style>
 
 </body>
