@@ -9071,12 +9071,19 @@ reasonInput.className = 'route-nondelivery-input';
 reasonInput.placeholder = 'Причина недоставки (если встреча под вопросом)';
 reasonInput.value = item.nonDeliveryReason || '';
 reasonInput.style.cssText = 'display:block;width:100%;min-width:0;box-sizing:border-box;border:1px solid #d8dee5;border-radius:8px;padding:8px 10px;font:inherit;font-size:13px;background:rgba(245,247,250,.8);color:inherit;';
-reasonInput.addEventListener('click', e => e.stopPropagation());
-reasonInput.addEventListener('input', () => {
+// Поле причины работает как заметки: касания не должны сворачивать карточку
+// или запускать обработчики карточки; значение сохраняется при вводе и при уходе из поля.
+['click', 'pointerdown', 'mousedown', 'touchstart'].forEach(type => {
+  reasonInput.addEventListener(type, e => e.stopPropagation(), { passive: true });
+});
+function saveNonDeliveryReason() {
   item.nonDeliveryReason = reasonInput.value;
   saveRouteState(routeState);
   if (typeof updateAutoNonDeliveryReport === 'function') updateAutoNonDeliveryReport();
-});
+}
+reasonInput.addEventListener('input', saveNonDeliveryReason);
+reasonInput.addEventListener('change', saveNonDeliveryReason);
+reasonInput.addEventListener('blur', saveNonDeliveryReason);
 reasonWrap.appendChild(reasonInput);
 card.appendChild(statusLine);
 card.appendChild(reasonWrap);
