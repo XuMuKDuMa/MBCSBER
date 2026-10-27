@@ -8091,6 +8091,8 @@ function openStatusMenu(anchor, item, timeId, mode) {
 
       if (btn.dataset.mtype) {
         item.mtype = btn.dataset.mtype;
+        // После выбора типа встречи не сворачиваем карточку.
+        item._expandAfterType = true;
         syncCardCredit(item);
         saveRouteState(routeState);
         renderRoute();
@@ -8269,7 +8271,8 @@ function buildRouteCard(item, timeId, timeLabel) {
   if (item.status === 'done' || item.status === 'perenos') card.classList.add('route-card-compact');
   
    // Короткие карточки: первый тап раскрывает карточку, не открывая карту.
-  const isCollapsed = !item.startedAt && !!String(item.addrDisplay || item.addr || '').trim();
+  const isCollapsed = !item.startedAt && !item._expandAfterType && !!String(item.addrDisplay || item.addr || '').trim();
+  item._expandAfterType = false;
   if (isCollapsed) card.classList.add('collapsed');
     // Если встреча в процессе — добавляем класс "живой"
   if (item.startedAt) card.classList.add('route-card-live');
