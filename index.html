@@ -9366,6 +9366,8 @@ function openMvsVoiceBatch(){
   overlay.appendChild(modal); document.body.appendChild(overlay);
   const area=modal.querySelector('#mvs-vb-addresses'), hint=modal.querySelector('#mvs-vb-hint'), suggestionBox=modal.querySelector('#mvs-vb-suggestions');
   let searchTimer=null, requestSeq=0, activeSuggestions=[];
+  // Для выбранных подсказок показываем короткий адрес, но при добавлении сохраняем полный адрес DaData.
+  const selectedFullByLine = new Map();
   const updateCount=()=>{const n=area.value.split(/\n+/).map(x=>x.trim()).filter(Boolean).length;hint.textContent='Адресов: '+n;};
   const currentLine=()=>{const pos=area.selectionStart;const before=area.value.slice(0,pos);return {start:before.lastIndexOf('\n')+1,end:(()=>{const n=area.value.indexOf('\n',pos);return n<0?area.value.length:n})(),query:before.slice(before.lastIndexOf('\n')+1).trim()};};
   const hideSuggestions=()=>{suggestionBox.style.display='none';suggestionBox.replaceChildren();activeSuggestions=[];};
@@ -9388,14 +9390,17 @@ function openMvsVoiceBatch(){
     if(!activeSuggestions.length){hideSuggestions();return;}
     activeSuggestions.forEach(item=>{
       const b=document.createElement('button');b.type='button';b.className='mvs-dadata-option';b.style.width='100%';b.style.textAlign='left';
-      const d=item.data||{};const main=document.createElement('span');main.className='mvs-dadata-main';main.textContent=[d.street_with_type||d.street||d.route||'',d.house||''].filter(Boolean).join(' ').trim()||item.value||'';
-      const sub=document.createElement('span');sub.className='mvs-dadata-sub';sub.textContent=[d.city||d.settlement||d.city_with_type||'',d.region_with_type||''].filter(Boolean).join(', ');
+      const d=item.data||{};const main=document.createElement('span');main.className='mvs-dadata-main';main.textContent=[d.street_with_type||d.street||'',d.house||''].filter(Boolean).join(' ').trim()||item.value||'';
+      const sub=document.createElement('span');sub.className='mvs-dadata-sub';sub.textContent=[d.city||d.settlement||d.city_with_type||d.settlement_with_type||getMyCity()||'',d.postal_code?(' · '+d.postal_code):''].filter(Boolean).join('');
       b.append(main,sub);b.addEventListener('pointerdown',e=>e.preventDefault());b.addEventListener('mousedown',e=>e.preventDefault());
-      b.addEventListener('click',()=>{const line=currentLine();const before=area.value.slice(0,line.start),after=area.value.slice(line.end);const full=String(item.value||'').trim();area.value=before+full+after;const caret=(before+full).length;area.focus();area.setSelectionRange(caret,caret);updateCount();hideSuggestions();});suggestionBox.appendChild(b);
+      b.addEventListener('click',()=>{const line=currentLine();const before=area.value.slice(0,line.start),after=area.value.slice(line.end);const full=String(item.value||'').trim();const d=item.data||{};const compact=[d.street_with_type||d.street||'',d.house||''].filter(Boolean).join(' ').trim()||full;const lineIndex=before.split('\n').length-1;for(const k of [...selectedFullByLine.keys()]) if(k>=lineIndex) selectedFullByLine.delete(k);selectedFullByLine.set(lineIndex,{compact,full});area.value=before+compact+after;const caret=(before+compact).length;area.focus();area.setSelectionRange(caret,caret);updateCount();hideSuggestions();});suggestionBox.appendChild(b);
     }); suggestionBox.style.display='block'; positionBatchSuggestions();
   };
   area.addEventListener('input',()=>{
-    updateCount(); clearTimeout(searchTimer); const line=currentLine(); const q=line.query; const seq=++requestSeq;
+    const line=currentLine(); const lineIndex=area.value.slice(0,area.selectionStart).split('\n').length-1;
+    // Ручное изменение строки сбрасывает ранее выбранный полный адрес для неё.
+    if(selectedFullByLine.has(lineIndex)) selectedFullByLine.delete(lineIndex);
+    updateCount(); clearTimeout(searchTimer); const q=line.query; const seq=++requestSeq;
     if(q.length<3){hideSuggestions();return;}
     hint.textContent='Адресов: '+area.value.split(/\n+/).map(x=>x.trim()).filter(Boolean).length+' · Ищу подсказки…';
     searchTimer=setTimeout(async()=>{
@@ -9403,16 +9408,14 @@ function openMvsVoiceBatch(){
         let key=''; try { key=(typeof window.__mvsGetDaDataApiKey==='function' ? window.__mvsGetDaDataApiKey() : (localStorage.getItem('mvs_dadata_api_key')||'')).trim(); } catch(_) {}
         if(!key){ hint.textContent='Адресов: '+area.value.split(/\n+/).map(x=>x.trim()).filter(Boolean).length+' · Не найден ключ DaData'; hideSuggestions(); return; }
         const endpoint='https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/address';
-        // Используем тот же запрос, что и в обычной карточке: ограничение городом
-        // иногда возвращает пустой список в Android WebView, поэтому сначала ищем без него.
+        // Повторяем логику обычной карточки: сначала ограничиваем подсказки текущим городом,
+        // и только если результатов нет — пробуем поиск по всей стране.
+        const city=typeof getMyCity==='function' ? getMyCity() : '';
         const request=async(locations)=>fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','Authorization':'Token '+key},body:JSON.stringify({query:q,count:8,language:'ru',locations})});
-        let response=await request([{country:'*'}]);
+        let response=await request([{country:'*', ...(city ? {city} : {})}]);
         if(!response.ok) throw new Error('DaData HTTP '+response.status);
         let data=await response.json(); let items=Array.isArray(data.suggestions)?data.suggestions:[];
-        if(!items.length && typeof getMyCity==='function'){
-          const city=getMyCity();
-          if(city){ const r2=await request([{country:'*',city}]); if(r2.ok){const j=await r2.json();items=Array.isArray(j.suggestions)?j.suggestions:[];} }
-        }
+        if(!items.length && city){ const r2=await request([{country:'*'}]); if(r2.ok){const j=await r2.json();items=Array.isArray(j.suggestions)?j.suggestions:[];} }
         if(seq===requestSeq){ if(!items.length) { hideSuggestions(); hint.textContent='Адресов: '+area.value.split(/\n+/).map(x=>x.trim()).filter(Boolean).length+' · Подсказки не найдены'; } else showSuggestions(items,seq); }
       }catch(e){ if(seq===requestSeq){ hideSuggestions(); hint.textContent='Адресов: '+area.value.split(/\n+/).map(x=>x.trim()).filter(Boolean).length+' · Ошибка подсказок'; console.warn('MVS batch DaData error',e); } }
     },260);
@@ -9423,7 +9426,8 @@ function openMvsVoiceBatch(){
   modal.querySelector('#mvs-vb-cancel').addEventListener('click',close);
   overlay.addEventListener('click',e=>{if(e.target===overlay)close();});
   modal.querySelector('#mvs-vb-yes').addEventListener('click',()=>{
-    const addresses=area.value.split(/\n+/).map(x=>x.trim()).filter(Boolean);
+    const rawLines=area.value.split(/\n+/).map(x=>x.trim());
+    const addresses=rawLines.map((line,i)=>{const selected=selectedFullByLine.get(i);return selected && selected.compact===line ? selected.full : line;}).filter(Boolean);
     if(!addresses.length){hint.textContent='Сначала введи хотя бы один адрес.';return;}
     const slotId=modal.querySelector('#mvs-vb-slot').value;
     if(!routeState.lists[slotId])routeState.lists[slotId]=[];
