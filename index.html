@@ -8113,6 +8113,9 @@ function openStatusMenu(anchor, item, timeId, mode) {
       } else if (status) {
         const wasSame = item.status === status;
         item.status = status;
+        // После выбора любого статуса карточка возвращается в компактный вид.
+        // Это не затрагивает переключение B2C/B2B: там uiExpanded сохраняется.
+        item.uiExpanded = false;
         if (status === 'done' || status === 'ndz' || status === 'perenos') {
           item.startedAt = null;
         }
