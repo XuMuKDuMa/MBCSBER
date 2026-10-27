@@ -8755,11 +8755,9 @@ noteInput.setAttribute('autocapitalize', 'sentences');
 noteInput.setAttribute('spellcheck', 'true');
 noteInput.value = item.note || '';
 noteInput.rows = 1;
-// Останавливаем только жесты карточки. Не блокируем keydown/beforeinput/input:
-// русская раскладка вводит кириллицу через IME/composition events.
-['pointerdown', 'touchstart', 'click'].forEach(type => {
-  noteInput.addEventListener(type, e => e.stopPropagation(), type === 'touchstart' ? { passive: true } : false);
-});
+// Android WebView: не перехватываем pointerdown/touchstart у textarea.
+// Их остановка может мешать первому нативному фокусу и открытию IME-клавиатуры.
+// Обработчик клика карточки уже исключает textarea, поэтому блокировать жесты здесь не нужно.
 // Не вызываем focus() программно после касания: Android WebView должен
 // открыть IME в рамках исходного пользовательского касания.
 noteInput.addEventListener('compositionstart', () => { noteInput.dataset.composing = '1'; });
