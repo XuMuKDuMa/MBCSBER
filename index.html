@@ -17110,6 +17110,47 @@ body.dark #mvs-card-actions button[data-action="confirm"]{background:#168b59;col
 })();
 </script>
 
+
+<style id="mvs-fix-light-status-text-and-slot-time">
+/* Светлая тема: статус не должен делать текст карточки нечитаемым */
+body:not(.dark) #screen4 .route-card,
+body:not(.dark) #app4 .route-card {
+  background:#fff !important;
+  color:#263442 !important;
+}
+body:not(.dark) #screen4 .route-card *,
+body:not(.dark) #app4 .route-card * {
+  text-shadow:none !important;
+}
+body:not(.dark) #screen4 .route-card .route-addr-collapsed,
+body:not(.dark) #app4 .route-card .route-addr-collapsed,
+body:not(.dark) #screen4 .route-card .route-fields,
+body:not(.dark) #app4 .route-card .route-fields,
+body:not(.dark) #screen4 .route-card .route-addr-wrap,
+body:not(.dark) #app4 .route-card .route-addr-wrap {
+  color:#263442 !important;
+  -webkit-text-fill-color:#263442 !important;
+  opacity:1 !important;
+}
+/* Цвет времени в списке встреч определяется классом слота на самой карточке */
+#screen4 .route-card.route-slot-t10_12 .route-time-col .rtc-start,
+#screen4 .route-card.route-slot-t10_12 .route-time-col .rtc-end,
+#app4 .route-card.route-slot-t10_12 .route-time-col .rtc-start,
+#app4 .route-card.route-slot-t10_12 .route-time-col .rtc-end {color:#c49b00!important;-webkit-text-fill-color:#c49b00!important}
+#screen4 .route-card.route-slot-t12_14 .route-time-col .rtc-start,
+#screen4 .route-card.route-slot-t12_14 .route-time-col .rtc-end,
+#app4 .route-card.route-slot-t12_14 .route-time-col .rtc-start,
+#app4 .route-card.route-slot-t12_14 .route-time-col .rtc-end {color:#9b59b6!important;-webkit-text-fill-color:#9b59b6!important}
+#screen4 .route-card.route-slot-t14_16 .route-time-col .rtc-start,
+#screen4 .route-card.route-slot-t14_16 .route-time-col .rtc-end,
+#app4 .route-card.route-slot-t14_16 .route-time-col .rtc-start,
+#app4 .route-card.route-slot-t14_16 .route-time-col .rtc-end {color:#2471a3!important;-webkit-text-fill-color:#2471a3!important}
+#screen4 .route-card.route-slot-t16_18 .route-time-col .rtc-start,
+#screen4 .route-card.route-slot-t16_18 .route-time-col .rtc-end,
+#app4 .route-card.route-slot-t16_18 .route-time-col .rtc-start,
+#app4 .route-card.route-slot-t16_18 .route-time-col .rtc-end {color:#219653!important;-webkit-text-fill-color:#219653!important}
+</style>
+
 </body>
 </html>
 
