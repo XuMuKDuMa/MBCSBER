@@ -17151,6 +17151,68 @@ body:not(.dark) #app4 .route-card .route-addr-wrap {
 #app4 .route-card.route-slot-t16_18 .route-time-col .rtc-end {color:#219653!important;-webkit-text-fill-color:#219653!important}
 </style>
 
+
+<script id="mvs-startup-activity-and-white-screen-fix">
+(function(){
+  function showActivities(){
+    try {
+      var activity = document.querySelector('.bb-item[data-bb-tab="4"]');
+      if (!activity) return;
+      // Ensure visual default selection is Activities.
+      document.querySelectorAll('.bb-item[data-bb-tab]').forEach(function(b){ b.classList.toggle('active', b === activity); });
+      // If the app has a tab dispatcher, use the registered button handler.
+      // A synthetic click lets existing navigation logic perform the actual screen switch.
+      var current = document.querySelector('.bb-item[data-bb-tab].active');
+      if (current !== activity) activity.click();
+      // If an earlier script restored a different section, click Activities once on startup.
+      if (!activity.dataset.mvsStartupOpened) {
+        activity.dataset.mvsStartupOpened = '1';
+        activity.click();
+      }
+    } catch(e) { console.warn('MVS startup tab fallback:', e); }
+  }
+
+  function revealAppIfBlank(){
+    try {
+      var body = document.body;
+      if (!body) return;
+      // Do not override intentional overlays/modals. Only recover if page is visibly blank.
+      var text = (body.innerText || '').trim();
+      var hasUI = body.querySelector('#bottomBar, .bottom-bar, #app4, #screen4');
+      if ((!text || !hasUI) && !window.__appReady) {
+        body.style.visibility = 'visible';
+        body.style.opacity = '1';
+        var splash = document.getElementById('mvs-first-load-fallback');
+        if (!splash) {
+          splash = document.createElement('div');
+          splash.id = 'mvs-first-load-fallback';
+          splash.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:#101820;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;text-align:center;font:16px system-ui,sans-serif';
+          splash.innerHTML = '<div style="font-size:28px;font-weight:800;margin-bottom:10px">МВС</div><div style="opacity:.8;line-height:1.5;margin-bottom:18px">Приложение загружается…</div><button style="border:0;border-radius:12px;padding:13px 18px;background:#27ae60;color:#fff;font-weight:700;font-size:16px">Повторить запуск</button>';
+          splash.querySelector('button').addEventListener('click', function(){ location.reload(); });
+          body.appendChild(splash);
+        }
+        setTimeout(function(){ if(window.__appReady && splash.isConnected) splash.remove(); }, 500);
+      }
+    } catch(e) {}
+  }
+
+  function boot(){
+    // Wait briefly for app initialization, then choose Activities as the first section.
+    setTimeout(showActivities, 250);
+    setTimeout(showActivities, 900);
+    setTimeout(function(){
+      if (!window.__appReady) revealAppIfBlank();
+      else {
+        var splash = document.getElementById('mvs-first-load-fallback');
+        if (splash) splash.remove();
+      }
+    }, 2200);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, {once:true});
+  else boot();
+})();
+</script>
+
 </body>
 </html>
 
