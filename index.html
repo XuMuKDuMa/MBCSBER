@@ -3944,7 +3944,9 @@ body.dark #screen4 .route-add-btn {
 /* ─── Отступ справа у поля адреса под ДВЕ иконки ─── */
 #screen4 .route-addr-input {
   width: 100%;
+  height: auto !important;
   min-height: 38px;
+  max-height: none !important;      /* ← растёт без ограничения */
   padding: 8px 40px 8px 12px;
   border: 1px solid #e5ebef;
   border-radius: 9px;
@@ -3955,8 +3957,11 @@ body.dark #screen4 .route-add-btn {
   font-family: inherit;
   box-shadow: inset 0 1px 2px rgba(0,0,0,.02);
   resize: none;
-  overflow: hidden;
+  overflow: hidden;                 /* скролл не нужен — высота = контенту */
   line-height: 1.35;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 body.dark #screen4 .route-addr-input {
   background: #1c2832;
@@ -6546,89 +6551,103 @@ body.mvs-ios-entry .nav-bar {
 
 
 <style id="mvs-activity-compact-simple">
-/* Compact card: only the original time, address and notes remain visible. */
-#screen4 .route-card.mvs-compact-closed{
-  position:relative!important;
-  display:block!important;
-  box-sizing:border-box!important;
-  height:104px!important;
-  min-height:104px!important;
-  max-height:104px!important;
-  overflow:hidden!important;
-  padding:12px 14px 27px!important;
-  border-radius:18px!important;
+/* ─── КОРОТКАЯ КАРТОЧКА ─── */
+#screen4 .route-card.mvs-compact-closed {
+  position: relative !important;
+  display: block !important;
+  height: auto !important;
+  min-height: 72px !important;
+  padding: 12px 14px !important;
+  overflow: visible !important;
+  cursor: pointer !important;
 }
-#screen4 .route-card.mvs-compact-closed > *:not(.route-top-row):not(.mvs-native-toggle){
-  display:none!important;
+
+/* Скрываем всё лишнее в короткой версии */
+#screen4 .route-card.mvs-compact-closed > *:not(.route-top-row) {
+  display: none !important;
 }
-#screen4 .route-card.mvs-compact-closed .route-top-row{
-  display:grid!important;
-  grid-template-columns:70px minmax(0,1fr)!important;
-  grid-template-rows:auto auto!important;
-  column-gap:12px!important;
-  row-gap:3px!important;
-  align-items:start!important;
-  width:100%!important;
-  min-width:0!important;
-  margin:0!important;
-  padding:0!important;
+
+#screen4 .route-card.mvs-compact-closed .route-top-row {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 12px !important;
+  align-items: flex-start !important;
+  width: 100% !important;
+  margin: 0 !important;
 }
-#screen4 .route-card.mvs-compact-closed .route-time-col{
-  grid-column:1!important;grid-row:1 / span 2!important;
-  display:flex!important;flex-direction:column!important;
-  align-items:flex-start!important;justify-content:flex-start!important;
-  width:70px!important;min-width:0!important;margin:0!important;padding:0!important;
+
+#screen4 .route-card.mvs-compact-closed .route-time-col {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 65px !important;
+  min-width: 65px !important;
+  padding-top: 2px !important;
 }
-#screen4 .route-card.mvs-compact-closed .route-time-col *{
-  font-size:15px!important;line-height:1.35!important;
+
+#screen4 .route-card.mvs-compact-closed .route-time-col * {
+  font-size: 15px !important;
+  line-height: 1.3 !important;
 }
-#screen4 .route-card.mvs-compact-closed .route-fields{
-  grid-column:2!important;grid-row:1!important;
-  display:flex!important;flex-direction:column!important;
-  width:100%!important;min-width:0!important;gap:4px!important;margin:0!important;padding:0!important;
+
+#screen4 .route-card.mvs-compact-closed .route-fields {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+  gap: 4px !important;
 }
-#screen4 .route-card.mvs-compact-closed .route-addr-wrap{
-  display:block!important;width:100%!important;min-width:0!important;margin:0!important;padding:0!important;
+
+#screen4 .route-card.mvs-compact-closed .route-addr-wrap {
+  display: block !important;
+  width: 100% !important;
 }
-#screen4 .route-card.mvs-compact-closed .route-addr-input{
-  display:block!important;width:100%!important;min-width:0!important;
-  height:22px!important;min-height:22px!important;max-height:22px!important;
-  box-sizing:border-box!important;padding:0!important;margin:0!important;
-  border:0!important;background:transparent!important;box-shadow:none!important;
-  font-size:15px!important;line-height:22px!important;font-weight:800!important;
-  white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
-  resize:none!important;pointer-events:none!important;
+
+/* Скрываем textarea адреса, показываем текстовый блок */
+#screen4 .route-card.mvs-compact-closed .route-addr-input {
+  display: none !important; 
 }
-#screen4 .route-card.mvs-compact-closed .route-note-input{
-  display:block!important;width:100%!important;min-width:0!important;
-  height:20px!important;min-height:20px!important;max-height:20px!important;
-  box-sizing:border-box!important;padding:0!important;margin:0!important;
-  border:0!important;background:transparent!important;box-shadow:none!important;
-  font-size:12px!important;line-height:20px!important;opacity:.78!important;
-  white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
-  resize:none!important;pointer-events:none!important;
+
+#screen4 .route-card.mvs-compact-closed .mvs-addr-text {
+  display: block !important;
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  line-height: 1.35 !important;
+  white-space: pre-wrap !important;
+  overflow-wrap: anywhere !important;
+  color: #263944 !important;
 }
+body.dark #screen4 .route-card.mvs-compact-closed .mvs-addr-text {
+  color: #e8eef5 !important;
+}
+
+/* Заметка (одна строка) */
+#screen4 .route-card.mvs-compact-closed .route-note-input {
+  display: block !important;
+  width: 100% !important;
+  height: 20px !important;
+  min-height: 20px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  font-size: 12px !important;
+  opacity: .78 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  pointer-events: none !important;
+}
+
+/* Скрываем в короткой версии всё лишнее */
 #screen4 .route-card.mvs-compact-closed .route-mic-inline,
-#screen4 .route-card.mvs-compact-closed .route-address-actions,
-#screen4 .route-card.mvs-compact-closed .route-map-btn,
-#screen4 .route-card.mvs-compact-closed .route-status-row,
-#screen4 .route-card.mvs-compact-closed .route-card-actions,
-#screen4 .route-card.mvs-compact-closed .route-actions,
-#screen4 .route-card.mvs-compact-closed .route-extra,
-#screen4 .route-card.mvs-compact-closed .route-details,
-#screen4 .route-card.mvs-compact-closed .route-card-footer{
-  display:none!important;
+#screen4 .route-card.mvs-compact-closed .route-coords-btn,
+#screen4 .route-card.mvs-compact-closed .route-unresolved,
+#screen4 .route-card.mvs-compact-closed .mvs-native-toggle,
+#screen4 .route-card.mvs-compact-closed .route-category-switch,
+#screen4 .route-card.mvs-compact-closed .route-type-btn,
+#screen4 .route-card.mvs-compact-closed .route-status-line,
+#screen4 .route-card.mvs-compact-closed .route-nondelivery-wrap {
+  display: none !important;
 }
-#screen4 .route-card .mvs-native-toggle{
-  position:absolute!important;left:50%!important;bottom:1px!important;
-  transform:translateX(-50%)!important;width:46px!important;height:25px!important;
-  border:0!important;border-radius:15px!important;padding:0!important;margin:0!important;
-  display:flex!important;align-items:center!important;justify-content:center!important;
-  background:rgba(120,145,160,.18)!important;color:inherit!important;
-  font-size:20px!important;line-height:1!important;font-weight:800!important;z-index:10!important;
-}
-#screen4 .route-card .mvs-native-toggle span{display:block;transition:transform .18s ease}
-#screen4 .route-card:not(.mvs-compact-closed) .mvs-native-toggle span{transform:rotate(180deg)}
 </style>
 
 <style id="mvs-efficiency-analytics-v1">
@@ -8453,14 +8472,17 @@ const isCollapsed = false;
 
 
 
-    // ─── Тап по обычной карточке → открыть на карте ───
+    // ─── Тап по РАСКРЫТОЙ карточке → открыть на карте ───
   card.addEventListener('click', (e) => {
+    // Если карточка свернута — не переходим на карту (её раскроет обработчик из compact-simple-js)
+    if (card.classList.contains('mvs-compact-closed')) return;
+
+    // Игнорируем тапы по кнопкам и полям ввода
     const ignoreSelectors = [
       'input', 'textarea', 'button', 'select',
       '.status-badge', '.route-start-btn', '.route-live',
       '.route-mic-inline', '.route-note-mic', '.route-coords-btn',
       '.route-side-btn', '.route-status-btn', '.route-add-btn',
-      '.voice-panel', '.vp-btn', '.vp-audio',
       '.status-menu', '.status-overlay', '.route-note-wrap',
     ];
     if (ignoreSelectors.some(sel => e.target.closest(sel))) return;
@@ -8522,6 +8544,10 @@ addrInput.addEventListener('compositionend', () => {
 // Функция авто-высоты
 function autoGrow(el) {
   el.style.height = 'auto';
+  el.style.minHeight = '0';     // сбрасываем возможный min-height
+  el.style.maxHeight = 'none';  // сбрасываем возможный max-height
+  el.style.overflowY = 'hidden';
+  // Принудительно ставим высоту по содержимому
   el.style.height = el.scrollHeight + 'px';
 }
 
@@ -8535,56 +8561,9 @@ addrInput.addEventListener('input', () => {
   _mapHash = '';
 });
 
-// ─── Кнопка микрофона внутри поля адреса ───
-const btnMic = document.createElement('button');
-btnMic.type = 'button';
-btnMic.className = 'route-mic-inline';
-btnMic.innerHTML = MIC_SVG;
-btnMic.title = 'Голосовой ввод адреса';
-btnMic.addEventListener('click', (e) => {
-  e.stopPropagation();
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { showToast('🎤 Голосовой ввод не поддерживается'); return; }
-  const rec = new SR();
-  rec.lang = 'ru-RU';
-  rec.continuous = false;
-  rec.interimResults = false;
-  rec.maxAlternatives = 1;
-  vibro(15);
-  btnMic.classList.add('listening');
-  showToast('🎤 Говорите адрес...');
-    rec.onresult = (e) => {
-  const text = e.results[0][0].transcript.trim();
-  const clean = text.replace(/\.$/, '');
-  if (clean) {
-    // Заменяем слова-числительные на цифры
-    const normalized = normalizeNumbers(clean);
-    const existing = (item.addr || '').trim();
-    item.addr = existing ? existing + ', ' + normalized : normalized;
-    item.addrDisplay = item.addr;
-    saveRouteState(routeState);
-    addrInput.value = item.addr;
-    autoGrow(addrInput);
-    requestAnimationFrame(() => autoGrow(addrInput));
-    setTimeout(() => autoGrow(addrInput), 100);
-    showToast('✅ Добавлено: ' + normalized);
-  }
-};
-  rec.onerror = (e) => {
-    if (e.error === 'not-allowed') showToast('❌ Нет доступа к микрофону');
-    else if (e.error === 'no-speech') showToast('⚠️ Ничего не услышано');
-    else if (e.error !== 'aborted') showToast('❌ Ошибка: ' + e.error);
-  };
-  rec.onend = () => { btnMic.classList.remove('listening'); };
-  try { rec.start(); } catch (err) {
-    showToast('❌ Не удалось запустить распознавание');
-    btnMic.classList.remove('listening');
-  }
-});
-btnMic.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
 
-addrWrap.appendChild(addrInput);
-addrWrap.appendChild(btnMic);
+
+
 // ─── НАДЁЖНЫЕ ПОДСКАЗКИ АДРЕСОВ DADATA ───
 // Используем прямой API, чтобы поиск не зависел от локальных suggestions.min.js/css.
 // Ограничение по city_fias_id удалено: ранее был указан неверный идентификатор региона.
@@ -8851,6 +8830,53 @@ addrWrap.appendChild(btnMic);
     if (addrInput.value.trim().length >= 3 && suggestions.length) { list.style.display = 'block'; positionList(); requestAnimationFrame(positionList); }
   });
 })();
+// ─── Микрофон внутри поля адреса ───
+const btnMic = document.createElement('button');
+btnMic.type = 'button';
+btnMic.className = 'route-mic-inline';
+btnMic.innerHTML = MIC_SVG;
+btnMic.title = 'Голосовой ввод адреса';
+btnMic.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { showToast('🎤 Голосовой ввод не поддерживается'); return; }
+  const rec = new SR();
+  rec.lang = 'ru-RU';
+  rec.continuous = false;
+  rec.interimResults = false;
+  rec.maxAlternatives = 1;
+  vibro(15);
+  btnMic.classList.add('listening');
+  showToast('🎤 Говорите адрес...');
+  rec.onresult = (e) => {
+    const text = e.results[0][0].transcript.trim();
+    const clean = text.replace(/\.$/, '');
+    if (clean) {
+      const normalized = normalizeNumbers(clean);
+      const existing = (item.addr || '').trim();
+      item.addr = existing ? existing + ', ' + normalized : normalized;
+      item.addrDisplay = item.addr;
+      saveRouteState(routeState);
+      addrInput.value = item.addr;
+      autoGrow(addrInput);
+      requestAnimationFrame(() => autoGrow(addrInput));
+      setTimeout(() => autoGrow(addrInput), 100);
+      showToast('✅ Добавлено: ' + normalized);
+    }
+  };
+  rec.onerror = (e) => {
+    if (e.error === 'not-allowed') showToast('❌ Нет доступа к микрофону');
+    else if (e.error === 'no-speech') showToast('⚠️ Ничего не услышано');
+    else if (e.error !== 'aborted') showToast('❌ Ошибка: ' + e.error);
+  };
+  rec.onend = () => { btnMic.classList.remove('listening'); };
+  try { rec.start(); } catch (err) {
+    showToast('❌ Не удалось запустить распознавание');
+    btnMic.classList.remove('listening');
+  }
+});
+btnMic.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+
 // ─── Кнопка ручного ввода координат ───
 const btnCoords = document.createElement('button');
 btnCoords.type = 'button';
@@ -8864,8 +8890,9 @@ btnCoords.addEventListener('click', (e) => {
 });
 btnCoords.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
 
+addrWrap.appendChild(addrInput);
+addrWrap.appendChild(btnMic);
 addrWrap.appendChild(btnCoords);
-fields.appendChild(addrWrap);
 
 // ─── Предупреждение: адрес не найден на карте ───
 if (item.status !== 'done' && item.status !== 'perenos' && isAddrUnresolved(item.addr)) {
@@ -9228,6 +9255,12 @@ card.appendChild(reasonWrap);
   });
     addrInput.addEventListener('change', () => autoGrow(addrInput));
   addrInput.addEventListener('blur', () => autoGrow(addrInput));
+
+   // ─── Шаг 3: пересчитать высоту после загрузки шрифтов ───
+  // В WebView первая отрисовка иногда занижает высоту, пока шрифт не применён.
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => autoGrow(addrInput));
+  }
 
   return card;
 }
@@ -9991,9 +10024,7 @@ function renderProductAdvisor1() {
   const chips = arr => arr.length ? arr.map(x => `<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 9px;margin-top:5px;border-radius:9px;background:rgba(127,145,165,.10);"><span>${escapeHtml(String(x.name))}${x.group ? ` <small style="opacity:.65">· ${escapeHtml(String(x.group))}</small>` : ''}</span>${x.count > 0 ? `<b>${x.count} шт.</b>` : '<span style="opacity:.7">предложить</span>'}</div>`).join('') : '<div style="opacity:.65;padding:6px 0">Пока нет данных</div>';
   el.innerHTML = `<details class="product-advisor-accordion"><summary>💡 Что предложить сегодня <span class="paa-chevron">▾</span></summary><div class="paa-content"><div class="paa-subtitle">Подсказки по каталогу и счётчикам текущего дня</div><div class="paa-heading">🔥 Уже продаются сегодня</div>${chips(sold)}<div class="paa-heading paa-heading-next">🎯 Можно предложить клиенту</div>${chips(suggestions)}<div class="paa-footnote">Продажи показаны по текущим счётчикам дня; блок не меняет отчёты и данные.</div></div></details>`;
 }
-function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-}
+
 
 function render1() {
   const app = document.getElementById('app1');
@@ -17040,39 +17071,61 @@ document.addEventListener('click', function(ev) {
 (function(){
   function enhance(card){
     if(!card || card.dataset.mvsSimpleAccordion==='1') return;
-    var btn=document.createElement('button');
-    btn.type='button';btn.className='mvs-native-toggle';
-    btn.setAttribute('aria-label','Раскрыть карточку активности');
-    btn.innerHTML='<span>⌄</span>';
-    function sync(){
-      const closed=card.classList.contains('mvs-compact-closed');
-      btn.setAttribute('aria-expanded',String(!closed));
-      btn.setAttribute('aria-label',closed?'Раскрыть карточку активности':'Свернуть карточку активности');
+
+    // 1. Создаем текстовый блок для адреса
+    var addrInput = card.querySelector('.route-addr-input');
+    var addrWrap = card.querySelector('.route-addr-wrap');
+    if (addrInput && addrWrap) {
+      var addrText = document.createElement('div');
+      addrText.className = 'mvs-addr-text';
+      addrText.textContent = addrInput.value || addrInput.placeholder || 'Адрес не указан';
+      
+      addrWrap.insertBefore(addrText, addrInput);
+
+      // Синхронизируем текст при вводе
+      addrInput.addEventListener('input', function() {
+        addrText.textContent = addrInput.value || addrInput.placeholder || 'Адрес не указан';
+      });
     }
-    btn.addEventListener('click',function(e){
-      e.preventDefault();e.stopPropagation();
-      card.classList.toggle('mvs-compact-closed');
-      sync();
-    });
-    card.appendChild(btn);
-    // Активная встреча в разделе «В работе» должна быть развёрнута автоматически.
+
+    // 2. Логика раскрытия/сворачивания по тапу на короткую карточку
+    card.addEventListener('click', function(e) {
+      // Не перехватываем, если тап по кнопкам или полям
+      if (e.target.closest('button, input, textarea, select, a, .route-add-btn, .route-mic-inline, .route-coords-btn, .status-badge')) {
+        return;
+      }
+
+      // Если карточка свернута — раскрываем её и блокируем переход на карту
+      if (card.classList.contains('mvs-compact-closed')) {
+        e.preventDefault();
+        e.stopPropagation();
+        card.classList.remove('mvs-compact-closed');
+      }
+      // Если карточка уже раскрыта — ничего не делаем (сработает переход на карту)
+    }, true); // capture: true, чтобы перехватить раньше основного обработчика
+
+    // Активная встреча сразу раскрыта
     if(card.classList.contains('route-card-live')) card.classList.remove('mvs-compact-closed');
     else card.classList.add('mvs-compact-closed');
-    sync();
+    
     card.dataset.mvsSimpleAccordion='1';
   }
-  function scan(){document.querySelectorAll('#screen4 .route-card').forEach(enhance);}
+
+  function scan(){
+    document.querySelectorAll('#screen4 .route-card').forEach(enhance);
+  }
+
   function start(){
     scan();
     const root=document.querySelector('#screen4 #app4');
     if(root)new MutationObserver(scan).observe(root,{childList:true,subtree:true});
     setTimeout(scan,250);setTimeout(scan,800);setTimeout(scan,1600);
   }
+
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});
   else start();
 })();
 </script>
-
 </body>
 </html>
 
