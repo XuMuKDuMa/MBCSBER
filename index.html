@@ -8319,6 +8319,13 @@ timeCol.innerHTML = `
   <div class="rtc-start">${startTime || '—'}</div>
   <div class="rtc-end">${endTime || ''}</div>
 `;
+const compactStatus = document.createElement('div');
+compactStatus.className = 'route-compact-status';
+compactStatus.textContent = item.status === 'wait' ? 'Ждёт' : (item.status === 'ndz' ? 'НДЗ' : '');
+if (item.status === 'wait' || item.status === 'ndz') {
+  compactStatus.classList.add(item.status === 'wait' ? 'is-wait' : 'is-ndz');
+}
+timeCol.appendChild(compactStatus);
 topRow.appendChild(timeCol);
 
 // ─── Поля: адрес + заметка ───
@@ -8448,6 +8455,8 @@ addrWrap.appendChild(btnMic);
 // Ограничение по city_fias_id удалено: ранее был указан неверный идентификатор региона.
 (function initMvsDaDataAutocomplete() {
   const getDaDataApiKey = () => { try { return (localStorage.getItem("mvs_dadata_api_key") || "").trim(); } catch (_) { return ""; } };
+  // Единый доступ к ключу для обычной карточки и массового добавления.
+  window.__mvsGetDaDataApiKey = getDaDataApiKey;
   const endpoint = 'https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/address';
   let timer = null;
   let controller = null;
@@ -9353,31 +9362,72 @@ function openMvsVoiceBatch(){
   if(!times.length) return;
   const overlay=document.createElement('div'); overlay.className='mvs-vb-backdrop';
   const modal=document.createElement('div'); modal.className='mvs-vb-modal';
-  modal.innerHTML=`<h3>Добавить адреса в слот</h3><div class="mvs-vb-muted">Выбери время, введи адреса — каждый с новой строки. Можно надиктовать адреса по одному.</div><label for="mvs-vb-slot">Временной слот</label><select id="mvs-vb-slot" class="mvs-vb-slot">${times.map(t=>`<option value="${t.id}" ${t.id===getCurrentSlotId()?'selected':''}>${t.label}</option>`).join('')}</select><label for="mvs-vb-addresses">Адреса</label><textarea id="mvs-vb-addresses" rows="5" placeholder="Например: Красногорск, улица Ленина, дом 5\nКрасногорск, улица Мира, дом 10" style="box-sizing:border-box;width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font:inherit;resize:vertical"></textarea><div class="mvs-vb-hint" id="mvs-vb-hint">Адресов: 0</div><div class="mvs-vb-actions"><button type="button" id="mvs-vb-mic">🎙 Надиктовать адрес</button><button type="button" id="mvs-vb-cancel">Отмена</button></div><div class="mvs-vb-actions"><button type="button" class="mvs-vb-confirm" id="mvs-vb-yes">Добавить в слот</button></div>`;
+  modal.innerHTML=`<h3>Добавить встречи в слот</h3><div class="mvs-vb-muted">Выбери время и вводи адреса — каждый с новой строки. При вводе появятся подсказки, как в карточке встречи.</div><label for="mvs-vb-slot">Временной слот</label><select id="mvs-vb-slot" class="mvs-vb-slot">${times.map(t=>`<option value="${t.id}" ${t.id===getCurrentSlotId()?'selected':''}>${t.label}</option>`).join('')}</select><label for="mvs-vb-addresses">Адреса</label><div class="mvs-vb-address-wrap" style="position:relative"><textarea id="mvs-vb-addresses" rows="5" autocomplete="off" placeholder="Начни вводить адрес… каждый адрес с новой строки" style="box-sizing:border-box;width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font:inherit;resize:vertical"></textarea><div id="mvs-vb-suggestions" class="mvs-dadata-list" role="listbox" style="display:none;position:fixed;z-index:2147483000;left:8px;top:100px;width:calc(100% - 16px);max-height:220px;overflow:auto"></div></div><div class="mvs-vb-hint" id="mvs-vb-hint">Адресов: 0</div><div class="mvs-vb-actions"><button type="button" id="mvs-vb-cancel">Отмена</button><button type="button" class="mvs-vb-confirm" id="mvs-vb-yes">Добавить в слот</button></div>`;
   overlay.appendChild(modal); document.body.appendChild(overlay);
-  const area=modal.querySelector('#mvs-vb-addresses'), hint=modal.querySelector('#mvs-vb-hint'), mic=modal.querySelector('#mvs-vb-mic');
+  const area=modal.querySelector('#mvs-vb-addresses'), hint=modal.querySelector('#mvs-vb-hint'), suggestionBox=modal.querySelector('#mvs-vb-suggestions');
+  let searchTimer=null, requestSeq=0, activeSuggestions=[];
   const updateCount=()=>{const n=area.value.split(/\n+/).map(x=>x.trim()).filter(Boolean).length;hint.textContent='Адресов: '+n;};
-  area.addEventListener('input',updateCount);
-  let recognition=null, listening=false;
-  mic.addEventListener('click',()=>{
-    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-    if(!SR){hint.textContent='Распознавание речи недоступно в этом браузере. Введи адрес вручную.';return;}
-    if(listening)return;
-    recognition=new SR(); recognition.lang='ru-RU'; recognition.continuous=false; recognition.interimResults=false; recognition.maxAlternatives=1; listening=true; mic.disabled=true; mic.textContent='🔴 Слушаю…'; hint.textContent='Говори адрес…';
-    recognition.onresult=e=>{const heard=String(e.results?.[0]?.[0]?.transcript||'').trim();if(heard){area.value+=(area.value.trim()?'\n':'')+heard;updateCount();hint.textContent='Адрес распознан. Можешь надиктовать следующий.';}};
-    recognition.onerror=e=>{hint.textContent=e.error==='not-allowed'?'Разреши доступ к микрофону.':'Не получилось распознать адрес. Попробуй ещё раз или введи вручную.';};
-    recognition.onend=()=>{listening=false;mic.disabled=false;mic.textContent='🎙 Надиктовать адрес';recognition=null;};
-    try{recognition.start();}catch(e){listening=false;mic.disabled=false;mic.textContent='🎙 Надиктовать адрес';hint.textContent='Не удалось включить микрофон. Попробуй ещё раз.';}
+  const currentLine=()=>{const pos=area.selectionStart;const before=area.value.slice(0,pos);return {start:before.lastIndexOf('\n')+1,end:(()=>{const n=area.value.indexOf('\n',pos);return n<0?area.value.length:n})(),query:before.slice(before.lastIndexOf('\n')+1).trim()};};
+  const hideSuggestions=()=>{suggestionBox.style.display='none';suggestionBox.replaceChildren();activeSuggestions=[];};
+  const positionBatchSuggestions=()=>{
+    const r=area.getBoundingClientRect(); const gap=5;
+    const maxH=Math.min(220,Math.round((window.visualViewport?.height||window.innerHeight)*0.32));
+    const vv=window.visualViewport; const viewportTop=vv?vv.offsetTop:0; const viewportBottom=viewportTop+(vv?vv.height:window.innerHeight);
+    const below=Math.max(0,viewportBottom-r.bottom-gap-6); const above=Math.max(0,r.top-viewportTop-gap-6);
+    const placeAbove=below<100 && above>below; const available=placeAbove?above:below;
+    suggestionBox.style.position='fixed'; suggestionBox.style.left=Math.max(8,Math.min(r.left,window.innerWidth-128))+'px';
+    suggestionBox.style.width=Math.max(120,Math.min(r.width,window.innerWidth-Math.max(8,r.left)-8))+'px';
+    suggestionBox.style.maxHeight=Math.max(80,Math.min(maxH,available||maxH))+'px';
+    suggestionBox.style.top=(placeAbove?Math.max(viewportTop+6,r.top-Math.min(maxH,available)-gap):r.bottom+gap)+'px';
+  };
+  window.addEventListener('resize',()=>{if(suggestionBox.style.display==='block')positionBatchSuggestions();});
+  window.addEventListener('scroll',()=>{if(suggestionBox.style.display==='block')positionBatchSuggestions();},true);
+  if(window.visualViewport){window.visualViewport.addEventListener('resize',()=>{if(suggestionBox.style.display==='block')positionBatchSuggestions();});window.visualViewport.addEventListener('scroll',()=>{if(suggestionBox.style.display==='block')positionBatchSuggestions();});}
+  const showSuggestions=(items,seq)=>{
+    if(seq!==requestSeq)return; activeSuggestions=items||[]; suggestionBox.replaceChildren();
+    if(!activeSuggestions.length){hideSuggestions();return;}
+    activeSuggestions.forEach(item=>{
+      const b=document.createElement('button');b.type='button';b.className='mvs-dadata-option';b.style.width='100%';b.style.textAlign='left';
+      const d=item.data||{};const main=document.createElement('span');main.className='mvs-dadata-main';main.textContent=[d.street_with_type||d.street||d.route||'',d.house||''].filter(Boolean).join(' ').trim()||item.value||'';
+      const sub=document.createElement('span');sub.className='mvs-dadata-sub';sub.textContent=[d.city||d.settlement||d.city_with_type||'',d.region_with_type||''].filter(Boolean).join(', ');
+      b.append(main,sub);b.addEventListener('pointerdown',e=>e.preventDefault());b.addEventListener('mousedown',e=>e.preventDefault());
+      b.addEventListener('click',()=>{const line=currentLine();const before=area.value.slice(0,line.start),after=area.value.slice(line.end);const full=String(item.value||'').trim();area.value=before+full+after;const caret=(before+full).length;area.focus();area.setSelectionRange(caret,caret);updateCount();hideSuggestions();});suggestionBox.appendChild(b);
+    }); suggestionBox.style.display='block'; positionBatchSuggestions();
+  };
+  area.addEventListener('input',()=>{
+    updateCount(); clearTimeout(searchTimer); const line=currentLine(); const q=line.query; const seq=++requestSeq;
+    if(q.length<3){hideSuggestions();return;}
+    hint.textContent='Адресов: '+area.value.split(/\n+/).map(x=>x.trim()).filter(Boolean).length+' · Ищу подсказки…';
+    searchTimer=setTimeout(async()=>{
+      try{
+        let key=''; try { key=(typeof window.__mvsGetDaDataApiKey==='function' ? window.__mvsGetDaDataApiKey() : (localStorage.getItem('mvs_dadata_api_key')||'')).trim(); } catch(_) {}
+        if(!key){ hint.textContent='Адресов: '+area.value.split(/\n+/).map(x=>x.trim()).filter(Boolean).length+' · Не найден ключ DaData'; hideSuggestions(); return; }
+        const endpoint='https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/address';
+        // Используем тот же запрос, что и в обычной карточке: ограничение городом
+        // иногда возвращает пустой список в Android WebView, поэтому сначала ищем без него.
+        const request=async(locations)=>fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','Authorization':'Token '+key},body:JSON.stringify({query:q,count:8,language:'ru',locations})});
+        let response=await request([{country:'*'}]);
+        if(!response.ok) throw new Error('DaData HTTP '+response.status);
+        let data=await response.json(); let items=Array.isArray(data.suggestions)?data.suggestions:[];
+        if(!items.length && typeof getMyCity==='function'){
+          const city=getMyCity();
+          if(city){ const r2=await request([{country:'*',city}]); if(r2.ok){const j=await r2.json();items=Array.isArray(j.suggestions)?j.suggestions:[];} }
+        }
+        if(seq===requestSeq){ if(!items.length) { hideSuggestions(); hint.textContent='Адресов: '+area.value.split(/\n+/).map(x=>x.trim()).filter(Boolean).length+' · Подсказки не найдены'; } else showSuggestions(items,seq); }
+      }catch(e){ if(seq===requestSeq){ hideSuggestions(); hint.textContent='Адресов: '+area.value.split(/\n+/).map(x=>x.trim()).filter(Boolean).length+' · Ошибка подсказок'; console.warn('MVS batch DaData error',e); } }
+    },260);
   });
-  const close=()=>{if(recognition)try{recognition.stop()}catch(e){};overlay.remove();};
+  area.addEventListener('keydown',e=>{if(e.key==='Escape')hideSuggestions();});
+  area.addEventListener('blur',()=>setTimeout(hideSuggestions,180));
+  const close=()=>{clearTimeout(searchTimer);overlay.remove();};
   modal.querySelector('#mvs-vb-cancel').addEventListener('click',close);
   overlay.addEventListener('click',e=>{if(e.target===overlay)close();});
   modal.querySelector('#mvs-vb-yes').addEventListener('click',()=>{
     const addresses=area.value.split(/\n+/).map(x=>x.trim()).filter(Boolean);
-    if(!addresses.length){hint.textContent='Сначала введи или надиктуй хотя бы один адрес.';return;}
+    if(!addresses.length){hint.textContent='Сначала введи хотя бы один адрес.';return;}
     const slotId=modal.querySelector('#mvs-vb-slot').value;
     if(!routeState.lists[slotId])routeState.lists[slotId]=[];
-    addresses.forEach(addr=>routeState.lists[slotId].push({addr,addrDisplay:addr,note:'',status:null}));
+    addresses.forEach(addr=>routeState.lists[slotId].push({addr,addrDisplay:typeof mvsStreetOnlyAddress==='function'?mvsStreetOnlyAddress(addr):addr,note:'',status:null}));
     saveRouteState(routeState);close();_openSlotId=slotId;renderRoute();if(typeof updateDrawerRoutes==='function')updateDrawerRoutes();_mapHash='';if(typeof map!=='undefined'&&map&&typeof renderMapMarkers==='function')renderMapMarkers();if(typeof showToast==='function')showToast('Добавлено адресов: '+addresses.length);
   });
 }
@@ -9398,13 +9448,13 @@ stats.innerHTML = `
   <div class="route-stat perenos"><div class="rs-label">ПР/ОТ</div><div class="rs-value">${c.perenos}</div></div>
   <div class="route-stat oos"><div class="rs-label">НЕ В СЛОТ</div><div class="rs-value">${getOutOfSlotDoneCount()}</div></div>`;
 frag.appendChild(stats);
-const voiceBatchBtn = document.createElement('button');
-voiceBatchBtn.type = 'button';
-voiceBatchBtn.className = 'mvs-voice-batch-launch';
-voiceBatchBtn.innerHTML = '🎙 Добавить адреса в слот';
-voiceBatchBtn.style.minHeight = '34px';
-voiceBatchBtn.addEventListener('click', openMvsVoiceBatch);
-frag.appendChild(voiceBatchBtn);
+const batchAddBtn = document.createElement('button');
+batchAddBtn.type = 'button';
+batchAddBtn.className = 'mvs-voice-batch-launch';
+batchAddBtn.textContent = '+ Добавить встречи в слоты';
+batchAddBtn.addEventListener('click', openMvsVoiceBatch);
+frag.appendChild(batchAddBtn);
+/* Голосовой ввод убран по запросу пользователя; массовое добавление адресов оставлено. */
 
 
 
@@ -16789,113 +16839,7 @@ document.addEventListener('click', function(ev) {
 
 <script>
 /* Плавающая голосовая кнопка МВС: команда «добавь встречу с 10 до 12 адрес…» */
-(function installMvsFloatingVoice(){
-  if (window.__mvsFloatingVoiceInstalled) return;
-  window.__mvsFloatingVoiceInstalled = true;
-  const css = document.createElement('style');
-  css.id = 'mvs-floating-voice-style';
-  css.textContent = `
-    #mvs-floating-voice{position:fixed;right:14px;bottom:calc(86px + env(safe-area-inset-bottom,0px));z-index:99990;width:44px;height:44px;border:1px solid #ffffff55;border-radius:50%;background:#16834f99;color:#fff;opacity:.62;box-shadow:0 2px 8px #0002;display:flex;align-items:center;justify-content:center;font-size:21px;cursor:grab;touch-action:none;-webkit-tap-highlight-color:transparent;user-select:none}
-    #mvs-floating-voice:active{opacity:.9;cursor:grabbing}
-    #mvs-floating-voice.listening{background:#dc2626cc;opacity:.92;animation:mvsVoicePulse 1.1s infinite}
-    #mvs-floating-voice:disabled{opacity:.8}
-    #mvs-floating-voice-close{position:fixed;z-index:99991;width:22px;height:22px;padding:0;border:1px solid #ffffffaa;border-radius:50%;background:#263442;color:#fff;font:700 15px/20px Arial,sans-serif;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px #0003}
-    @keyframes mvsVoicePulse{50%{box-shadow:0 0 0 10px #ef444433,0 5px 18px #0004}}
-    #mvs-floating-voice-status{position:fixed;right:12px;bottom:calc(140px + env(safe-area-inset-bottom,0px));z-index:99989;max-width:min(310px,calc(100vw - 24px));padding:9px 11px;border-radius:12px;background:#17212beF;color:#fff;font-size:13px;line-height:1.35;box-shadow:0 4px 16px #0003;display:none}
-    #mvs-floating-voice-status.mvs-success{top:calc(12px + env(safe-area-inset-top,0px));bottom:auto;left:12px;right:12px;max-width:520px;margin:0 auto;text-align:center;background:#167447f2;border:1px solid #ffffff45;padding:12px 15px;border-radius:14px;font-weight:600;box-shadow:0 5px 20px #0003;animation:mvsNoticeIn .22s ease-out}
-    @keyframes mvsNoticeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
-  `;
-  document.head.appendChild(css);
-  const btn=document.createElement('button'); btn.id='mvs-floating-voice'; btn.type='button'; btn.title='Добавить встречу голосом'; btn.setAttribute('aria-label','Добавить встречу голосом'); btn.innerHTML='🎙';
-  const status=document.createElement('div'); status.id='mvs-floating-voice-status'; status.setAttribute('role','status');
-  const closeBtn=document.createElement('button'); closeBtn.id='mvs-floating-voice-close'; closeBtn.type='button'; closeBtn.textContent='×'; closeBtn.title='Скрыть голосовую кнопку'; closeBtn.setAttribute('aria-label','Скрыть голосовую кнопку');
-  document.body.append(btn,status,closeBtn);
-  function positionClose(){const r=btn.getBoundingClientRect();closeBtn.style.left=Math.max(0,Math.min(window.innerWidth-22,r.right-12))+'px';closeBtn.style.top=Math.max(0,r.top-8)+'px';}
-  positionClose(); window.addEventListener('resize',positionClose);
-  closeBtn.addEventListener('click',()=>{if(listening){sayStatus('Сначала останови голосовой ввод, затем скрой кнопку.');return;}btn.remove();closeBtn.remove();status.remove();});
-  let recognition=null, listening=false;
-  function sayStatus(message, speak=false){status.classList.remove('mvs-success');status.textContent=message;status.style.display='block';if(speak && 'speechSynthesis' in window){try{window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(message);u.lang='ru-RU';u.rate=1.03;window.speechSynthesis.speak(u);}catch(e){}}}
-  function norm(s){return String(s||'').toLowerCase().replace(/ё/g,'е').replace(/[.,!?;:]/g,' ').replace(/\s+/g,' ').trim();}
-  function getSlot(text){
-    const t=norm(text);
-    const pairs=[
-      ['t10_12',/(?:с\s*)?(?:10|10\s*00|десяти|десять)\s*(?:до|[-–—]\s*)\s*(?:12|12\s*00|двенадцати|двенадцать)/],
-      ['t12_14',/(?:с\s*)?(?:12|12\s*00|двенадцати|двенадцать)\s*(?:до|[-–—]\s*)\s*(?:14|14\s*00|четырнадцати|четырнадцать)/],
-      ['t14_16',/(?:с\s*)?(?:14|14\s*00|четырнадцати|четырнадцать)\s*(?:до|[-–—]\s*)\s*(?:16|16\s*00|шестнадцати|шестнадцать)/],
-      ['t16_18',/(?:с\s*)?(?:16|16\s*00|шестнадцати|шестнадцать)\s*(?:до|[-–—]\s*)\s*(?:18|18\s*00|восемнадцати|восемнадцать)/]
-    ];
-    for(const [id,re] of pairs) if(re.test(t)) return id;
-    return null;
-  }
-  function extractAddress(text){
-    let t=norm(text);
-    // Удаляем командные слова по русским границам, а не через ASCII \b.
-    t=t.replace(/(^|\s)(пожалуйста|добавь|добавить|создай|создать|запиши|записать|добавляется)(?=\s|$)/gu,' ');
-    t=t.replace(/(^|\s)(мне|новую|новый|встречу|встреча|встречи|адрес|карточку|карточка|слот|временной слот|по адресу|адрес такой)(?=\s|$)/gu,' ');
-    // Распознанное время часто приходит как «с 10 00 до 12 00».
-    const hour='(?:10|12|14|16|18|десяти|десять|двенадцати|двенадцать|четырнадцати|четырнадцать|шестнадцати|шестнадцать|восемнадцати|восемнадцать)';
-    const timeRange=new RegExp('(^|\\s)(?:с\\s*)?'+hour+'(?:\\s*00)?\\s*(?:до|[-–—])\\s*'+hour+'(?:\\s*00)?(?=\\s|$)','gu');
-    t=t.replace(timeRange,' ');
-    // Иногда распознавание разбивает время на четыре числа: «10 00 до 12 00».
-    t=t.replace(/(^|\s)(?:с\s*)?(?:10|12|14|16|18)\s+00\s+до\s+(?:10|12|14|16|18)\s+00(?=\s|$)/gu,' ');
-    t=t.replace(/(^|\s)(время|слот|по адресу|адрес такой|адрес)(?=\s|$)/gu,' ');
-    t=t.replace(/[,:;]+/g,' ').replace(/\s+/g,' ').trim();
-    t=t.replace(/^[,\s-]+|[,\s-]+$/g,'').replace(/^(?:и\s+)+/u,'').trim();
-    // Не принимаем обрывки распознавания за адрес. Но сохраняем нормальные адреса вроде «дом 5а».
-    if(/^(?:(?:или|либо|и|на|в|до|с)\s*)+(?:\d+[а-я]?)?$/u.test(t)) return '';
-    if(/^(?:или\s+)?на\s+\d+[а-я]?$/u.test(t)) return '';
-    return t;
-  }
-  function handleTranscript(raw){
-    const slotId=getSlot(raw); const address=extractAddress(raw);
-    if(!slotId){sayStatus('Не расслышала время. Скажи, например: «Добавь встречу с 10 до 12, Красногорск, улица Ленина, дом 5».',true);return;}
-    if(!address || address.length<5 || /^(?:или|на|в|с|до)\b/u.test(address)){sayStatus('Время поняла, но адрес не распознала. Встречу не добавила, чтобы не сохранить мусор. Повтори команду целиком, например: «Добавь встречу с 10 до 12, Красногорск, улица Ленина, дом 5».',true);return;}
-    if(typeof routeState==='undefined' || typeof saveRouteState!=='function' || typeof renderRoute!=='function') {sayStatus('Не получилось открыть список встреч. Перейди в раздел «Активности» и попробуй ещё раз.',true);return;}
-    if(!routeState.lists[slotId]) routeState.lists[slotId]=[];
-    routeState.lists[slotId].push({addr:address,addrDisplay:address,note:'',status:null});
-    saveRouteState(routeState); window._openSlotId=slotId; if(typeof _openSlotId!=='undefined') _openSlotId=slotId;
-    renderRoute(); if(typeof updateDrawerRoutes==='function') updateDrawerRoutes();
-    if(typeof renderMapMarkers==='function' && typeof map!=='undefined' && map) renderMapMarkers();
-    const label=(ROUTE_TIMES.find(x=>x.id===slotId)||{}).label||slotId;
-    status.classList.add('mvs-success');
-    sayStatus('✅ Встреча добавлена\n'+label+' · '+address,true);
-    status.classList.add('mvs-success');
-    if(window.__mvsVoiceNoticeTimer) clearTimeout(window.__mvsVoiceNoticeTimer);
-    window.__mvsVoiceNoticeTimer=setTimeout(()=>{status.style.display='none';status.classList.remove('mvs-success');},5500);
-    btn.innerHTML='✓'; setTimeout(()=>{if(!listening)btn.innerHTML='🎙';},1800);
-  }
-  // Кнопку можно перетаскивать пальцем/мышью; короткое касание запускает запись.
-  let drag=null, dragged=false, suppressClick=false;
-  btn.addEventListener('pointerdown',e=>{
-    if(e.button!==undefined && e.button!==0)return;
-    drag={x:e.clientX,y:e.clientY,left:btn.getBoundingClientRect().left,top:btn.getBoundingClientRect().top,id:e.pointerId};
-    dragged=false; try{btn.setPointerCapture(e.pointerId)}catch(_){}
-  });
-  btn.addEventListener('pointermove',e=>{
-    if(!drag || drag.id!==e.pointerId)return;
-    const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
-    if(!dragged && Math.hypot(dx,dy)>8)dragged=true;
-    if(!dragged)return;
-    const x=Math.max(0,Math.min(window.innerWidth-btn.offsetWidth,drag.left+dx));
-    const y=Math.max(0,Math.min(window.innerHeight-btn.offsetHeight,drag.top+dy));
-    btn.style.left=x+'px';btn.style.top=y+'px';btn.style.right='auto';btn.style.bottom='auto';positionClose();
-  });
-  function finishDrag(){if(dragged){suppressClick=true;setTimeout(()=>suppressClick=false,250)}drag=null;}
-  btn.addEventListener('pointerup',finishDrag);btn.addEventListener('pointercancel',finishDrag);
-  btn.addEventListener('click',()=>{    if(suppressClick)return;
-    if(listening) {try{recognition&&recognition.stop()}catch(e){};return;}
-    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-    if(!SR){sayStatus('Голосовой ввод не поддерживается этим браузером. Проверь Chrome или Яндекс Браузер и разрешение на микрофон.');return;}
-    try{
-      recognition=new SR(); recognition.lang='ru-RU'; recognition.continuous=false; recognition.interimResults=false; recognition.maxAlternatives=1; listening=true;
-      btn.classList.add('listening');btn.innerHTML='🔴';status.style.display='none';
-      recognition.onresult=e=>{const heard=String(e.results&&e.results[0]&&e.results[0][0]&&e.results[0][0].transcript||'').trim();if(heard){status.textContent='Распознано: '+heard;handleTranscript(heard);}else sayStatus('Не расслышала. Попробуй ещё раз, когда будет безопасно.');};
-      recognition.onerror=e=>{sayStatus(e.error==='not-allowed'?'Нет доступа к микрофону. Разреши микрофон для приложения.':'Не удалось распознать речь. Попробуй ещё раз, когда будет безопасно.');};
-      recognition.onend=()=>{listening=false;btn.classList.remove('listening');btn.innerHTML='🎙';recognition=null;};
-      recognition.start();
-    }catch(e){listening=false;btn.classList.remove('listening');btn.innerHTML='🎙';recognition=null;sayStatus('Не удалось включить микрофон. Проверь разрешение на микрофон.');}
-  });
-})();
+/* Плавающий микрофон и голосовой ввод удалены по запросу пользователя. */
 </script>
 
 
@@ -16973,6 +16917,16 @@ document.addEventListener('click', function(ev) {
 </style>
 
 <!-- MVS Android note focus: removed delayed refocus to preserve native IME activation -->
+
+<style id="mvs-compact-status-labels">
+#app4 .route-compact-status, #screen4 .route-compact-status { display:none; font-size:10px; font-weight:850; line-height:1.15; margin-top:3px; white-space:nowrap; }
+#app4 .route-card.collapsed .route-compact-status, #screen4 .route-card.collapsed .route-compact-status { display:block; }
+#app4 .route-compact-status.is-wait, #screen4 .route-compact-status.is-wait { color:#b77900; }
+#app4 .route-compact-status.is-ndz, #screen4 .route-compact-status.is-ndz { color:#c0392b; }
+body.dark #app4 .route-compact-status.is-wait, body.dark #screen4 .route-compact-status.is-wait { color:#ffd166; }
+body.dark #app4 .route-compact-status.is-ndz, body.dark #screen4 .route-compact-status.is-ndz { color:#ff8a80; }
+</style>
+
 </body>
 </html>
 
