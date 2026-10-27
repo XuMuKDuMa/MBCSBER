@@ -17054,6 +17054,62 @@ document.addEventListener('click', function(ev) {
 #mvs-floating-voice, #mvs-floating-voice-close, #mvs-floating-voice-status { display:none !important; }
 </style>
 
+
+<style id="mvs-longpress-copy-confirm">
+#mvs-card-actions{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:flex-end;justify-content:center;background:rgba(8,16,26,.18);padding:14px}
+#mvs-card-actions .mvs-ca-panel{width:min(420px,100%);border-radius:18px;padding:16px;background:#fff;color:#263442;box-shadow:0 10px 32px #0003;border:1px solid #e0e7ee;margin-bottom:env(safe-area-inset-bottom,0px)}
+#mvs-card-actions .mvs-ca-title{font-size:16px;font-weight:800;margin:0 0 6px}
+#mvs-card-actions .mvs-ca-sub{font-size:14px;line-height:1.35;color:#657383;overflow-wrap:anywhere;margin-bottom:14px}
+#mvs-card-actions .mvs-ca-grid{display:flex;gap:8px}
+#mvs-card-actions button{flex:1;min-height:44px;border:1px solid #d7e0e8;border-radius:12px;background:#f4f7fa;color:#263442;font:600 14px Arial,sans-serif;padding:10px}
+#mvs-card-actions button[data-action="confirm"]{background:#168b59;border-color:#168b59;color:#fff}
+body.dark #mvs-card-actions .mvs-ca-panel{background:#142238;color:#edf4ff;border-color:#2c405a}
+body.dark #mvs-card-actions .mvs-ca-sub{color:#b7c4d4}
+body.dark #mvs-card-actions button{background:#1c2b40;color:#edf4ff;border-color:#3b506b}
+body.dark #mvs-card-actions button[data-action="confirm"]{background:#168b59;color:#fff;border-color:#168b59}
+</style>
+
+
+<script id="mvs-route-card-longpress">
+(function(){
+  if(window.__mvsLongPressInstalled)return;
+  window.__mvsLongPressInstalled=true;
+  let timer=null,startX=0,startY=0;
+  const delay=620;
+  function closePrompt(){const el=document.getElementById('mvs-card-actions');if(el)el.remove();}
+  function addressFrom(card){
+    const selectors=['.route-addr-collapsed','.route-address','.route-addr','.address-text'];
+    for(const sel of selectors){const el=card.querySelector(sel);if(el&&el.textContent.trim())return el.textContent.trim();}
+    const input=card.querySelector('input.route-addr-input,input[name*="address" i],input');
+    return input&&input.value.trim()?input.value.trim():(card.innerText.split('\n').map(x=>x.trim()).find(x=>/улиц|ул\.|просп|шоссе|переул|дом/i.test(x))||'').trim();
+  }
+  function showConfirm(card){
+    closePrompt();const addr=addressFrom(card);
+    const wrap=document.createElement('div');wrap.id='mvs-card-actions';
+    wrap.innerHTML='<div class="mvs-ca-panel" role="dialog" aria-label="Подтверждение копирования адреса"><div class="mvs-ca-title">Подтвердите действие</div><div class="mvs-ca-sub">Скопировать адрес?<br><strong class="mvs-ca-address"></strong></div><div class="mvs-ca-grid"><button data-action="cancel">Отмена</button><button data-action="confirm">Скопировать адрес</button></div></div>';
+    wrap.querySelector('.mvs-ca-address').textContent=addr||'Адрес не найден';
+    wrap.addEventListener('click',async e=>{
+      if(e.target===wrap||e.target.closest('[data-action="cancel"]')){closePrompt();return;}
+      if(!e.target.closest('[data-action="confirm"]'))return;
+      if(!addr){alert('Не удалось найти адрес в карточке.');closePrompt();return;}
+      try{await navigator.clipboard.writeText(addr);}
+      catch(err){const ta=document.createElement('textarea');ta.value=addr;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();const ok=document.execCommand('copy');ta.remove();if(!ok){window.prompt('Скопируй адрес:',addr);closePrompt();return;}}
+      const b=wrap.querySelector('[data-action="confirm"]');if(b)b.textContent='✓ Скопировано';setTimeout(closePrompt,850);
+    });
+    document.body.appendChild(wrap);
+  }
+  function clear(){if(timer){clearTimeout(timer);timer=null;}}
+  document.addEventListener('pointerdown',e=>{
+    const card=e.target.closest&&e.target.closest('#app4 .route-card,#screen4 .route-card');
+    if(!card||e.target.closest('button,input,textarea,select,.status-menu,.status-overlay'))return;
+    clear();startX=e.clientX;startY=e.clientY;timer=setTimeout(()=>{timer=null;if(navigator.vibrate)navigator.vibrate(18);showConfirm(card);},delay);
+  },{passive:true});
+  document.addEventListener('pointermove',e=>{if(timer&&(Math.abs(e.clientX-startX)>12||Math.abs(e.clientY-startY)>12))clear();},{passive:true});
+  document.addEventListener('pointerup',clear,{passive:true});document.addEventListener('pointercancel',clear,{passive:true});
+  document.addEventListener('contextmenu',e=>{const card=e.target.closest&&e.target.closest('#app4 .route-card,#screen4 .route-card');if(card){e.preventDefault();showConfirm(card);}});
+})();
+</script>
+
 </body>
 </html>
 
