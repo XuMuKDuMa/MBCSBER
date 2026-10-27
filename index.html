@@ -8747,8 +8747,18 @@ noteWrap.className = 'route-note-wrap';
 const noteInput = document.createElement('textarea');
 noteInput.className = 'route-note-input';
 noteInput.placeholder = 'кв, этаж, код домофона…';
+// Заметка — полноценное текстовое поле: разрешаем буквы, кириллицу и смешанный текст.
+noteInput.setAttribute('inputmode', 'text');
+noteInput.setAttribute('lang', 'ru');
+noteInput.setAttribute('autocomplete', 'off');
+noteInput.setAttribute('autocapitalize', 'sentences');
+noteInput.setAttribute('spellcheck', 'true');
 noteInput.value = item.note || '';
 noteInput.rows = 1;
+// Не даём обработчикам карточки/слота перехватывать ввод с клавиатуры.
+['keydown', 'keyup', 'keypress', 'beforeinput', 'input', 'click', 'pointerdown', 'touchstart'].forEach(type => {
+  noteInput.addEventListener(type, e => e.stopPropagation(), type === 'touchstart' ? { passive: true } : false);
+});
 const collapsedNote = document.createElement('div');
 collapsedNote.className = 'route-note-collapsed';
 collapsedNote.textContent = (item.note || '').trim();
