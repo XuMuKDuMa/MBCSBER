@@ -8755,9 +8755,18 @@ noteInput.setAttribute('autocapitalize', 'sentences');
 noteInput.setAttribute('spellcheck', 'true');
 noteInput.value = item.note || '';
 noteInput.rows = 1;
-// Не даём обработчикам карточки/слота перехватывать ввод с клавиатуры.
-['keydown', 'keyup', 'keypress', 'beforeinput', 'input', 'click', 'pointerdown', 'touchstart'].forEach(type => {
+// Останавливаем только жесты карточки. Не блокируем keydown/beforeinput/input:
+// русская раскладка вводит кириллицу через IME/composition events.
+['pointerdown', 'touchstart', 'click'].forEach(type => {
   noteInput.addEventListener(type, e => e.stopPropagation(), type === 'touchstart' ? { passive: true } : false);
+});
+noteInput.addEventListener('compositionstart', () => { noteInput.dataset.composing = '1'; });
+noteInput.addEventListener('compositionend', () => {
+  delete noteInput.dataset.composing;
+  item.note = noteInput.value;
+  collapsedNote.textContent = (noteInput.value || '').trim();
+  saveRouteState(routeState);
+  autoGrowNote(noteInput);
 });
 const collapsedNote = document.createElement('div');
 collapsedNote.className = 'route-note-collapsed';
