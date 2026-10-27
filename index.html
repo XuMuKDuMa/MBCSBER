@@ -8760,13 +8760,30 @@ noteInput.rows = 1;
 ['pointerdown', 'touchstart', 'click'].forEach(type => {
   noteInput.addEventListener(type, e => e.stopPropagation(), type === 'touchstart' ? { passive: true } : false);
 });
+// Android WebView: при первом касании textarea иногда получает мигающий caret,
+// но IME не привязывается к полю. Повторно фокусируем после завершения касания,
+// не перерисовывая карточку и не сбрасывая текущий текст/позицию курсора.
+noteInput.addEventListener('touchend', () => {
+  setTimeout(() => {
+    if (!noteInput.isConnected || document.activeElement === noteInput) {
+      if (noteInput.isConnected) noteInput.focus({ preventScroll: true });
+      return;
+    }
+    noteInput.focus({ preventScroll: true });
+  }, 80);
+}, { passive: true });
 noteInput.addEventListener('compositionstart', () => { noteInput.dataset.composing = '1'; });
 noteInput.addEventListener('compositionend', () => {
+  // Даём браузеру завершить вставку текста из IME перед сохранением.
   delete noteInput.dataset.composing;
   item.note = noteInput.value;
   collapsedNote.textContent = (noteInput.value || '').trim();
-  saveRouteState(routeState);
   autoGrowNote(noteInput);
+  setTimeout(() => {
+    item.note = noteInput.value;
+    collapsedNote.textContent = (noteInput.value || '').trim();
+    saveRouteState(routeState);
+  }, 0);
 });
 const collapsedNote = document.createElement('div');
 collapsedNote.className = 'route-note-collapsed';
@@ -8780,11 +8797,15 @@ function autoGrowNote(el) {
   el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden';
 }
 
-noteInput.addEventListener('input', () => {
+noteInput.addEventListener('input', (e) => {
+  // Не сохраняем состояние посреди IME-композиции: синхронное сохранение
+  // может перерисовать карточку и оборвать ввод кириллицы в Windows.
   item.note = noteInput.value;
   collapsedNote.textContent = (noteInput.value || '').trim();
-  saveRouteState(routeState);
   autoGrowNote(noteInput);
+  if (e && e.isComposing) return;
+  if (noteInput.dataset.composing === '1') return;
+  saveRouteState(routeState);
 });
 
 // Применить высоту при рендере
@@ -16963,6 +16984,7 @@ document.addEventListener('click', function(ev) {
 #screen4 .route-card:not(.collapsed) .route-unresolved span { display:inline !important; min-width:0 !important; white-space:normal !important; overflow-wrap:anywhere !important; }
 </style>
 
+<!-- MVS Android note focus fix v2 -->
 </body>
 </html>
 
