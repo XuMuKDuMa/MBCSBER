@@ -18583,26 +18583,23 @@ textarea.route-addr-input {
 })();
 </script>
 <!-- ═══════════════════════════════════════════════════════════════════════
-     ФИНАЛЬНЫЙ ФИКС: короткие карточки + одна строка для заметок
+     СУПЕР-ФИКС: Полный контроль над высотой полей и обрезкой адреса
      ═══════════════════════════════════════════════════════════════════════ -->
 
-<style id="mvs-final-layout-fix-css">
-  /* 1. Лечим короткие карточки: полностью скрываем input и показываем полный текст */
+<style id="mvs-total-control-css">
+  /* 1. Намертво прячем textarea в свернутой карточке, чтобы она не занимала место */
   #screen4 .route-card.collapsed textarea.route-addr-input,
-  #screen4 .route-card.collapsed textarea.route-note-input,
   #screen4 .route-card.collapsed .route-mic-inline,
   #screen4 .route-card.collapsed .route-coords-btn {
     display: none !important;
     height: 0 !important;
-    overflow: hidden !important;
     margin: 0 !important;
     padding: 0 !important;
     border: 0 !important;
-    visibility: hidden !important;
-    position: absolute !important;
+    position: absolute !important; /* Вырываем из потока */
     pointer-events: none !important;
   }
-
+  
   /* Показываем текст адреса для короткой карточки */
   #screen4 .route-card.collapsed .route-addr-collapsed {
     display: block !important;
@@ -18610,104 +18607,151 @@ textarea.route-addr-input {
     word-wrap: break-word !important;
     overflow: visible !important;
     height: auto !important;
-    max-height: none !important;
-    line-height: 1.3 !important;
+    line-height: 1.4 !important;
     font-size: 15px !important;
-    color: #fff !important;
-    padding: 8px 4px !important;
+    padding: 4px 0 !important;
   }
 
-  /* 2. Базовые стили для textarea (одна строка) */
-  #screen4 textarea.route-addr-input,
-  #screen4 textarea.route-note-input,
-  #screen4 textarea.route-nondelivery-input,
+  /* 2. Базовые стили: одна строка для заметки и адреса */
   #app4 textarea.route-addr-input,
   #app4 textarea.route-note-input,
   #app4 textarea.route-nondelivery-input {
-    display: block !important;
-    box-sizing: border-box !important;
-    width: 100% !important;
-    height: 34px !important; /* Высота ровно в одну строку */
+    height: 34px !important;
     min-height: 34px !important;
-    max-height: none !important;
-    padding: 7px 10px !important;
+    max-height: 200px !important; /* Ограничитель, чтобы не улетали в бесконечность */
+    padding: 6px 10px !important;
     line-height: 1.4 !important;
-    overflow: hidden !important;
+    overflow-y: hidden !important; /* Скрываем скролл, пока не упремся в лимит */
     resize: none !important;
-    transition: none !important;
-    white-space: pre-wrap !important;
-    overflow-wrap: break-word !important;
-    word-break: normal !important;
+    display: block !important;
   }
 
-  /* 3. Для причин не доставок (они чуть больше) */
-  #screen4 textarea.reasons-textarea {
+  /* Причины не доставок чуть повыше (44px) */
+  #app4 textarea.reasons-textarea {
     height: 44px !important;
     min-height: 44px !important;
+    max-height: 250px !important;
     padding: 10px 12px !important;
-  }
-
-  /* Убираем скроллбары, чтобы не портили вид */
-  #screen4 textarea::-webkit-scrollbar,
-  #app4 textarea::-webkit-scrollbar {
-    display: none !important;
   }
 </style>
 
-<script id="mvs-final-layout-fix-js">
+<script id="mvs-total-control-js">
 (function() {
   'use strict';
-  if (window.__mvsFinalLayoutFix) return;
-  window.__mvsFinalLayoutFix = true;
+  if (window.__mvsTotalControl) return;
+  window.__mvsTotalControl = true;
 
   var SEL = 'textarea.route-addr-input, textarea.route-note-input, textarea.route-nondelivery-input, textarea.reasons-textarea';
 
-  function autoGrow(el) {
+  // Функция идеального авторасчета высоты
+  function grow(el) {
     if (!el || !el.isConnected) return;
     
-    // Не трогаем поля в короткой (свернутой) карточке
-    if (el.closest && el.closest('.route-card.collapsed')) return;
+    // В свернутых карточках ничего не считаем
+    if (el.closest('.route-card.collapsed')) return;
 
     var isReasons = el.classList.contains('reasons-textarea');
     var minH = isReasons ? 44 : 34;
-    var maxH = isReasons ? 300 : null; // Ограничиваем рост причин до 300px
+    var maxH = isReasons ? 250 : 200;
 
-    // Сбрасываем высоту в 0, чтобы браузер правильно посчитал scrollHeight
+    // Читаем scrollHeight, временно сбросив высоту
     el.style.setProperty('height', '0px', 'important');
-    el.style.setProperty('overflow-y', 'hidden', 'important');
+    var h = el.scrollHeight || minH;
+    var targetH = Math.max(minH, Math.ceil(h));
 
-    // Считаем нужную высоту
-    var scrollH = el.scrollHeight || 0;
-    var targetH = Math.max(minH, Math.ceil(scrollH));
-
-    if (maxH && targetH > maxH) {
-      // Если текст превысил лимит — включаем скролл
+    if (targetH > maxH) {
+      // Если текст слишком длинный — включаем скролл
       el.style.setProperty('height', maxH + 'px', 'important');
       el.style.setProperty('overflow-y', 'auto', 'important');
     } else {
-      // Иначе растягиваем ровно под текст
+      // Растягиваем под текст
       el.style.setProperty('height', targetH + 'px', 'important');
+      el.style.setProperty('overflow-y', 'hidden', 'important');
     }
   }
 
-  // Перехватываем ввод, чтобы поле росло
+  // ═══ ПЕРЕХВАТ inline-стилей (чтобы старые скрипты не ломали высоту) ═══
+  function protectField(el) {
+    if (el.__mvsProtected) return;
+    el.__mvsProtected = true;
+
+    var realStyle = el.style;
+    
+    // Создаем "умный" прокси для style
+    var proxy = new Proxy(realStyle, {
+      set: function(target, prop, value) {
+        // Блокируем изменение height и minHeight извне
+        if (prop === 'height' || prop === 'minHeight') {
+          // Разрешаем изменение только нашей функцией через спец-флаг
+          if (!el.__mvsAllowResize) return true; 
+        }
+        target[prop] = value;
+        return true;
+      },
+      get: function(target, prop) {
+        if (prop === 'setProperty') {
+          return function(name, val, priority) {
+            // Блокируем setProperty('height', ...) извне
+            if ((name === 'height' || name === 'min-height') && !el.__mvsAllowResize) {
+              return;
+            }
+            target.setProperty(name, val, priority);
+          };
+        }
+        var res = target[prop];
+        return typeof res === 'function' ? res.bind(target) : res;
+      }
+    });
+
+    // Подменяем el.style нашим прокси
+    Object.defineProperty(el, 'style', {
+      configurable: true,
+      get: function() { return proxy; }
+    });
+  }
+
+  // ═══ Функция, которая имеет право менять высоту ═══
+  function forceGrow(el) {
+    if (!el) return;
+    protectField(el);
+    
+    var isReasons = el.classList.contains('reasons-textarea');
+    var minH = isReasons ? 44 : 34;
+    
+    // Снимаем блокировку
+    el.__mvsAllowResize = true;
+    
+    // Сбрасываем высоту и меряем
+    el.style.height = '0px'; 
+    var h = Math.max(minH, Math.ceil(el.scrollHeight || minH));
+    el.style.height = h + 'px';
+    
+    // Возвращаем блокировку
+    el.__mvsAllowResize = false;
+  }
+
+  // ═══ Слушатели событий ═══
   document.addEventListener('input', function(e) {
     if (e.target && e.target.matches && e.target.matches(SEL)) {
-      autoGrow(e.target);
+      forceGrow(e.target);
     }
   }, true);
 
-  // Пересчитываем при появлении новых полей
-  function initAll() {
-    document.querySelectorAll(SEL).forEach(autoGrow);
-  }
-
-  // Пересчитываем после перерисовки карточек (после клика)
+  // При клике по карточке (раскрытие/закрытие) — обновляем все поля
   document.addEventListener('click', function(e) {
     if (e.target.closest('.route-card')) {
-      setTimeout(initAll, 50); // Даем DOM обновиться
+      setTimeout(function() {
+        document.querySelectorAll(SEL).forEach(function(el) {
+          if (!el.closest('.route-card.collapsed')) forceGrow(el);
+        });
+      }, 50); // Ждем завершения анимации/перестройки DOM
     }
   }, true);
+
+  // Первичный замер
+  function initAll() {
+    document.querySelectorAll(SEL).forEach(forceGrow);
+  }
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initAll);
@@ -18715,21 +18759,19 @@ textarea.route-addr-input {
     initAll();
   }
 
-  // Также пересчитываем, если карточки были созданы динамически
+  // Следим за появлением новых карточек
   var observer = new MutationObserver(function(muts) {
-    var needGrow = false;
     for (var i = 0; i < muts.length; i++) {
-      for (var j = 0; j < muts[i].addedNodes.length; j++) {
-        if (muts[i].addedNodes[j].nodeType === 1) { needGrow = true; break; }
+      if (muts[i].addedNodes.length) {
+        setTimeout(initAll, 30);
+        break;
       }
     }
-    if (needGrow) setTimeout(initAll, 50);
   });
-  
   setTimeout(function() {
     if (document.body) observer.observe(document.body, { childList: true, subtree: true });
   }, 500);
-  
+
 })();
 </script>
 </body>
