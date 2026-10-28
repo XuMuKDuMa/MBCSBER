@@ -8371,9 +8371,12 @@ addrInput.style.wordBreak = 'break-word';
 addrInput.addEventListener('pointerdown', (e) => { e.stopPropagation(); }, { passive: true });
 addrInput.addEventListener('touchstart', (e) => { e.stopPropagation(); }, { passive: true });
 addrInput.addEventListener('click', (e) => { e.stopPropagation(); });
+addrInput.lang = 'ru';
+addrInput.setAttribute('inputmode', 'text');
+addrInput.setAttribute('autocorrect', 'on');
+addrInput.setAttribute('spellcheck', 'true');
 addrInput.addEventListener('compositionstart', () => { addrInput.dataset.composing = '1'; });
-addrInput.addEventListener('compositionend', () => {
-  delete addrInput.dataset.composing;
+function persistAddressInput() {
   item.addr = addrInput.value;
   item.addrDisplay = addrInput.value;
   addrCollapsed.textContent = mvsStreetOnlyAddress(addrInput.value);
@@ -8381,15 +8384,18 @@ addrInput.addEventListener('compositionend', () => {
   saveRouteState(routeState);
   autoGrow(addrInput);
   _mapHash = '';
+}
+addrInput.addEventListener('compositionend', () => {
+  delete addrInput.dataset.composing;
+  requestAnimationFrame(persistAddressInput);
 });
 
 // Автовысота адреса: поле растёт по мере ввода, без необходимости прокручивать текст.
 function autoGrow(el) {
-  if (!el) return;
-  el.style.height = 'auto';
-  // Небольшой запас предотвращает обрезание последней строки на мобильных браузерах.
+  if (!el || !el.isConnected) return;
+  el.style.height = '0px';
   const contentHeight = Math.max(el.scrollHeight, 38);
-  el.style.height = (contentHeight + 2) + 'px';
+  el.style.height = (contentHeight + 4) + 'px';
   el.style.overflowY = 'hidden';
   el.style.overflowX = 'hidden';
 }
@@ -8397,23 +8403,15 @@ function autoGrow(el) {
 addrInput.addEventListener('focus', () => requestAnimationFrame(() => autoGrow(addrInput)));
 addrInput.addEventListener('keyup', () => autoGrow(addrInput));
 addrInput.addEventListener('input', () => {
-  // Не перерисовываем карточку во время ввода: Android/русская IME может потерять фокус.
-  item.addr = addrInput.value;
-  item.addrDisplay = addrInput.value;
-  addrCollapsed.textContent = mvsStreetOnlyAddress(addrInput.value);
-  delete addrInput.dataset.fullAddress;
-  saveRouteState(routeState);
-  autoGrow(addrInput);
-  _mapHash = '';
+  if (addrInput.dataset.composing === '1') {
+    autoGrow(addrInput);
+    return;
+  }
+  persistAddressInput();
 });
-addrInput.addEventListener('compositionend', () => {
-  item.addr = addrInput.value;
-  item.addrDisplay = addrInput.value;
-  addrCollapsed.textContent = mvsStreetOnlyAddress(addrInput.value);
-  delete addrInput.dataset.fullAddress;
-  saveRouteState(routeState);
-  autoGrow(addrInput);
-});
+addrInput.addEventListener('change', persistAddressInput);
+addrInput.addEventListener('blur', persistAddressInput);
+addrInput.addEventListener('keydown', e => e.stopPropagation());
 
 // ─── Кнопка микрофона внутри поля адреса ───
 const btnMic = document.createElement('button');
@@ -17302,6 +17300,29 @@ body:not(.dark) #app4 .route-card .route-addr-wrap {
 })();
 </script>
 
+<style id="mvs-address-autogrow-container-fix">
+#screen4 .route-card:not(.collapsed) .route-addr-wrap,
+#app4 .route-card:not(.collapsed) .route-addr-wrap {
+  display:flex !important; align-items:stretch !important;
+  height:auto !important; min-height:0 !important; max-height:none !important;
+  overflow:visible !important; min-width:0 !important;
+}
+#screen4 .route-card:not(.collapsed) textarea.route-addr-input,
+#app4 .route-card:not(.collapsed) textarea.route-addr-input {
+  display:block !important; flex:1 1 auto !important; width:100% !important;
+  min-height:38px !important; max-height:none !important; box-sizing:border-box !important;
+  white-space:pre-wrap !important; overflow-wrap:anywhere !important;
+  word-break:break-word !important; overflow-x:hidden !important; overflow-y:hidden !important;
+  text-overflow:clip !important; line-height:1.4 !important; resize:none !important;
+}
+#screen4 .route-card:not(.collapsed) .route-fields,
+#screen4 .route-card:not(.collapsed) .route-top-row,
+#app4 .route-card:not(.collapsed) .route-fields,
+#app4 .route-card:not(.collapsed) .route-top-row {
+  height:auto !important; min-height:0 !important; max-height:none !important;
+  overflow:visible !important; align-items:flex-start !important;
+}
+</style>
 </body>
 </html>
 
