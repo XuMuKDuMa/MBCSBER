@@ -8348,45 +8348,60 @@ function mvsStreetOnlyAddress(raw) {
   return value;
 }
 
-addrCollapsed.textContent = mvsStreetOnlyAddress(item.addrDisplay || item.addr);
+addrCollapsed.textContent = item.addr || '';
 
 const addrInput = document.createElement('textarea');
 addrInput.className = 'route-addr-input';
 addrInput.placeholder = 'Адрес доставки';
 addrInput.value = item.addr || '';
 addrInput.rows = 1;
+addrInput.style.height = 'auto';
+addrInput.style.minHeight = '38px';
+addrInput.style.maxHeight = 'none';
+addrInput.style.overflowY = 'hidden';
+addrInput.style.overflowX = 'hidden';
+addrInput.style.whiteSpace = 'pre-wrap';
+addrInput.style.overflowWrap = 'anywhere';
+addrInput.style.wordBreak = 'break-word';
 
-// Функция авто-высоты
+// Не даём карточке перехватывать касания, но не блокируем клавиатурный ввод Android.
+addrInput.addEventListener('pointerdown', e => e.stopPropagation(), { passive: true });
+addrInput.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+addrInput.addEventListener('click', e => e.stopPropagation());
+
 function autoGrow(el) {
+  if (!el) return;
   el.style.height = 'auto';
-  el.style.height = el.scrollHeight + 'px';
+  el.style.height = Math.max(el.scrollHeight, 38) + 'px';
+  el.style.overflowY = 'hidden';
+  el.style.overflowX = 'hidden';
 }
 
-addrInput.lang = 'ru';
-addrInput.setAttribute('inputmode', 'text');
-addrInput.addEventListener('compositionstart', () => { addrInput.dataset.composing = '1'; });
-function persistAddressInputFromReference() {
+function persistAddressInput() {
   item.addr = addrInput.value;
-  item.addrDisplay = addrInput.value;
   saveRouteState(routeState);
   autoGrow(addrInput);
   _mapHash = '';
 }
-addrInput.addEventListener('input', () => {
-  // Не сохраняем промежуточный состав русской раскладки, чтобы не сбивать IME.
-  if (addrInput.dataset.composing === '1') {
-    autoGrow(addrInput);
-    return;
-  }
-  persistAddressInputFromReference();
+
+addrInput.addEventListener('compositionstart', () => {
+  addrInput.dataset.composing = '1';
 });
 addrInput.addEventListener('compositionend', () => {
   delete addrInput.dataset.composing;
-  requestAnimationFrame(persistAddressInputFromReference);
+  persistAddressInput();
 });
-addrInput.addEventListener('change', persistAddressInputFromReference);
-addrInput.addEventListener('blur', persistAddressInputFromReference);
-
+addrInput.addEventListener('input', () => {
+  autoGrow(addrInput);
+  // Во время ввода русских букв Android сначала собирает композицию.
+  // Не перезаписываем состояние до compositionend.
+  if (addrInput.dataset.composing !== '1') persistAddressInput();
+});
+addrInput.addEventListener('change', persistAddressInput);
+addrInput.addEventListener('blur', persistAddressInput);
+addrInput.addEventListener('focus', () => requestAnimationFrame(() => autoGrow(addrInput)));
+addrInput.addEventListener('keyup', () => autoGrow(addrInput));
+addrInput.addEventListener('keydown', e => e.stopPropagation());
 // ─── Кнопка микрофона внутри поля адреса ───
 const btnMic = document.createElement('button');
 btnMic.type = 'button';
@@ -8416,7 +8431,7 @@ btnMic.addEventListener('click', (e) => {
     item.addrDisplay = item.addr;
     saveRouteState(routeState);
     addrInput.value = item.addr;
-    addrCollapsed.textContent = mvsStreetOnlyAddress(item.addrDisplay || item.addr);
+    addrCollapsed.textContent = item.addr || '';
     autoGrow(addrInput);
     requestAnimationFrame(() => autoGrow(addrInput));
     setTimeout(() => autoGrow(addrInput), 100);
