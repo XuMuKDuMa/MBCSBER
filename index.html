@@ -8771,12 +8771,38 @@ function autoGrowNote(el) {
   el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden';
 }
 
-noteInput.addEventListener('input', () => {
+// Android/Gboard: не сохраняем и не меняем состояние посреди русской IME-композиции.
+let noteComposing = false;
+noteInput.lang = 'ru';
+noteInput.setAttribute('inputmode', 'text');
+noteInput.setAttribute('autocomplete', 'on');
+noteInput.setAttribute('autocorrect', 'on');
+noteInput.setAttribute('spellcheck', 'true');
+['click', 'pointerdown', 'mousedown', 'touchstart'].forEach(type => {
+  noteInput.addEventListener(type, e => e.stopPropagation(), { passive: true });
+});
+noteInput.addEventListener('compositionstart', () => { noteComposing = true; });
+function saveNoteValue() {
   item.note = noteInput.value;
   collapsedNote.textContent = (noteInput.value || '').trim();
   saveRouteState(routeState);
   autoGrowNote(noteInput);
+}
+noteInput.addEventListener('input', () => {
+  // При русском вводе Gboard может присылать промежуточные composition-события.
+  // Оставляем текстовое поле нетронутым, пока клавиатура завершает композицию.
+  if (noteComposing) {
+    collapsedNote.textContent = (noteInput.value || '').trim();
+    return;
+  }
+  saveNoteValue();
 });
+noteInput.addEventListener('compositionend', () => {
+  noteComposing = false;
+  requestAnimationFrame(saveNoteValue);
+});
+noteInput.addEventListener('change', saveNoteValue);
+noteInput.addEventListener('blur', saveNoteValue);
 
 // Применить высоту при рендере
 requestAnimationFrame(() => autoGrowNote(noteInput));
@@ -9097,13 +9123,19 @@ function saveNonDeliveryReason(updateReport = false) {
   // композицию русской экранной клавиатуры (IME) на Android.
   if (updateReport && typeof updateAutoNonDeliveryReport === 'function') updateAutoNonDeliveryReport();
 }
+reasonInput.setAttribute('inputmode', 'text');
 reasonInput.addEventListener('compositionstart', () => { reasonComposing = true; });
 reasonInput.addEventListener('compositionend', () => {
   reasonComposing = false;
-  saveNonDeliveryReason(false);
-  requestAnimationFrame(() => saveNonDeliveryReason(true));
+  requestAnimationFrame(() => {
+    saveNonDeliveryReason(false);
+    saveNonDeliveryReason(true);
+  });
 });
-reasonInput.addEventListener('input', () => saveNonDeliveryReason(false));
+reasonInput.addEventListener('input', () => {
+  if (reasonComposing) return;
+  saveNonDeliveryReason(false);
+});
 reasonInput.addEventListener('change', () => saveNonDeliveryReason(true));
 reasonInput.addEventListener('blur', () => saveNonDeliveryReason(true));
 // На мобильном устройстве не позволяем карточке перехватить первое касание
