@@ -8356,6 +8356,13 @@ addrInput.placeholder = 'Адрес доставки';
 addrInput.value = mvsStreetOnlyAddress(item.addrDisplay || item.addr);
 addrInput.dataset.fullAddress = item.addr || '';
 addrInput.rows = 1;
+addrInput.style.height = '38px';
+addrInput.style.minHeight = '38px';
+addrInput.style.maxHeight = 'none';
+addrInput.style.overflowY = 'hidden';
+addrInput.style.whiteSpace = 'pre-wrap';
+addrInput.style.overflowWrap = 'anywhere';
+addrInput.style.wordBreak = 'break-word';
 // На мобильных устройствах не даём жесту карточки/переключения слота
 // перехватить первое касание поля. Это сохраняет фокус и ввод сразу после добавления адреса.
 // Android WebView: stop card gestures, but never intercept the IME/input pipeline.
@@ -8376,12 +8383,19 @@ addrInput.addEventListener('compositionend', () => {
   _mapHash = '';
 });
 
-// Функция авто-высоты
+// Автовысота адреса: поле растёт по мере ввода, без необходимости прокручивать текст.
 function autoGrow(el) {
+  if (!el) return;
   el.style.height = 'auto';
-  el.style.height = el.scrollHeight + 'px';
+  // Небольшой запас предотвращает обрезание последней строки на мобильных браузерах.
+  const contentHeight = Math.max(el.scrollHeight, 38);
+  el.style.height = (contentHeight + 2) + 'px';
+  el.style.overflowY = 'hidden';
+  el.style.overflowX = 'hidden';
 }
 
+addrInput.addEventListener('focus', () => requestAnimationFrame(() => autoGrow(addrInput)));
+addrInput.addEventListener('keyup', () => autoGrow(addrInput));
 addrInput.addEventListener('input', () => {
   // Не перерисовываем карточку во время ввода: Android/русская IME может потерять фокус.
   item.addr = addrInput.value;
