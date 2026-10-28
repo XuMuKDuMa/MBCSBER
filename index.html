@@ -17817,5 +17817,190 @@ textarea.route-addr-input {
   }
 })();
 </script>
+<!-- ═══════════════════════════════════════════════════════════════
+     ФИКС: русская клавиатура (IME composition) + авто-высота
+     Без мерцания и потери русских букв при вводе во второе поле
+     ═══════════════════════════════════════════════════════════════ -->
+<style id="mvs-ime-fix-style">
+  /* Отключаем любые transition/animation на полях — они дают мерцание при IME */
+  #app4 textarea.route-addr-input,
+  #app4 textarea.route-note-input,
+  #app4 textarea.route-nondelivery-input,
+  #app4 textarea.reasons-textarea,
+  #screen4 textarea.route-addr-input,
+  #screen4 textarea.route-note-input,
+  #screen4 textarea.route-nondelivery-input {
+    transition: none !important;
+    animation: none !important;
+    will-change: auto !important;
+    -webkit-user-modify: read-write-plaintext-only;
+    overflow: hidden !important;
+    overflow-y: hidden !important;
+    resize: none !important;
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+  }
+</style>
+
+<script id="mvs-ime-fix-js">
+(function () {
+  'use strict';
+  if (window.__mvsImeFix) return;
+  window.__mvsImeFix = true;
+
+  var SEL = [
+    'textarea.route-addr-input',
+    'textarea.route-note-input',
+    'textarea.route-nondelivery-input',
+    'textarea.reasons-textarea'
+  ].join(',');
+
+  // Флаг: сейчас идёт composition (русская клавиатура собирает слово).
+  // Пока он true — НИЧЕГО в DOM не меняем, иначе IME сбросится и буквы пропадут.
+  var composing = new WeakMap();
+
+  function grow(el) {
+    if (!el || !el.isConnected) return;
+    if (el.closest && el.closest('.route-card.collapsed')) return;
+    if (composing.get(el)) return;   // ← ключевое: не трогаем во время ввода
+
+    var isReasons = el.classList.contains('reasons-textarea');
+    var minH = isReasons ? 44 : 34;
+    var maxH = isReasons ? 200 : null;
+
+    // Сброс перед замером (иначе scrollHeight накапливается)
+    el.style.height = '0px';
+    el.style.minHeight = minH + 'px';
+    el.style.maxHeight = maxH ? maxH + 'px' : 'none';
+    el.style.overflowY = 'hidden';
+
+    var h = el.scrollHeight || 0;
+    if (maxH && h > maxH) {
+      el.style.height = maxH + 'px';
+      el.style.overflowY = 'auto';
+    } else {
+      el.style.height = Math.max(minH, Math.ceil(h)) + 'px';
+    }
+  }
+
+  function growSoon(el) {
+    // Несколько кадров — WebView иногда не успевает пересчитать layout
+    grow(el);
+    requestAnimationFrame(function () { grow(el); });
+    setTimeout(function () { grow(el); }, 40);
+    setTimeout(function () { grow(el); }, 160);
+  }
+
+  // ─── Снимаем старые обработчики: клонируем каждое поле, чтобы оно стало «чистым» ───
+  // (клонирование удаляет все addEventListener, но сохраняет value и атрибуты)
+  function resetField(el) {
+    if (!el || !el.isConnected) return el;
+    if (el.dataset.mvsImeClean === '1') return el;
+    var clone = el.cloneNode(true);
+    clone.dataset.mvsImeClean = '1';
+    // Сохраняем текущее значение и высоту до замены
+    var savedValue = el.value;
+    var savedHeight = el.style.height;
+    el.parentNode.replaceChild(clone, el);
+    clone.value = savedValue;
+    if (savedHeight) clone.style.height = savedHeight;
+    return clone;
+  }
+
+  function attach(el) {
+    if (!el || el.dataset.mvsImeBound === '1') return;
+    el.dataset.mvsImeBound = '1';
+
+    // compositionstart — включаем «тишину»
+    el.addEventListener('compositionstart', function () {
+      composing.set(el, true);
+    }, true);
+
+    // compositionend — выключаем «тишину», и только теперь пересчитываем высоту
+    el.addEventListener('compositionend', function () {
+      composing.set(el, false);
+      growSoon(el);
+    }, true);
+
+    // input — только авто-высота, если НЕ идёт composition.
+    // Ничего не сохраняем и не перерисовываем — этим занимаются
+    // обработчики самого приложения (persistAddressInput / saveNoteValue),
+    // но они уже не смогут уронить IME, т.к. не меняют DOM.
+    el.addEventListener('input', function () {
+      if (composing.get(el)) return;
+      grow(el);
+    }, true);
+
+    // blur — на случай если IME не прислал compositionend
+    el.addEventListener('blur', function () {
+      composing.set(el, false);
+      grow(el);
+    }, true);
+
+    // focus — пересчитать (Android иногда возвращает высоту 0 после фокуса)
+    el.addEventListener('focus', function () {
+      requestAnimationFrame(function () { grow(el); });
+    }, true);
+
+    // Первый замер
+    growSoon(el);
+  }
+
+  function scan(root) {
+    (root || document).querySelectorAll(SEL).forEach(function (el) {
+      // Порядок: сначала снять старые слушатели, потом поставить новый
+      var fresh = el.dataset.mvsImeBound === '1' ? el : resetField(el);
+      attach(fresh);
+    });
+  }
+
+  // После renderRoute() карточки пересоздаются — сканируем новые
+  var _origRenderRoute = window.renderRoute;
+  if (typeof _origRenderRoute === 'function') {
+    window.renderRoute = function () {
+      var r = _origRenderRoute.apply(this, arguments);
+      setTimeout(function () { scan(document); }, 20);
+      setTimeout(function () { scan(document); }, 150);
+      return r;
+    };
+  }
+
+  // Ловим появление новых полей
+  var observer = new MutationObserver(function (muts) {
+    for (var i = 0; i < muts.length; i++) {
+      var added = muts[i].addedNodes;
+      for (var j = 0; j < added.length; j++) {
+        var node = added[j];
+        if (node.nodeType !== 1) continue;
+        if (node.matches && node.matches(SEL)) scan(node.parentNode || document);
+        else if (node.querySelectorAll) {
+          var inner = node.querySelectorAll(SEL);
+          if (inner.length) scan(node);
+        }
+      }
+    }
+  });
+
+  function start() {
+    scan(document);
+    if (document.body) observer.observe(document.body, { childList: true, subtree: true });
+    // Догоняем — приложение может дорисовать карточки позже
+    setTimeout(function () { scan(document); }, 300);
+    setTimeout(function () { scan(document); }, 1200);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
+  } else {
+    start();
+  }
+
+  window.addEventListener('resize', function () { scan(document); });
+  window.addEventListener('orientationchange', function () {
+    setTimeout(function () { scan(document); }, 250);
+  });
+})();
+</script>
 </body>
 </html>
