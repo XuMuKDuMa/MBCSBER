@@ -17325,6 +17325,96 @@ textarea.route-addr-input {
 }
 </style>
 
+
+<style id="mvs-address-notes-no-inner-scroll-final">
+/* Адрес и заметки: поле растёт по содержимому, внутренний скролл отключён. */
+#screen4 textarea.route-addr-input,
+#screen4 textarea.route-note-input,
+#app4 textarea.route-addr-input,
+#app4 textarea.route-note-input {
+  display:block !important;
+  box-sizing:border-box !important;
+  width:100% !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  min-height:38px !important;
+  max-height:none !important;
+  overflow:hidden !important;
+  overflow-y:hidden !important;
+  overflow-x:hidden !important;
+  resize:none !important;
+  white-space:pre-wrap !important;
+  overflow-wrap:anywhere !important;
+  word-break:break-word !important;
+  text-overflow:clip !important;
+  scrollbar-width:none !important;
+  -webkit-overflow-scrolling:auto !important;
+}
+#screen4 textarea.route-note-input,
+#app4 textarea.route-note-input { line-height:1.35 !important; }
+#screen4 textarea.route-addr-input::-webkit-scrollbar,
+#screen4 textarea.route-note-input::-webkit-scrollbar,
+#app4 textarea.route-addr-input::-webkit-scrollbar,
+#app4 textarea.route-note-input::-webkit-scrollbar { display:none !important; width:0 !important; height:0 !important; }
+</style>
+<script id="mvs-address-notes-autogrow-final">
+(function(){
+  'use strict';
+  const SELECTOR = '#screen4 textarea.route-addr-input, #screen4 textarea.route-note-input, #app4 textarea.route-addr-input, #app4 textarea.route-note-input';
+  function grow(el){
+    if(!el || !el.matches || !el.matches(SELECTOR)) return;
+    // Reset first so shrinking after deleting text works too.
+    el.style.setProperty('height','auto','important');
+    el.style.setProperty('max-height','none','important');
+    el.style.setProperty('overflow-y','hidden','important');
+    el.style.setProperty('overflow','hidden','important');
+    // scrollHeight includes wrapped lines; ceil avoids clipping fractional pixels.
+    const min = el.classList.contains('route-addr-input') ? 38 : 38;
+    const height = Math.max(min, Math.ceil(el.scrollHeight || 0));
+    el.style.setProperty('height', height + 'px', 'important');
+  }
+  function growSoon(el){
+    grow(el);
+    requestAnimationFrame(()=>grow(el));
+    setTimeout(()=>grow(el), 60);
+    setTimeout(()=>grow(el), 180);
+  }
+  function targetFromEvent(e){
+    const el=e.target;
+    return el && el.matches && el.matches(SELECTOR) ? el : null;
+  }
+  // Delegated handlers run after the app's own handlers, so older auto-height
+  // functions cannot leave the textarea clipped or restore an internal scrollbar.
+  ['input','change','paste','cut','compositionend','focus','blur'].forEach(type=>{
+    document.addEventListener(type, function(e){
+      const el=targetFromEvent(e);
+      if(el) growSoon(el);
+    }, true);
+  });
+  document.addEventListener('DOMContentLoaded', function(){
+    document.querySelectorAll(SELECTOR).forEach(growSoon);
+  });
+  const observer = new MutationObserver(mutations=>{
+    for(const m of mutations){
+      if(m.type==='childList'){
+        m.addedNodes.forEach(node=>{
+          if(node.nodeType!==1) return;
+          if(node.matches && node.matches(SELECTOR)) growSoon(node);
+          node.querySelectorAll && node.querySelectorAll(SELECTOR).forEach(growSoon);
+        });
+      }
+    }
+  });
+  function start(){
+    document.querySelectorAll(SELECTOR).forEach(growSoon);
+    observer.observe(document.body,{childList:true,subtree:true});
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start,{once:true});
+  else start();
+  window.addEventListener('resize',()=>document.querySelectorAll(SELECTOR).forEach(growSoon));
+})();
+</script>
+
 </body>
 </html>
 
