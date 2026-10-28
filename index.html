@@ -8353,65 +8353,39 @@ addrCollapsed.textContent = mvsStreetOnlyAddress(item.addrDisplay || item.addr);
 const addrInput = document.createElement('textarea');
 addrInput.className = 'route-addr-input';
 addrInput.placeholder = 'Адрес доставки';
-addrInput.value = mvsStreetOnlyAddress(item.addrDisplay || item.addr);
-addrInput.dataset.fullAddress = item.addr || '';
+addrInput.value = item.addr || '';
 addrInput.rows = 1;
-addrInput.style.height = '38px';
-addrInput.style.minHeight = '38px';
-addrInput.style.maxHeight = 'none';
-addrInput.style.overflowY = 'hidden';
-addrInput.style.whiteSpace = 'pre-wrap';
-addrInput.style.overflowWrap = 'anywhere';
-addrInput.style.wordBreak = 'break-word';
-// На мобильных устройствах не даём жесту карточки/переключения слота
-// перехватить первое касание поля. Это сохраняет фокус и ввод сразу после добавления адреса.
-// Android WebView: stop card gestures, but never intercept the IME/input pipeline.
-// In particular, do not stop keydown/beforeinput: some Android keyboards deliver
-// text through composition/beforeinput and propagation blockers can swallow it.
-addrInput.addEventListener('pointerdown', (e) => { e.stopPropagation(); }, { passive: true });
-addrInput.addEventListener('touchstart', (e) => { e.stopPropagation(); }, { passive: true });
-addrInput.addEventListener('click', (e) => { e.stopPropagation(); });
+
+// Функция авто-высоты
+function autoGrow(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
 addrInput.lang = 'ru';
 addrInput.setAttribute('inputmode', 'text');
-addrInput.setAttribute('autocorrect', 'on');
-addrInput.setAttribute('spellcheck', 'true');
 addrInput.addEventListener('compositionstart', () => { addrInput.dataset.composing = '1'; });
-function persistAddressInput() {
+function persistAddressInputFromReference() {
   item.addr = addrInput.value;
   item.addrDisplay = addrInput.value;
-  addrCollapsed.textContent = mvsStreetOnlyAddress(addrInput.value);
-  delete addrInput.dataset.fullAddress;
   saveRouteState(routeState);
   autoGrow(addrInput);
   _mapHash = '';
 }
-addrInput.addEventListener('compositionend', () => {
-  delete addrInput.dataset.composing;
-  requestAnimationFrame(persistAddressInput);
-});
-
-// Автовысота адреса: поле растёт по мере ввода, без необходимости прокручивать текст.
-function autoGrow(el) {
-  if (!el || !el.isConnected) return;
-  el.style.height = '0px';
-  const contentHeight = Math.max(el.scrollHeight, 38);
-  el.style.height = (contentHeight + 4) + 'px';
-  el.style.overflowY = 'hidden';
-  el.style.overflowX = 'hidden';
-}
-
-addrInput.addEventListener('focus', () => requestAnimationFrame(() => autoGrow(addrInput)));
-addrInput.addEventListener('keyup', () => autoGrow(addrInput));
 addrInput.addEventListener('input', () => {
+  // Не сохраняем промежуточный состав русской раскладки, чтобы не сбивать IME.
   if (addrInput.dataset.composing === '1') {
     autoGrow(addrInput);
     return;
   }
-  persistAddressInput();
+  persistAddressInputFromReference();
 });
-addrInput.addEventListener('change', persistAddressInput);
-addrInput.addEventListener('blur', persistAddressInput);
-addrInput.addEventListener('keydown', e => e.stopPropagation());
+addrInput.addEventListener('compositionend', () => {
+  delete addrInput.dataset.composing;
+  requestAnimationFrame(persistAddressInputFromReference);
+});
+addrInput.addEventListener('change', persistAddressInputFromReference);
+addrInput.addEventListener('blur', persistAddressInputFromReference);
 
 // ─── Кнопка микрофона внутри поля адреса ───
 const btnMic = document.createElement('button');
@@ -17300,29 +17274,42 @@ body:not(.dark) #app4 .route-card .route-addr-wrap {
 })();
 </script>
 
-<style id="mvs-address-autogrow-container-fix">
-#screen4 .route-card:not(.collapsed) .route-addr-wrap,
-#app4 .route-card:not(.collapsed) .route-addr-wrap {
-  display:flex !important; align-items:stretch !important;
-  height:auto !important; min-height:0 !important; max-height:none !important;
-  overflow:visible !important; min-width:0 !important;
+
+
+<style id="mvs-reference-address-rendering">
+.route-addr-wrap {
+  min-width: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  align-items: stretch !important;
 }
-#screen4 .route-card:not(.collapsed) textarea.route-addr-input,
-#app4 .route-card:not(.collapsed) textarea.route-addr-input {
-  display:block !important; flex:1 1 auto !important; width:100% !important;
-  min-height:38px !important; max-height:none !important; box-sizing:border-box !important;
-  white-space:pre-wrap !important; overflow-wrap:anywhere !important;
-  word-break:break-word !important; overflow-x:hidden !important; overflow-y:hidden !important;
-  text-overflow:clip !important; line-height:1.4 !important; resize:none !important;
+textarea.route-addr-input {
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: auto;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: hidden !important;
+  overflow-y: hidden !important;
+  overflow-x: hidden !important;
+  white-space: pre-wrap !important;
+  overflow-wrap: break-word !important;
+  word-break: normal !important;
+  text-overflow: clip !important;
+  resize: none !important;
+  box-sizing: border-box !important;
+  line-height: normal !important;
 }
-#screen4 .route-card:not(.collapsed) .route-fields,
-#screen4 .route-card:not(.collapsed) .route-top-row,
-#app4 .route-card:not(.collapsed) .route-fields,
-#app4 .route-card:not(.collapsed) .route-top-row {
-  height:auto !important; min-height:0 !important; max-height:none !important;
-  overflow:visible !important; align-items:flex-start !important;
+.route-fields, .route-top-row {
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
 }
 </style>
+
 </body>
 </html>
 
