@@ -8091,6 +8091,8 @@ function openStatusMenu(anchor, item, timeId, mode) {
 
       if (btn.dataset.mtype) {
         item.mtype = btn.dataset.mtype;
+        // Сохраняем раскрытое состояние до перерисовки после выбора типа.
+        item.uiExpanded = true;
         syncCardCredit(item);
         saveRouteState(routeState);
         renderRoute();
@@ -8381,7 +8383,7 @@ function autoGrow(el) {
 }
 
 addrInput.addEventListener('input', () => {
-  // Let Android IME finish composing multi-stage characters before persisting.
+  // Не перерисовываем карточку во время ввода: Android/русская IME может потерять фокус.
   item.addr = addrInput.value;
   item.addrDisplay = addrInput.value;
   addrCollapsed.textContent = mvsStreetOnlyAddress(addrInput.value);
@@ -8389,6 +8391,14 @@ addrInput.addEventListener('input', () => {
   saveRouteState(routeState);
   autoGrow(addrInput);
   _mapHash = '';
+});
+addrInput.addEventListener('compositionend', () => {
+  item.addr = addrInput.value;
+  item.addrDisplay = addrInput.value;
+  addrCollapsed.textContent = mvsStreetOnlyAddress(addrInput.value);
+  delete addrInput.dataset.fullAddress;
+  saveRouteState(routeState);
+  autoGrow(addrInput);
 });
 
 // ─── Кнопка микрофона внутри поля адреса ───
@@ -9079,19 +9089,26 @@ reasonInput.style.cssText = 'display:block;width:100%;min-width:0;box-sizing:bor
 ['click', 'pointerdown', 'mousedown', 'touchstart'].forEach(type => {
   reasonInput.addEventListener(type, e => e.stopPropagation(), { passive: true });
 });
-function saveNonDeliveryReason() {
+let reasonComposing = false;
+function saveNonDeliveryReason(updateReport = false) {
   item.nonDeliveryReason = reasonInput.value;
   saveRouteState(routeState);
-  if (typeof updateAutoNonDeliveryReport === 'function') updateAutoNonDeliveryReport();
+  // Не обновляем отчёт во время набора: перерисовка может прервать
+  // композицию русской экранной клавиатуры (IME) на Android.
+  if (updateReport && typeof updateAutoNonDeliveryReport === 'function') updateAutoNonDeliveryReport();
 }
-reasonInput.addEventListener('input', saveNonDeliveryReason);
-reasonInput.addEventListener('change', saveNonDeliveryReason);
-reasonInput.addEventListener('blur', saveNonDeliveryReason);
+reasonInput.addEventListener('compositionstart', () => { reasonComposing = true; });
 reasonInput.addEventListener('compositionend', () => {
-  saveNonDeliveryReason();
-  // Let the browser finish Russian IME composition before the next UI refresh.
-  requestAnimationFrame(saveNonDeliveryReason);
+  reasonComposing = false;
+  saveNonDeliveryReason(false);
+  requestAnimationFrame(() => saveNonDeliveryReason(true));
 });
+reasonInput.addEventListener('input', () => saveNonDeliveryReason(false));
+reasonInput.addEventListener('change', () => saveNonDeliveryReason(true));
+reasonInput.addEventListener('blur', () => saveNonDeliveryReason(true));
+// На мобильном устройстве не позволяем карточке перехватить первое касание
+// и не меняем DOM поля, пока пользователь печатает.
+reasonInput.addEventListener('focus', () => { reasonInput.style.caretColor = 'auto'; });
 reasonWrap.appendChild(reasonInput);
 card.appendChild(statusLine);
 card.appendChild(reasonWrap);
@@ -15284,9 +15301,20 @@ async function checkVpnAndWarn(force) {
     }
     const first = okRes[0];
     window._vpnLast = { country: first.country, org: first.org, via: first.host, vpn, reason, ts: Date.now() };
+    if (vpn) showVpnWarning();
     return window._vpnLast;
   } catch (e) {
     console.warn('⚠️ VPN-проверка не удалась:', e && e.message);
+    // Если сервисы проверки недоступны, показываем предупреждение о возможных сетевых ограничениях,
+    // не утверждая, что VPN точно включён.
+    try {
+      const w = document.getElementById('vpnWarning');
+      if (w) {
+        const t = w.querySelector('.vpn-warning-text span');
+        if (t) t.textContent = 'Не удалось проверить сеть. VPN или блокировка сервисов могут мешать поиску адресов';
+        w.classList.add('show');
+      }
+    } catch (_) {}
     // сети могло ещё не быть при запуске — пробуем ещё пару раз
     if (!force && _vpnAttempts < 3) {
       _vpnAttempts++;
