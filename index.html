@@ -17648,6 +17648,174 @@ textarea.route-addr-input {
   }
 })();
 </script>
+<!-- ═══════════════════════════════════════════════════════════════
+     ФИКС: мерцание + авто-высота textarea + обрезка при compact↔expanded
+     ═══════════════════════════════════════════════════════════════ -->
+<style id="mvs-fix-final-autogrow">
+  /* Убираем конфликтующие правила старого фикса */
+  #screen4 #app4 textarea.route-addr-input,
+  #screen4 #app4 textarea.route-note-input,
+  #screen4 #app4 textarea.route-nondelivery-input,
+  #app4 textarea.route-addr-input,
+  #app4 textarea.route-note-input,
+  #app4 textarea.route-nondelivery-input {
+    /* убираем "height:44px !important" — высота теперь чисто JS */
+    height: auto !important;
+    min-height: 34px !important;
+    max-height: none !important;
+    padding: 7px 10px !important;
+    line-height: 1.35 !important;
+    overflow: hidden !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+    resize: none !important;
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+    box-sizing: border-box !important;
+    transition: none !important;   /* ← убиваем мерцание */
+    scrollbar-width: none !important;
+  }
+  #screen4 #app4 .reasons-textarea,
+  #app4 .reasons-textarea {
+    height: auto !important;
+    min-height: 44px !important;
+    max-height: 200px !important;
+    transition: none !important;
+  }
+  #screen4 #app4 textarea.route-addr-input::-webkit-scrollbar,
+  #screen4 #app4 textarea.route-note-input::-webkit-scrollbar,
+  #screen4 #app4 textarea.route-nondelivery-input::-webkit-scrollbar,
+  #app4 textarea.route-addr-input::-webkit-scrollbar,
+  #app4 textarea.route-note-input::-webkit-scrollbar,
+  #app4 textarea.route-nondelivery-input::-webkit-scrollbar,
+  #app4 .reasons-textarea::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
 
+  /* Плавное раскрытие карточек не конфликтует с авто-высотой */
+  #app4 .route-card, #screen4 .route-card { transition: none !important; }
+  #app4 .route-card .route-top-row, #screen4 .route-card .route-top-row { transition: none !important; }
+  #app4 .route-card:not(.collapsed) .route-fields,
+  #screen4 .route-card:not(.collapsed) .route-fields,
+  #app4 .route-card:not(.collapsed) .route-note-input,
+  #app4 .route-card:not(.collapsed) .route-status-row,
+  #screen4 .route-card:not(.collapsed) .route-note-input,
+  #screen4 .route-card:not(.collapsed) .route-status-row { animation: none !important; }
+</style>
+
+<script id="mvs-fix-final-autogrow-js">
+(function () {
+  'use strict';
+  if (window.__mvsFinalAutogrow) return;
+  window.__mvsFinalAutogrow = true;
+
+  var SEL = [
+    '#app4 textarea.route-addr-input',
+    '#app4 textarea.route-note-input',
+    '#app4 textarea.route-nondelivery-input',
+    '#app4 textarea.reasons-textarea',
+    '#screen4 textarea.route-addr-input',
+    '#screen4 textarea.route-note-input',
+    '#screen4 textarea.route-nondelivery-input'
+  ].join(',');
+
+  function grow(el) {
+    if (!el || !el.isConnected) return;
+    // свёрнутые карточки не трогаем — там summary вместо полей
+    if (el.closest && el.closest('.route-card.collapsed')) return;
+
+    var isReasons = el.classList.contains('reasons-textarea');
+    var minH = isReasons ? 44 : 34;
+    var maxH = isReasons ? 200 : null;
+
+    // Сброс ДО измерения — иначе scrollHeight накапливается и «обрезает»
+    el.style.setProperty('height', '0px', 'important');
+    el.style.setProperty('min-height', minH + 'px', 'important');
+    el.style.setProperty('max-height', (maxH ? maxH + 'px' : 'none'), 'important');
+    el.style.setProperty('overflow', 'hidden', 'important');
+    el.style.setProperty('overflow-y', 'hidden', 'important');
+
+    var h = el.scrollHeight || 0;
+    if (maxH && h > maxH) {
+      el.style.setProperty('height', maxH + 'px', 'important');
+      el.style.setProperty('overflow-y', 'auto', 'important');
+    } else {
+      el.style.setProperty('height', Math.max(minH, Math.ceil(h)) + 'px', 'important');
+    }
+  }
+
+  function schedule(el) {
+    if (!el || (el.closest && el.closest('.route-card.collapsed'))) return;
+    grow(el);
+    requestAnimationFrame(function () { grow(el); });
+    setTimeout(function () { grow(el); }, 50);
+    setTimeout(function () { grow(el); }, 180);
+  }
+
+  function scan(root) {
+    (root || document).querySelectorAll(SEL).forEach(schedule);
+  }
+
+  // Слушаем ввод — только по нужным полям, без делегирования на весь документ
+  ['input', 'change', 'paste', 'cut', 'compositionend', 'focus'].forEach(function (type) {
+    document.addEventListener(type, function (e) {
+      var el = e.target;
+      if (el && el.matches && el.matches(SEL)) schedule(el);
+    }, true);
+  });
+
+  // Клик по карточке (раскрытие/сворачивание) — после рендера пересчитать поля
+  document.addEventListener('click', function (e) {
+    var card = e.target.closest && e.target.closest('.route-card');
+    if (!card) return;
+    // Через 30мс — когда DOM уже обновлён
+    setTimeout(function () {
+      card.querySelectorAll('textarea.route-addr-input, textarea.route-note-input, textarea.route-nondelivery-input').forEach(schedule);
+    }, 30);
+  }, true);
+
+  // Наблюдатель — только для новых textarea, без рекурсии
+  var observer = new MutationObserver(function (mutations) {
+    for (var i = 0; i < mutations.length; i++) {
+      var added = mutations[i].addedNodes;
+      for (var j = 0; j < added.length; j++) {
+        var node = added[j];
+        if (node.nodeType !== 1) continue;
+        if (node.matches && node.matches(SEL)) schedule(node);
+        if (node.querySelectorAll) {
+          var inner = node.querySelectorAll(SEL);
+          if (inner.length) inner.forEach(schedule);
+        }
+      }
+    }
+  });
+
+  function start() {
+    scan(document);
+    observer.observe(document.body, { childList: true, subtree: true });
+    setTimeout(function () { scan(document); }, 300);
+    setTimeout(function () { scan(document); }, 1000);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
+  } else {
+    start();
+  }
+
+  window.addEventListener('resize', function () { scan(document); });
+  window.addEventListener('orientationchange', function () { setTimeout(function () { scan(document); }, 200); });
+
+  // На случай если после renderRoute() карточки пересозданы — пересчёт
+  var _origRenderRoute = window.renderRoute;
+  if (typeof _origRenderRoute === 'function') {
+    window.renderRoute = function () {
+      var r = _origRenderRoute.apply(this, arguments);
+      setTimeout(function () { scan(document); }, 40);
+      setTimeout(function () { scan(document); }, 200);
+      return r;
+    };
+  }
+})();
+</script>
 </body>
 </html>
