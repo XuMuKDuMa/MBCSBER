@@ -17416,120 +17416,113 @@ textarea.route-addr-input {
 </script>
 
 
-<!-- Final Android WebView fix: let activity cards and text fields grow instead of clipping. -->
-<style id="mvs-android-webview-no-clip-final">
-  #screen4 #app4 .route-card,
-  #app4 .route-card {
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
-    overflow: visible !important;
-    contain: none !important;
+<!-- Targeted fix: preserve compact activity cards; only the text fields auto-grow. -->
+<style id="mvs-compact-card-and-text-autogrow">
+  /* Keep the existing compact-card interaction and its original layout. */
+  #screen4 #app4 .route-card.collapsed .route-addr-input,
+  #app4 .route-card.collapsed .route-addr-input,
+  #screen4 #app4 .route-card.collapsed .route-note-input,
+  #app4 .route-card.collapsed .route-note-input,
+  #screen4 #app4 .route-card.collapsed .route-mic-inline,
+  #app4 .route-card.collapsed .route-mic-inline {
+    display: none !important;
   }
-  #screen4 #app4 .route-card:not(.collapsed),
-  #app4 .route-card:not(.collapsed) {
-    align-items: stretch !important;
+  #screen4 #app4 .route-card.collapsed .route-addr-collapsed,
+  #app4 .route-card.collapsed .route-addr-collapsed,
+  #screen4 #app4 .route-card.collapsed .route-note-collapsed,
+  #app4 .route-card.collapsed .route-note-collapsed {
+    display: block !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    white-space: normal !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
   }
-  #screen4 #app4 .route-fields,
-  #screen4 #app4 .route-top-row,
+  #screen4 #app4 .route-card:not(.collapsed) .route-addr-collapsed,
+  #app4 .route-card:not(.collapsed) .route-addr-collapsed,
+  #screen4 #app4 .route-card:not(.collapsed) .route-note-collapsed,
+  #app4 .route-card:not(.collapsed) .route-note-collapsed {
+    display: none !important;
+  }
+
+  /* Do not override .route-card height/overflow: that broke the compact cards. */
   #screen4 #app4 .route-addr-wrap,
   #screen4 #app4 .route-note-wrap,
-  #app4 .route-fields,
-  #app4 .route-top-row,
   #app4 .route-addr-wrap,
   #app4 .route-note-wrap {
+    min-width: 0 !important;
     height: auto !important;
-    min-height: 0 !important;
     max-height: none !important;
-    overflow: visible !important;
-    contain: none !important;
   }
   #screen4 #app4 textarea.route-addr-input,
   #screen4 #app4 textarea.route-note-input,
   #app4 textarea.route-addr-input,
   #app4 textarea.route-note-input {
     display: block !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    min-height: 44px !important;
     height: auto !important;
-    min-height: 2.8em !important;
     max-height: none !important;
     overflow: hidden !important;
     overflow-y: hidden !important;
     overflow-x: hidden !important;
     resize: none !important;
-    box-sizing: border-box !important;
     white-space: pre-wrap !important;
     overflow-wrap: anywhere !important;
     word-break: break-word !important;
   }
-  /* Keep the colored bottom stripe visible without clipping the card's content. */
-  #screen4 #app4 .route-card::after,
-  #app4 .route-card::after {
-    pointer-events: none !important;
-  }
 </style>
-<script id="mvs-android-webview-autogrow-final">
+<script id="mvs-compact-card-and-text-autogrow">
 (function () {
   'use strict';
   var selector = '#screen4 #app4 textarea.route-addr-input, #screen4 #app4 textarea.route-note-input, #app4 textarea.route-addr-input, #app4 textarea.route-note-input';
 
   function grow(el) {
-    if (!el || !el.isConnected) return;
+    if (!el || !el.isConnected || (el.closest && el.closest('.route-card.collapsed'))) return;
     el.style.setProperty('height', 'auto', 'important');
     el.style.setProperty('max-height', 'none', 'important');
+    el.style.setProperty('overflow', 'hidden', 'important');
     el.style.setProperty('overflow-y', 'hidden', 'important');
     el.style.setProperty('overflow-x', 'hidden', 'important');
+    el.style.setProperty('display', 'block', 'important');
     var h = Math.max(44, Math.ceil(el.scrollHeight || 0));
     el.style.setProperty('height', h + 'px', 'important');
-
-    // Remove any stale fixed height on wrappers/cards which can crop the textarea.
-    var node = el.parentElement;
-    for (var i = 0; node && i < 5; i++, node = node.parentElement) {
-      if (node.matches && node.matches('.route-addr-wrap, .route-note-wrap, .route-fields, .route-top-row, .route-card')) {
-        node.style.setProperty('height', 'auto', 'important');
-        node.style.setProperty('max-height', 'none', 'important');
-        node.style.setProperty('min-height', '0', 'important');
-        node.style.setProperty('overflow', 'visible', 'important');
-      }
-    }
   }
 
   function schedule(el) {
+    if (!el || (el.closest && el.closest('.route-card.collapsed'))) return;
     grow(el);
     requestAnimationFrame(function () { grow(el); });
     setTimeout(function () { grow(el); }, 80);
-    setTimeout(function () { grow(el); }, 240);
+    setTimeout(function () { grow(el); }, 220);
   }
 
-  document.addEventListener('input', function (e) {
-    if (e.target && e.target.matches && e.target.matches(selector)) schedule(e.target);
-  }, true);
-  ['change', 'paste', 'cut', 'compositionend', 'focus', 'blur'].forEach(function (eventName) {
-    document.addEventListener(eventName, function (e) {
+  ['input', 'change', 'paste', 'cut', 'compositionend', 'focus', 'blur'].forEach(function (name) {
+    document.addEventListener(name, function (e) {
       if (e.target && e.target.matches && e.target.matches(selector)) schedule(e.target);
     }, true);
   });
 
+  /* When a compact card opens, resize its text fields; don't alter card layout. */
+  document.addEventListener('click', function (e) {
+    var card = e.target && e.target.closest ? e.target.closest('.route-card') : null;
+    if (card && !card.classList.contains('collapsed')) {
+      setTimeout(function () { card.querySelectorAll('textarea.route-addr-input, textarea.route-note-input').forEach(schedule); }, 0);
+    }
+  }, true);
+
   function scan() {
     document.querySelectorAll(selector).forEach(schedule);
   }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', scan, { once: true });
-  } else {
-    scan();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scan, { once: true });
+  else scan();
   window.addEventListener('resize', scan);
-  window.addEventListener('orientationchange', function () { setTimeout(scan, 200); });
-  // Fields may be created dynamically when a meeting card is added.
-  if (window.MutationObserver && document.documentElement) {
-    new MutationObserver(function (mutations) {
-      for (var i = 0; i < mutations.length; i++) {
-        if (mutations[i].addedNodes && mutations[i].addedNodes.length) {
-          scan();
-          break;
-        }
-      }
-    }).observe(document.documentElement, { childList: true, subtree: true });
-  }
+  window.addEventListener('orientationchange', function () { setTimeout(scan, 180); });
 })();
 </script>
 
