@@ -8274,7 +8274,8 @@ function buildRouteCard(item, timeId, timeLabel) {
   if (item.status === 'done' || item.status === 'perenos') card.classList.add('route-card-compact');
   
    // Короткие карточки: первый тап раскрывает карточку, не открывая карту.
-  const isCollapsed = !item.startedAt && item.uiExpanded !== true && !!String(item.addrDisplay || item.addr || '').trim();
+  const isCollapsed = !item.startedAt && item.uiExpanded !== true && !!String(item.addrDisplay
+ || item.addr || '').trim();
   if (isCollapsed) card.classList.add('collapsed');
     // Если встреча в процессе — добавляем класс "живой"
   if (item.startedAt) card.classList.add('route-card-live');
@@ -17431,29 +17432,125 @@ textarea.route-addr-input {
   });
 })();
 </script>
-<script id="mvs-smart-autogrow">
-document.addEventListener('input', function(e) {
-  if (e.target && e.target.tagName === 'TEXTAREA' && e.target.closest('#screen4')) {
-    e.target.style.height = 'auto';
-    e.target.style.height = Math.min(e.target.scrollHeight, 150) + 'px';
-    if (e.target.scrollHeight > 150) {
-      e.target.style.overflowY = 'auto';
-    } else {
-      e.target.style.overflowY = 'hidden';
-    }
-  }
-}, true);
-</script>
 <style id="mvs-final-ui-fix">
-  /* 1. Убираем ТОЛЬКО микрофоны (булавку не трогаем!) */
+  /* 1. Прячем микрофоны */
   #screen4 .route-mic-inline,
   #screen4 .route-note-mic { 
     display: none !important; 
-    visibility: hidden !important;
-    width: 0 !important;
-    height: 0 !important;
-    opacity: 0 !important;
   }
+
+  /* 2. Поле АДРЕСА: отступ справа под булавку (60px), чтобы текст не наезжал */
+  #screen4 .route-addr-input {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    min-height: 44px !important;
+    height: 44px !important;
+    max-height: 80px !important;
+    padding: 12px 60px 12px 12px !important; /* Справа 60px для булавки */
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    line-height: 1.3 !important;
+    background: #1c2b40 !important;
+    border: 1px solid #3b506b !important;
+    border-radius: 10px !important;
+    color: #edf4ff !important;
+    resize: none !important;
+    overflow: hidden !important;
+  }
+
+  /* Позиционируем булавку ровно справа */
+  #screen4 .route-coords-btn {
+    position: absolute !important;
+    right: 8px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 32px !important;
+    height: 32px !important;
+    z-index: 2 !important;
+  }
+
+  /* 3. Поле ЗАМЕТКИ */
+  #screen4 .route-note-input {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    min-height: 38px !important;
+    height: 38px !important;
+    max-height: 120px !important;
+    padding: 10px 12px !important;
+    font-size: 14px !important;
+    line-height: 1.4 !important;
+    background: #18232c !important;
+    border: 1px solid #2a3944 !important;
+    border-radius: 10px !important;
+    color: #aab8c1 !important;
+    resize: none !important;
+    overflow: hidden !important;
+    margin-top: 6px !important;
+  }
+
+  /* 4. Поле ПРИЧИНЫ (внизу) */
+  #screen4 .route-nondelivery-input {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    min-height: 44px !important;
+    height: 44px !important;
+    max-height: 120px !important;
+    padding: 12px !important;
+    font-size: 14px !important;
+    background: #18232c !important;
+    border: 1px solid #2a3944 !important;
+    border-radius: 10px !important;
+    color: #aab8c1 !important;
+    resize: none !important;
+    overflow: hidden !important;
+  }
+
+  /* ====================================================
+     КОРОТКАЯ (СВЕРНУТАЯ) КАРТОЧКА
+     ==================================================== */
+  
+  /* Жестко прячем ВСЕ поля ввода и обертки */
+  #screen4 .route-card.collapsed .route-addr-input,
+  #screen4 .route-card.collapsed .route-note-input,
+  #screen4 .route-card.collapsed .route-nondelivery-input,
+  #screen4 .route-card.collapsed .route-note-wrap,
+  #screen4 .route-card.collapsed .route-nondelivery-wrap,
+  #screen4 .route-card.collapsed .route-coords-btn {
+    display: none !important;
+  }
+  
+  /* Показываем ТОЛЬКО текстовые версии для короткой карточки */
+  #screen4 .route-card.collapsed .route-addr-collapsed {
+    display: block !important;
+    min-height: 20px !important; /* Защита от схлопывания */
+    white-space: normal !important;
+    overflow: visible !important;
+    color: #dbeaff !important;
+    font-weight: 700 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  #screen4 .route-card.collapsed .route-note-collapsed {
+    display: block !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    color: #9eb0c8 !important;
+    font-size: 13px !important;
+    margin: 4px 0 0 0 !important;
+    padding: 0 !important;
+  }
+
+  /* ====================================================
+     РАЗВЕРНУТАЯ (БОЛЬШАЯ) КАРТОЧКА
+     ==================================================== */
+
+  /* Прячем свернутые тексты */
+  #screen4 .route-card:not(.collapsed) .route-addr-collapsed,
+  #screen4 .route-card:not(.collapsed) .route-note-collapsed {
+    display: none !important;
+  }
+</style>
 
   /* 2. Поле адреса (отступ справа, чтобы текст не наезжал на булавку) */
   #screen4 .route-addr-input {
@@ -17543,6 +17640,20 @@ document.addEventListener('input', function(e) {
       e.target.style.overflowY = 'auto';
     } else {
       e.target.style.overflowY = 'hidden';
+    }
+  }
+}, true);
+</script>
+<script id="mvs-perfect-autogrow">
+document.addEventListener('input', function(e) {
+  if (e.target && e.target.tagName === 'TEXTAREA' && e.target.closest('#screen4')) {
+    // Измеряем высоту ТОЛЬКО если поле реально отображается
+    if (e.target.offsetParent !== null) {
+      e.target.style.height = 'auto';
+      // Ограничиваем высоту: адрес до 80px, заметки до 120px
+      const maxH = e.target.classList.contains('route-addr-input') ? 80 : 120;
+      e.target.style.height = Math.min(e.target.scrollHeight, maxH) + 'px';
+      e.target.style.overflowY = e.target.scrollHeight > maxH ? 'auto' : 'hidden';
     }
   }
 }, true);
