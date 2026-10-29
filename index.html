@@ -17371,13 +17371,13 @@ textarea.route-addr-input {
     visibility: hidden !important;
   }
 
-  /* 2. Поле АДРЕСА */
+  /* 2. Поле АДРЕСА — без скролла, растет по тексту */
   #screen4 .route-addr-input {
     box-sizing: border-box !important;
     width: 100% !important;
     min-height: 44px !important;
-    max-height: 80px !important;
-    padding: 12px 45px 12px 12px !important; /* Справа отступ под булавку */
+    max-height: none !important; /* Разрешаем расти */
+    padding: 12px 45px 12px 12px !important;
     font-size: 15px !important;
     font-weight: 700 !important;
     line-height: 1.3 !important;
@@ -17386,7 +17386,11 @@ textarea.route-addr-input {
     border-radius: 10px !important;
     color: #edf4ff !important;
     resize: none !important;
-    overflow: hidden !important;
+    overflow: hidden !important; /* Убираем скролл */
+    overflow-y: hidden !important;
+    overflow-x: hidden !important;
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
   }
 
   /* Позиционируем булавку ровно справа */
@@ -17400,12 +17404,12 @@ textarea.route-addr-input {
     z-index: 2 !important;
   }
 
-  /* 3. Поле ЗАМЕТКИ */
+  /* 3. Поле ЗАМЕТКИ — без скролла */
   #screen4 .route-note-input {
     box-sizing: border-box !important;
     width: 100% !important;
     min-height: 38px !important;
-    max-height: 120px !important;
+    max-height: none !important;
     padding: 10px 12px !important;
     font-size: 14px !important;
     line-height: 1.4 !important;
@@ -17415,15 +17419,16 @@ textarea.route-addr-input {
     color: #aab8c1 !important;
     resize: none !important;
     overflow: hidden !important;
+    overflow-y: hidden !important;
     margin-top: 6px !important;
   }
 
-  /* 4. Поле ПРИЧИНЫ */
+  /* 4. Поле ПРИЧИНЫ — без скролла */
   #screen4 .route-nondelivery-input {
     box-sizing: border-box !important;
     width: 100% !important;
     min-height: 44px !important;
-    max-height: 120px !important;
+    max-height: none !important;
     padding: 12px !important;
     font-size: 14px !important;
     background: #18232c !important;
@@ -17432,21 +17437,32 @@ textarea.route-addr-input {
     color: #aab8c1 !important;
     resize: none !important;
     overflow: hidden !important;
+    overflow-y: hidden !important;
+  }
+
+  /* Убираем полосы прокрутки (на всякий случай) */
+  #screen4 textarea::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
   }
 
   /* 5. Отступы контейнеров */
   #screen4 .route-note-wrap { margin-top: 6px !important; }
   #screen4 .route-nondelivery-wrap { margin-top: 12px !important; padding-top: 10px !important; border-top: 1px solid rgba(255,255,255,0.05) !important; }
 
-  /* 6. ЖЕСТКО ПРЯЧЕМ ПОЛЯ В КОРОТКОЙ КАРТОЧКЕ */
+  /* ====================================================
+     КОРОТКАЯ (СВЕРНУТАЯ) КАРТОЧКА
+     ==================================================== */
+  
+  /* Жестко прячем ВСЕ поля ввода */
   #screen4 .route-card.collapsed .route-addr-input,
-  #screen4 .route-card.collapsed .route-note-wrap,
-  #screen4 .route-card.collapsed .route-nondelivery-wrap,
+  #screen4 .route-card.collapsed .route-note-input,
+  #screen4 .route-card.collapsed .route-nondelivery-input,
   #screen4 .route-card.collapsed .route-coords-btn {
     display: none !important;
   }
   
-  /* Показываем только текст в короткой карточке */
+  /* Показываем ТЕКСТ АДРЕСА */
   #screen4 .route-card.collapsed .route-addr-collapsed {
     display: block !important;
     min-height: 20px !important;
@@ -17458,6 +17474,7 @@ textarea.route-addr-input {
     padding: 0 !important;
   }
   
+  /* Показываем ТЕКСТ ЗАМЕТКИ (если она есть) */
   #screen4 .route-card.collapsed .route-note-collapsed {
     display: block !important;
     white-space: normal !important;
@@ -17467,8 +17484,18 @@ textarea.route-addr-input {
     margin: 4px 0 0 0 !important;
     padding: 0 !important;
   }
+  
+  /* Скрываем пустые обертки, чтобы не было пустого места */
+  #screen4 .route-card.collapsed .route-note-wrap,
+  #screen4 .route-card.collapsed .route-nondelivery-wrap {
+    display: none !important;
+  }
 
-  /* Прячем свернутые тексты в развернутой карточке */
+  /* ====================================================
+     РАЗВЕРНУТАЯ (БОЛЬШАЯ) КАРТОЧКА
+     ==================================================== */
+
+  /* Прячем свернутые тексты */
   #screen4 .route-card:not(.collapsed) .route-addr-collapsed,
   #screen4 .route-card:not(.collapsed) .route-note-collapsed {
     display: none !important;
@@ -17477,14 +17504,25 @@ textarea.route-addr-input {
 <script id="mvs-perfect-autogrow-final">
 document.addEventListener('input', function(e) {
   if (e.target && e.target.tagName === 'TEXTAREA' && e.target.closest('#screen4')) {
-    // Измеряем высоту ТОЛЬКО если поле реально отображается
     if (e.target.offsetParent !== null) {
       e.target.style.height = 'auto';
-      // Ограничиваем высоту: адрес до 80px, заметки и причины до 120px
-      const maxH = e.target.classList.contains('route-addr-input') ? 80 : 120;
-      e.target.style.height = Math.min(e.target.scrollHeight, maxH) + 'px';
-      e.target.style.overflowY = e.target.scrollHeight > maxH ? 'auto' : 'hidden';
+      // Высота не ограничивается, поле растет под текст
+      e.target.style.height = e.target.scrollHeight + 'px';
+      e.target.style.overflowY = 'hidden'; // Всегда скрываем скролл
     }
+  }
+}, true);
+
+// Принудительно применяем высоту при загрузке и переключении карточек
+document.addEventListener('click', function(e) {
+  if (e.target.closest('.route-card') && !e.target.closest('.route-card').classList.contains('collapsed')) {
+    setTimeout(() => {
+      document.querySelectorAll('#screen4 textarea').forEach(function(el) {
+        el.style.height = 'auto';
+        el.style.height = el.scrollHeight + 'px';
+        el.style.overflowY = 'hidden';
+      });
+    }, 50);
   }
 }, true);
 </script>
