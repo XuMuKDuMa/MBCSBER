@@ -6699,7 +6699,7 @@ body.dark .route-card::after{filter:saturate(1.15) brightness(1.12)}
   <div class="vpn-warning-icon">📡</div>
   <div class="vpn-warning-text">
     <b>Выключи VPN</b>
-    <span>Карта и геолокация работают точнее без VPN</span>
+    <span>Выключи VPN, затем перезайди в приложение или обнови экран, потянув сверху вниз</span>
   </div>
 </div>
 <div class="modal-overlay" id="reminderModal">
@@ -7379,6 +7379,11 @@ function goToTab(n, animate = true) {
 // НО только если в нём НЕТ активной встречи.
 // На карту (n === 5) слот не закрываем: туда уходят по тапу на карточку,
 // и при возврате должна остаться кнопка «+ Добавить адрес».
+if (currentTab === 4 && n !== 4) {
+  // При уходе из раздела «Активности» карточки сворачиваются.
+  ROUTE_TIMES.forEach(rt => (routeState.lists[rt.id] || []).forEach(item => { item.uiExpanded = false; }));
+  try { saveRouteState(routeState); } catch (err) {}
+}
 if (currentTab === 4 && n !== 4 && n !== 5) {
   const activeSlot = findSlotWithActiveActivity();
   if (!activeSlot) {
@@ -8091,8 +8096,8 @@ function openStatusMenu(anchor, item, timeId, mode) {
 
       if (btn.dataset.mtype) {
         item.mtype = btn.dataset.mtype;
-        // После выбора типа встречи не сворачиваем карточку.
-        item._expandAfterType = true;
+        // Сохраняем раскрытое состояние до перерисовки после выбора типа.
+        item.uiExpanded = true;
         syncCardCredit(item);
         saveRouteState(routeState);
         renderRoute();
@@ -8115,6 +8120,9 @@ function openStatusMenu(anchor, item, timeId, mode) {
       } else if (status) {
         const wasSame = item.status === status;
         item.status = status;
+        // После выбора любого статуса карточка возвращается в компактный вид.
+        // Это не затрагивает переключение B2C/B2B: там uiExpanded сохраняется.
+        item.uiExpanded = false;
         if (status === 'done' || status === 'ndz' || status === 'perenos') {
           item.startedAt = null;
         }
@@ -8260,34 +8268,10 @@ document.addEventListener('scroll', () => {
     closeStatusMenu();
   }
 }, { passive: true, capture: true });
-// MVS: restore tap-to-expand for the entire short card. Capture before card handlers.
-if (!document.__mvsTapExpandDelegationV11) {
-  document.__mvsTapExpandDelegationV11 = true;
-  document.addEventListener('click', function(e) {
-    const card = e.target && e.target.closest ? e.target.closest('#screen4 .route-card.collapsed') : null;
-    if (!card) return;
-    if (e.target.closest('input, textarea, button, select, a, .status-menu, .status-overlay, .voice-panel, .vp-btn')) return;
-    const parent = card.parentElement;
-    if (parent) parent.querySelectorAll('.route-card:not(.route-card-live)').forEach(function(other) {
-      if (other !== card) other.classList.add('collapsed');
-    });
-    card.classList.remove('collapsed');
-    const idx = Number(card.dataset.routeIndex);
-    const timeId = card.dataset.routeTimeId;
-    let item = card._mvsRouteItem;
-    if (!item && Number.isFinite(idx) && timeId && routeState && routeState.lists) item = (routeState.lists[timeId] || [])[idx];
-    if (item) item.uiExpanded = true;
-    if (typeof saveRouteState === 'function' && typeof routeState !== 'undefined') saveRouteState(routeState);
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-  }, true);
-}
-
 function buildRouteCard(item, timeId, timeLabel) {
   const card = document.createElement('div');
+  card.__routeItem = item;
   card.className = 'route-card';
-  card._mvsRouteItem = item;
   if (timeId) card.classList.add('route-slot-' + timeId);
   if (item.status === 'wait') card.classList.add('status-wait');
   if (item.status === 'done') card.classList.add('status-done');
@@ -8296,8 +8280,7 @@ function buildRouteCard(item, timeId, timeLabel) {
   if (item.status === 'done' || item.status === 'perenos') card.classList.add('route-card-compact');
   
    // Короткие карточки: первый тап раскрывает карточку, не открывая карту.
-  const isCollapsed = !item.startedAt && !item._expandAfterType && !!String(item.addrDisplay || item.addr || '').trim();
-  item._expandAfterType = false;
+  const isCollapsed = !item.startedAt && !!String(item.addrDisplay || item.addr || '').trim();
   if (isCollapsed) card.classList.add('collapsed');
     // Если встреча в процессе — добавляем класс "живой"
   if (item.startedAt) card.classList.add('route-card-live');
@@ -8312,16 +8295,21 @@ function buildRouteCard(item, timeId, timeLabel) {
       '.route-mic-inline', '.route-note-mic', '.route-coords-btn',
       '.route-side-btn', '.route-status-btn', '.route-add-btn',
       '.voice-panel', '.vp-btn', '.vp-audio',
-      '.status-menu', '.status-overlay',
+      '.status-menu', '.status-overlay', '.route-note-wrap',
     ];
     if (ignoreSelectors.some(sel => e.target.closest(sel))) return;
 
     if (card.classList.contains('collapsed')) {
       const parent = card.parentElement;
       if (parent) parent.querySelectorAll('.route-card:not(.route-card-live)').forEach(other => {
-        if (other !== card) other.classList.add('collapsed');
+        if (other !== card) {
+          other.classList.add('collapsed');
+          if (other.__routeItem) other.__routeItem.uiExpanded = false;
+        }
       });
       card.classList.remove('collapsed');
+      item.uiExpanded = true;
+      try { saveRouteState(routeState); } catch (err) {}
       return;
     }
 
@@ -8371,51 +8359,60 @@ function mvsStreetOnlyAddress(raw) {
   return value;
 }
 
-addrCollapsed.textContent = mvsStreetOnlyAddress(item.addrDisplay || item.addr);
+addrCollapsed.textContent = item.addr || '';
 
 const addrInput = document.createElement('textarea');
 addrInput.className = 'route-addr-input';
 addrInput.placeholder = 'Адрес доставки';
-addrInput.value = mvsStreetOnlyAddress(item.addrDisplay || item.addr);
-addrInput.dataset.fullAddress = item.addr || '';
+addrInput.value = item.addr || '';
 addrInput.rows = 1;
-// На мобильных устройствах не даём жесту карточки/переключения слота
-// перехватить первое касание поля. Это сохраняет фокус и ввод сразу после добавления адреса.
-// Android WebView: stop card gestures, but never intercept the IME/input pipeline.
-// In particular, do not stop keydown/beforeinput: some Android keyboards deliver
-// text through composition/beforeinput and propagation blockers can swallow it.
-addrInput.addEventListener('pointerdown', (e) => { e.stopPropagation(); }, { passive: true });
-addrInput.addEventListener('touchstart', (e) => { e.stopPropagation(); }, { passive: true });
-addrInput.addEventListener('click', (e) => { e.stopPropagation(); });
-addrInput.addEventListener('compositionstart', () => { addrInput.dataset.composing = '1'; });
-addrInput.addEventListener('compositionend', () => {
-  delete addrInput.dataset.composing;
-  item.addr = addrInput.value;
-  item.addrDisplay = addrInput.value;
-  addrCollapsed.textContent = mvsStreetOnlyAddress(addrInput.value);
-  delete addrInput.dataset.fullAddress;
-  saveRouteState(routeState);
-  autoGrow(addrInput);
-  _mapHash = '';
-});
+addrInput.style.height = 'auto';
+addrInput.style.minHeight = '38px';
+addrInput.style.maxHeight = 'none';
+addrInput.style.overflowY = 'hidden';
+addrInput.style.overflowX = 'hidden';
+addrInput.style.whiteSpace = 'pre-wrap';
+addrInput.style.overflowWrap = 'anywhere';
+addrInput.style.wordBreak = 'break-word';
 
-// Функция авто-высоты
+// Не даём карточке перехватывать касания, но не блокируем клавиатурный ввод Android.
+addrInput.addEventListener('pointerdown', e => e.stopPropagation(), { passive: true });
+addrInput.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+addrInput.addEventListener('click', e => e.stopPropagation());
+
 function autoGrow(el) {
+  if (!el) return;
   el.style.height = 'auto';
-  el.style.height = el.scrollHeight + 'px';
+  el.style.height = Math.max(el.scrollHeight, 38) + 'px';
+  el.style.overflowY = 'hidden';
+  el.style.overflowX = 'hidden';
 }
 
-addrInput.addEventListener('input', () => {
-  // Let Android IME finish composing multi-stage characters before persisting.
+function persistAddressInput() {
   item.addr = addrInput.value;
-  item.addrDisplay = addrInput.value;
-  addrCollapsed.textContent = mvsStreetOnlyAddress(addrInput.value);
-  delete addrInput.dataset.fullAddress;
   saveRouteState(routeState);
   autoGrow(addrInput);
   _mapHash = '';
-});
+}
 
+addrInput.addEventListener('compositionstart', () => {
+  addrInput.dataset.composing = '1';
+});
+addrInput.addEventListener('compositionend', () => {
+  delete addrInput.dataset.composing;
+  persistAddressInput();
+});
+addrInput.addEventListener('input', () => {
+  autoGrow(addrInput);
+  // Во время ввода русских букв Android сначала собирает композицию.
+  // Не перезаписываем состояние до compositionend.
+  if (addrInput.dataset.composing !== '1') persistAddressInput();
+});
+addrInput.addEventListener('change', persistAddressInput);
+addrInput.addEventListener('blur', persistAddressInput);
+addrInput.addEventListener('focus', () => requestAnimationFrame(() => autoGrow(addrInput)));
+addrInput.addEventListener('keyup', () => autoGrow(addrInput));
+addrInput.addEventListener('keydown', e => e.stopPropagation());
 // ─── Кнопка микрофона внутри поля адреса ───
 const btnMic = document.createElement('button');
 btnMic.type = 'button';
@@ -8445,7 +8442,7 @@ btnMic.addEventListener('click', (e) => {
     item.addrDisplay = item.addr;
     saveRouteState(routeState);
     addrInput.value = item.addr;
-    addrCollapsed.textContent = mvsStreetOnlyAddress(item.addrDisplay || item.addr);
+    addrCollapsed.textContent = item.addr || '';
     autoGrow(addrInput);
     requestAnimationFrame(() => autoGrow(addrInput));
     setTimeout(() => autoGrow(addrInput), 100);
@@ -8772,32 +8769,8 @@ noteWrap.className = 'route-note-wrap';
 const noteInput = document.createElement('textarea');
 noteInput.className = 'route-note-input';
 noteInput.placeholder = 'кв, этаж, код домофона…';
-// Заметка — полноценное текстовое поле: разрешаем буквы, кириллицу и смешанный текст.
-noteInput.setAttribute('inputmode', 'text');
-noteInput.setAttribute('lang', 'ru');
-noteInput.setAttribute('autocomplete', 'off');
-noteInput.setAttribute('autocapitalize', 'sentences');
-noteInput.setAttribute('spellcheck', 'true');
 noteInput.value = item.note || '';
 noteInput.rows = 1;
-// Android WebView: не перехватываем pointerdown/touchstart у textarea.
-// Их остановка может мешать первому нативному фокусу и открытию IME-клавиатуры.
-// Обработчик клика карточки уже исключает textarea, поэтому блокировать жесты здесь не нужно.
-// Не вызываем focus() программно после касания: Android WebView должен
-// открыть IME в рамках исходного пользовательского касания.
-noteInput.addEventListener('compositionstart', () => { noteInput.dataset.composing = '1'; });
-noteInput.addEventListener('compositionend', () => {
-  // Даём браузеру завершить вставку текста из IME перед сохранением.
-  delete noteInput.dataset.composing;
-  item.note = noteInput.value;
-  collapsedNote.textContent = (noteInput.value || '').trim();
-  autoGrowNote(noteInput);
-  setTimeout(() => {
-    item.note = noteInput.value;
-    collapsedNote.textContent = (noteInput.value || '').trim();
-    saveRouteState(routeState);
-  }, 0);
-});
 const collapsedNote = document.createElement('div');
 collapsedNote.className = 'route-note-collapsed';
 collapsedNote.textContent = (item.note || '').trim();
@@ -8810,16 +8783,38 @@ function autoGrowNote(el) {
   el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden';
 }
 
-noteInput.addEventListener('input', (e) => {
-  // Не сохраняем состояние посреди IME-композиции: синхронное сохранение
-  // может перерисовать карточку и оборвать ввод кириллицы в Windows.
+// Android/Gboard: не сохраняем и не меняем состояние посреди русской IME-композиции.
+let noteComposing = false;
+noteInput.lang = 'ru';
+noteInput.setAttribute('inputmode', 'text');
+noteInput.setAttribute('autocomplete', 'on');
+noteInput.setAttribute('autocorrect', 'on');
+noteInput.setAttribute('spellcheck', 'true');
+['click', 'pointerdown', 'mousedown', 'touchstart'].forEach(type => {
+  noteInput.addEventListener(type, e => e.stopPropagation(), { passive: true });
+});
+noteInput.addEventListener('compositionstart', () => { noteComposing = true; });
+function saveNoteValue() {
   item.note = noteInput.value;
   collapsedNote.textContent = (noteInput.value || '').trim();
-  autoGrowNote(noteInput);
-  if (e && e.isComposing) return;
-  if (noteInput.dataset.composing === '1') return;
   saveRouteState(routeState);
+  autoGrowNote(noteInput);
+}
+noteInput.addEventListener('input', () => {
+  // При русском вводе Gboard может присылать промежуточные composition-события.
+  // Оставляем текстовое поле нетронутым, пока клавиатура завершает композицию.
+  if (noteComposing) {
+    collapsedNote.textContent = (noteInput.value || '').trim();
+    return;
+  }
+  saveNoteValue();
 });
+noteInput.addEventListener('compositionend', () => {
+  noteComposing = false;
+  requestAnimationFrame(saveNoteValue);
+});
+noteInput.addEventListener('change', saveNoteValue);
+noteInput.addEventListener('blur', saveNoteValue);
 
 // Применить высоту при рендере
 requestAnimationFrame(() => autoGrowNote(noteInput));
@@ -8926,6 +8921,7 @@ btnB2C.textContent = 'B2C';
 btnB2C.addEventListener('click', (e) => {
   e.stopPropagation();
   item.category = 'b2c';
+  item.uiExpanded = true; // не сворачивать карточку при смене категории
   resetMtypeForCategory(item);
   saveRouteState(routeState);
   vibro(10);
@@ -8943,6 +8939,7 @@ btnB2B.textContent = 'B2B';
 btnB2B.addEventListener('click', (e) => {
   e.stopPropagation();
   item.category = 'b2b';
+  item.uiExpanded = true; // не сворачивать карточку при смене категории
   resetMtypeForCategory(item);
   saveRouteState(routeState);
   vibro(10);
@@ -9116,18 +9113,46 @@ startBtn.addEventListener('click', (e) => {
 const reasonWrap = document.createElement('div');
 reasonWrap.className = 'route-nondelivery-wrap';
 reasonWrap.style.cssText = 'padding:6px 10px 8px;border-top:1px solid rgba(120,130,140,.15);';
-const reasonInput = document.createElement('input');
-reasonInput.type = 'text';
-reasonInput.className = 'route-nondelivery-input';
+const reasonInput = document.createElement('textarea');
+reasonInput.className = 'route-nondelivery-input route-note-input';
 reasonInput.placeholder = 'Причина недоставки (если встреча под вопросом)';
 reasonInput.value = item.nonDeliveryReason || '';
-reasonInput.style.cssText = 'display:block;width:100%;min-width:0;box-sizing:border-box;border:1px solid #d8dee5;border-radius:8px;padding:8px 10px;font:inherit;font-size:13px;background:rgba(245,247,250,.8);color:inherit;';
-reasonInput.addEventListener('click', e => e.stopPropagation());
-reasonInput.addEventListener('input', () => {
+reasonInput.rows = 1;
+reasonInput.lang = 'ru';
+reasonInput.setAttribute('autocomplete', 'off');
+reasonInput.setAttribute('autocorrect', 'on');
+reasonInput.setAttribute('spellcheck', 'true');
+reasonInput.style.cssText = 'display:block;width:100%;min-width:0;box-sizing:border-box;border:1px solid #d8dee5;border-radius:8px;padding:8px 10px;font:inherit;font-size:13px;background:rgba(245,247,250,.8);color:inherit;resize:vertical;min-height:36px;';
+// Не блокируем события ввода и IME: русская экранная/физическая раскладка использует composition events.
+['click', 'pointerdown', 'mousedown', 'touchstart'].forEach(type => {
+  reasonInput.addEventListener(type, e => e.stopPropagation(), { passive: true });
+});
+let reasonComposing = false;
+function saveNonDeliveryReason(updateReport = false) {
   item.nonDeliveryReason = reasonInput.value;
   saveRouteState(routeState);
-  if (typeof updateAutoNonDeliveryReport === 'function') updateAutoNonDeliveryReport();
+  // Не обновляем отчёт во время набора: перерисовка может прервать
+  // композицию русской экранной клавиатуры (IME) на Android.
+  if (updateReport && typeof updateAutoNonDeliveryReport === 'function') updateAutoNonDeliveryReport();
+}
+reasonInput.setAttribute('inputmode', 'text');
+reasonInput.addEventListener('compositionstart', () => { reasonComposing = true; });
+reasonInput.addEventListener('compositionend', () => {
+  reasonComposing = false;
+  requestAnimationFrame(() => {
+    saveNonDeliveryReason(false);
+    saveNonDeliveryReason(true);
+  });
 });
+reasonInput.addEventListener('input', () => {
+  if (reasonComposing) return;
+  saveNonDeliveryReason(false);
+});
+reasonInput.addEventListener('change', () => saveNonDeliveryReason(true));
+reasonInput.addEventListener('blur', () => saveNonDeliveryReason(true));
+// На мобильном устройстве не позволяем карточке перехватить первое касание
+// и не меняем DOM поля, пока пользователь печатает.
+reasonInput.addEventListener('focus', () => { reasonInput.style.caretColor = 'auto'; });
 reasonWrap.appendChild(reasonInput);
 card.appendChild(statusLine);
 card.appendChild(reasonWrap);
@@ -9378,23 +9403,26 @@ function openMvsVoiceBatch(){
   if(!times.length) return;
   const overlay=document.createElement('div'); overlay.className='mvs-vb-backdrop';
   const modal=document.createElement('div'); modal.className='mvs-vb-modal';
-  modal.innerHTML=`<h3>Добавить адреса в слот</h3><div class="mvs-vb-muted">Выбери время, введи адреса — каждый с новой строки. Можно надиктовать адреса по одному.</div><label for="mvs-vb-slot">Временной слот</label><select id="mvs-vb-slot" class="mvs-vb-slot">${times.map(t=>`<option value="${t.id}" ${t.id===getCurrentSlotId()?'selected':''}>${t.label}</option>`).join('')}</select><label for="mvs-vb-addresses">Адреса</label><textarea id="mvs-vb-addresses" rows="5" placeholder="Например: Красногорск, улица Ленина, дом 5\nКрасногорск, улица Мира, дом 10" style="box-sizing:border-box;width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font:inherit;resize:vertical"></textarea><div class="mvs-vb-hint" id="mvs-vb-hint">Адресов: 0</div><div class="mvs-vb-actions"><button type="button" id="mvs-vb-mic">🎙 Надиктовать адрес</button><button type="button" id="mvs-vb-cancel">Отмена</button></div><div class="mvs-vb-actions"><button type="button" class="mvs-vb-confirm" id="mvs-vb-yes">Добавить в слот</button></div>`;
+  modal.innerHTML=`<h3>Добавить адреса в слот</h3><div class="mvs-vb-muted">Выбери время, введи адреса — каждый с новой строки. Начни вводить адрес — выбери подсказку. Каждый адрес вводи с новой строки.</div><label for="mvs-vb-slot">Временной слот</label><select id="mvs-vb-slot" class="mvs-vb-slot">${times.map(t=>`<option value="${t.id}" ${t.id===getCurrentSlotId()?'selected':''}>${t.label}</option>`).join('')}</select><label for="mvs-vb-addresses">Адреса</label><textarea id="mvs-vb-addresses" rows="5" placeholder="Например: Красногорск, улица Ленина, дом 5\nКрасногорск, улица Мира, дом 10" style="box-sizing:border-box;width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font:inherit;resize:vertical"></textarea><div class="mvs-vb-hint" id="mvs-vb-hint">Адресов: 0</div><div class="mvs-vb-actions"><button type="button" id="mvs-vb-cancel">Отмена</button></div><div class="mvs-vb-actions"><button type="button" class="mvs-vb-confirm" id="mvs-vb-yes">Добавить в слот</button></div>`;
   overlay.appendChild(modal); document.body.appendChild(overlay);
   const area=modal.querySelector('#mvs-vb-addresses'), hint=modal.querySelector('#mvs-vb-hint'), mic=modal.querySelector('#mvs-vb-mic');
   const updateCount=()=>{const n=area.value.split(/\n+/).map(x=>x.trim()).filter(Boolean).length;hint.textContent='Адресов: '+n;};
   area.addEventListener('input',updateCount);
-  let recognition=null, listening=false;
-  mic.addEventListener('click',()=>{
-    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-    if(!SR){hint.textContent='Распознавание речи недоступно в этом браузере. Введи адрес вручную.';return;}
-    if(listening)return;
-    recognition=new SR(); recognition.lang='ru-RU'; recognition.continuous=false; recognition.interimResults=false; recognition.maxAlternatives=1; listening=true; mic.disabled=true; mic.textContent='🔴 Слушаю…'; hint.textContent='Говори адрес…';
-    recognition.onresult=e=>{const heard=String(e.results?.[0]?.[0]?.transcript||'').trim();if(heard){area.value+=(area.value.trim()?'\n':'')+heard;updateCount();hint.textContent='Адрес распознан. Можешь надиктовать следующий.';}};
-    recognition.onerror=e=>{hint.textContent=e.error==='not-allowed'?'Разреши доступ к микрофону.':'Не получилось распознать адрес. Попробуй ещё раз или введи вручную.';};
-    recognition.onend=()=>{listening=false;mic.disabled=false;mic.textContent='🎙 Надиктовать адрес';recognition=null;};
-    try{recognition.start();}catch(e){listening=false;mic.disabled=false;mic.textContent='🎙 Надиктовать адрес';hint.textContent='Не удалось включить микрофон. Попробуй ещё раз.';}
-  });
-  const close=()=>{if(recognition)try{recognition.stop()}catch(e){};overlay.remove();};
+  // Автоподсказки адресов в массовом добавлении: используем тот же ключ DaData, что и в карточках.
+  let suggestTimer=null, suggestController=null, suggestItems=[], activeSuggest=-1;
+  const suggestList=document.createElement('div');
+  suggestList.className='mvs-dadata-list'; suggestList.style.display='none'; suggestList.setAttribute('role','listbox');
+  document.body.appendChild(suggestList);
+  const getKey=()=>{try{return (localStorage.getItem('mvs_dadata_api_key')||'').trim()}catch(e){return ''}};
+  const currentLine=()=>{const pos=area.selectionStart;const before=area.value.slice(0,pos);return {start:before.lastIndexOf('\n')+1,end:(area.value.indexOf('\n',pos)<0?area.value.length:area.value.indexOf('\n',pos)),query:area.value.slice(before.lastIndexOf('\n')+1, pos).trim()};};
+  const positionSuggest=()=>{const r=area.getBoundingClientRect();suggestList.style.left=Math.max(8,Math.min(r.left,innerWidth-160))+'px';suggestList.style.width=Math.max(160,Math.min(r.width,innerWidth-Math.max(8,r.left)-8))+'px';suggestList.style.top=Math.max(8,Math.min(r.bottom+5,innerHeight-220))+'px';suggestList.style.maxHeight='210px';};
+  const closeSuggest=()=>{suggestList.style.display='none';suggestList.replaceChildren();suggestItems=[];activeSuggest=-1;};
+  const chooseSuggest=(item)=>{const line=currentLine();const d=item.data||{};const short=[d.street_with_type||d.street||'',d.house||''].filter(Boolean).join(' ').trim()||item.value||'';const before=area.value.slice(0,line.start),after=area.value.slice(line.end);area.value=before+short+after;const caret=(before+short).length;area.setSelectionRange(caret,caret);updateCount();closeSuggest();area.focus();};
+  const showSuggest=(items)=>{suggestItems=items||[];suggestList.replaceChildren();if(!suggestItems.length){closeSuggest();return;}suggestItems.forEach((it,i)=>{const b=document.createElement('button');b.type='button';b.className='mvs-dadata-option';const d=it.data||{};const main=document.createElement('span');main.className='mvs-dadata-main';main.textContent=[d.street_with_type||d.street||'',d.house||''].filter(Boolean).join(' ')||it.value||'';const sub=document.createElement('span');sub.className='mvs-dadata-sub';sub.textContent=[d.city||d.settlement||d.city_with_type||getMyCity()||'',d.postal_code||''].filter(Boolean).join(' · ');b.append(main,sub);b.addEventListener('pointerdown',e=>e.preventDefault());b.addEventListener('click',e=>{e.preventDefault();chooseSuggest(it)});suggestList.appendChild(b)});suggestList.style.display='block';positionSuggest();};
+  area.addEventListener('input',()=>{clearTimeout(suggestTimer);const line=currentLine();if(line.query.length<3){closeSuggest();return;}suggestTimer=setTimeout(async()=>{if(suggestController)suggestController.abort();suggestController=new AbortController();const key=getKey();if(!key){hint.textContent='Для подсказок сохраните ключ DaData в меню «Итоги» → «Ключ DaData».';return;}try{const city=typeof getMyCity==='function'?getMyCity():'';const r=await fetch('https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/address',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','Authorization':'Token '+key},body:JSON.stringify({query:line.query,count:8,language:'ru',locations:[{country:'*',...(city?{city}: {})}]}),signal:suggestController.signal});if(!r.ok)throw new Error('DaData HTTP '+r.status);const j=await r.json();showSuggest(j.suggestions||[]);}catch(e){if(e.name!=='AbortError'){console.warn('Bulk address suggestions failed',e);closeSuggest();}}},280);});
+  area.addEventListener('keydown',e=>{if(suggestList.style.display!=='block')return;if(e.key==='Escape'){closeSuggest();}else if(e.key==='ArrowDown'){e.preventDefault();activeSuggest=(activeSuggest+1)%suggestItems.length;[...suggestList.children].forEach((x,i)=>x.classList.toggle('active',i===activeSuggest));}else if(e.key==='Enter'&&activeSuggest>=0){e.preventDefault();chooseSuggest(suggestItems[activeSuggest]);}});
+  window.addEventListener('resize',()=>{if(suggestList.style.display==='block')positionSuggest()});
+  const close=()=>{closeSuggest();suggestList.remove();overlay.remove();};
   modal.querySelector('#mvs-vb-cancel').addEventListener('click',close);
   overlay.addEventListener('click',e=>{if(e.target===overlay)close();});
   modal.querySelector('#mvs-vb-yes').addEventListener('click',()=>{
@@ -9426,7 +9454,7 @@ frag.appendChild(stats);
 const voiceBatchBtn = document.createElement('button');
 voiceBatchBtn.type = 'button';
 voiceBatchBtn.className = 'mvs-voice-batch-launch';
-voiceBatchBtn.innerHTML = '🎙 Добавить адреса в слот';
+voiceBatchBtn.innerHTML = '＋ Добавить встречи в слот';
 voiceBatchBtn.style.minHeight = '34px';
 voiceBatchBtn.addEventListener('click', openMvsVoiceBatch);
 frag.appendChild(voiceBatchBtn);
@@ -9529,7 +9557,10 @@ btn.dataset.slotId = t.id;
     if (e.target.closest('[data-map-btn]')) return;
     vibro(12);
     const wasOpen = (_openSlotId === t.id);
+    // При смене слота все карточки снова короткие.
+    ROUTE_TIMES.forEach(rt => (routeState.lists[rt.id] || []).forEach(item => { item.uiExpanded = false; }));
     _openSlotId = wasOpen ? null : t.id;
+    try { saveRouteState(routeState); } catch (err) {}
     renderRoute();
 
     if (!wasOpen) {
@@ -9657,6 +9688,8 @@ if (!_openSlotId) {
       e.stopPropagation();
       if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
       if (window._routeMeetingsActiveTab === group.key) return;
+      ROUTE_TIMES.forEach(rt => (routeState.lists[rt.id] || []).forEach(item => { item.uiExpanded = false; }));
+      try { saveRouteState(routeState); } catch (err) {}
       window._routeMeetingsActiveTab = group.key;
       vibro(12);
       renderRoute();
@@ -9698,6 +9731,8 @@ if (!_openSlotId) {
         if (Math.abs(dx) > 65 && Math.abs(dx) > Math.abs(dy) * 1.25) {
           const nextTab = dx < 0 ? 'working' : 'scheduled';
           if (window._routeMeetingsActiveTab !== nextTab) {
+            ROUTE_TIMES.forEach(rt => (routeState.lists[rt.id] || []).forEach(item => { item.uiExpanded = false; }));
+            try { saveRouteState(routeState); } catch (err) {}
             vibro(22); // короткий тактильный отклик при переключении свайпом
             window._routeMeetingsActiveTab = nextTab;
             renderRoute();
@@ -15065,11 +15100,8 @@ setInterval(() => { if (checkAutoReset2()) render2(); }, 60 * 1000);
 renderRoute();
 updateActivitiesBadge();
 
-// ─── Стартовый экран: с 10:00 до 18:00 — «Карта», иначе «Активности» ───
-const _startOnMap = (() => {
-  const h = new Date().getHours();
-  return h >= 10 && h < 18;
-})();
+// ─── Стартовый экран: всегда «Активности»; карту открываем только вручную ───
+const _startOnMap = false;
 
 // ─── Принудительно открываем стартовый экран ───
 function forceOpenActivitiesTab() {
@@ -15147,6 +15179,11 @@ let _vpnWarningTimeout = null;
 function showVpnWarning() {
   const el = document.getElementById('vpnWarning');
   if (!el) return;
+
+  const warningTitle = el.querySelector('.vpn-warning-text b');
+  const warningText = el.querySelector('.vpn-warning-text span');
+  if (warningTitle) warningTitle.textContent = 'Выключи VPN';
+  if (warningText) warningText.textContent = 'Выключи VPN, затем перезайди в приложение или обнови экран, потянув сверху вниз';
 
   clearTimeout(_vpnWarningTimeout);
   el.classList.remove('show', 'hiding');
@@ -15317,9 +15354,20 @@ async function checkVpnAndWarn(force) {
     }
     const first = okRes[0];
     window._vpnLast = { country: first.country, org: first.org, via: first.host, vpn, reason, ts: Date.now() };
+    if (vpn) showVpnWarning();
     return window._vpnLast;
   } catch (e) {
     console.warn('⚠️ VPN-проверка не удалась:', e && e.message);
+    // Если сервисы проверки недоступны, показываем предупреждение о возможных сетевых ограничениях,
+    // не утверждая, что VPN точно включён.
+    try {
+      const w = document.getElementById('vpnWarning');
+      if (w) {
+        const t = w.querySelector('.vpn-warning-text span');
+        if (t) t.textContent = 'Выключи VPN, затем перезайди в приложение или обнови экран, потянув сверху вниз';
+        w.classList.add('show');
+      }
+    } catch (_) {}
     // сети могло ещё не быть при запуске — пробуем ещё пару раз
     if (!force && _vpnAttempts < 3) {
       _vpnAttempts++;
@@ -16753,7 +16801,7 @@ body:not(.dark) #screen4 .route-card .route-note-input::placeholder {
     if(!splash || splash.dataset.swipeReady==='1') return;
     splash.dataset.swipeReady='1';
     document.body.classList.add('mvs-splash-open');
-    try { if(typeof window.goToTab==='function') window.goToTab(5,false); } catch(e) {}
+    // Не переключаем вкладку при показе заставки: стартовый раздел — «Активности».
     try { const d=document.getElementById('mlsDate'); if(d) d.textContent=new Intl.DateTimeFormat('ru-RU',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date()); } catch(e) {}
     function stats(){
       let up=0, upFD=0;
@@ -16774,7 +16822,7 @@ body:not(.dark) #screen4 .route-card .route-note-input::placeholder {
     function close(){
       if(closed)return; closed=true;
       splash.classList.remove('mls-dragging'); splash.classList.add('mls-hide');
-      const done=()=>{try{splash.remove()}catch(e){};document.body.classList.remove('mvs-splash-open');document.body.style.overflow='';try{if(typeof window.goToTab==='function')window.goToTab(5,false)}catch(e){}};
+      const done=()=>{try{splash.remove()}catch(e){};document.body.classList.remove('mvs-splash-open');document.body.style.overflow='';};
       setTimeout(done,450);
     }
     const btn=document.getElementById('mlsOpenBtn'); if(btn){btn.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();close()},true);btn.addEventListener('touchend',function(e){e.preventDefault();close()},{passive:false});}
@@ -16937,7 +16985,7 @@ document.addEventListener('click', function(ev) {
 #screen4 .route-card.collapsed .route-note-input, #screen4 .route-card.collapsed .route-note-mic, #screen4 .route-card.collapsed .route-status-row, #screen4 .route-card.collapsed .status-badge, #screen4 .route-card.collapsed .route-start-btn, #screen4 .route-card.collapsed .route-live, #screen4 .route-card.collapsed .route-side-btn, #screen4 .route-card.collapsed .route-status-btn, #screen4 .route-card.collapsed .route-add-btn, #screen4 .route-card.collapsed .voice-panel, #screen4 .route-card.collapsed .route-extra, #screen4 .route-card.collapsed .route-actions, #screen4 .route-card.collapsed .status-menu, #screen4 .route-card.collapsed .status-overlay { display:none !important; }
 #screen4 .route-card.collapsed > *:not(.route-top-row) { display:none !important; }
 #screen4 .route-card.collapsed .route-top-row > *:not(.route-time-col):not(.route-fields) { display:none !important; }
-#screen4 .route-card.collapsed .route-fields > *:not(.route-addr-wrap):not(.route-addr-line):not(.route-note-wrap) { display:none !important; }
+#screen4 .route-card.collapsed .route-fields > *:not(.route-addr-wrap):not(.route-note-wrap) { display:none !important; }
 #screen4 .route-card:not(.collapsed) .route-note-collapsed, #screen4 .route-card:not(.collapsed) .route-addr-collapsed { display:none !important; }
 </style>
 
@@ -16979,80 +17027,629 @@ document.addEventListener('click', function(ev) {
 </style>
 
 
-<style id="mvs-force-address-visible-v2">
-/* Жёстко раскладываем адрес и предупреждение вертикально: предупреждение не может занимать место поля адреса. */
-#app4 .route-card:not(.collapsed) .route-top-row,
-#screen4 .route-card:not(.collapsed) .route-top-row { display:flex !important; align-items:flex-start !important; overflow:visible !important; }
-#app4 .route-card:not(.collapsed) .route-fields,
-#screen4 .route-card:not(.collapsed) .route-fields { display:flex !important; flex:1 1 0% !important; flex-direction:column !important; width:0 !important; min-width:0 !important; overflow:visible !important; gap:6px !important; }
-#app4 .route-card:not(.collapsed) .route-addr-wrap,
-#screen4 .route-card:not(.collapsed) .route-addr-wrap { display:flex !important; flex-direction:column !important; position:relative !important; flex:0 0 auto !important; width:100% !important; min-width:0 !important; max-width:100% !important; height:auto !important; min-height:0 !important; overflow:visible !important; }
-#app4 .route-card:not(.collapsed) .route-addr-input,
-#screen4 .route-card:not(.collapsed) .route-addr-input { display:block !important; position:relative !important; flex:0 0 auto !important; width:100% !important; min-width:0 !important; max-width:100% !important; height:auto !important; min-height:54px !important; max-height:none !important; padding:8px 38px 8px 10px !important; line-height:1.35 !important; white-space:pre-wrap !important; overflow:visible !important; overflow-wrap:anywhere !important; text-overflow:clip !important; }
-#app4 .route-card:not(.collapsed) .route-coords-btn,
-#screen4 .route-card:not(.collapsed) .route-coords-btn { position:absolute !important; right:4px !important; top:4px !important; z-index:2 !important; }
-#app4 .route-card:not(.collapsed) .route-unresolved,
-#screen4 .route-card:not(.collapsed) .route-unresolved { display:flex !important; position:relative !important; flex:0 0 auto !important; width:100% !important; min-width:0 !important; max-width:100% !important; height:auto !important; min-height:34px !important; margin:0 !important; white-space:normal !important; overflow:visible !important; overflow-wrap:anywhere !important; }
-#app4 .route-card:not(.collapsed) .route-unresolved span,
-#screen4 .route-card:not(.collapsed) .route-unresolved span { display:inline !important; min-width:0 !important; white-space:normal !important; overflow-wrap:anywhere !important; }
+<style id="mvs-premium-dark-card-design">
+/* MVS premium dark card skin — visual-only overrides */
+:root{--mvs-premium-bg:#0b1220;--mvs-premium-card:#111c2d;--mvs-premium-card2:#162338;--mvs-premium-line:#2a3a52;--mvs-premium-text:#edf4ff;--mvs-premium-muted:#9aabc2;--mvs-premium-blue:#2785f5;--mvs-premium-cyan:#42b9ff;}
+/* Cards themselves */
+#app4 .route-card,#screen4 .route-card{
+ background:linear-gradient(145deg,#142238 0%,#101a2a 100%) !important;
+ color:var(--mvs-premium-text) !important;border:1px solid #2c405a !important;
+ border-radius:18px !important;box-shadow:0 8px 22px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.035) !important;
+ overflow:hidden;transition:box-shadow .18s ease,border-color .18s ease;
+}
+#app4 .route-card:not(.collapsed),#screen4 .route-card:not(.collapsed){border-color:#3979b9 !important;box-shadow:0 10px 28px rgba(0,0,0,.28),0 0 0 1px rgba(39,133,245,.12) !important;}
+#app4 .route-card .route-top-row,#screen4 .route-card .route-top-row{gap:10px !important;padding:12px !important;}
+#app4 .route-card .route-time-col,#screen4 .route-card .route-time-col{color:#8fcaff !important;font-weight:800 !important;}
+#app4 .route-card .route-time-col .rtc-start,#app4 .route-card .route-time-col .rtc-end,
+#screen4 .route-card .route-time-col .rtc-start,#screen4 .route-card .route-time-col .rtc-end{color:#8fcaff !important;}
+#app4 .route-card .route-fields,#screen4 .route-card .route-fields{gap:10px !important;}
+#app4 .route-card input,#app4 .route-card textarea,#app4 .route-card select,
+#screen4 .route-card input,#screen4 .route-card textarea,#screen4 .route-card select{
+ background:#1c2b40 !important;color:#f0f6ff !important;border:1px solid #3b506b !important;
+ border-radius:12px !important;box-shadow:inset 0 1px 2px rgba(0,0,0,.15) !important;
+}
+#app4 .route-card input::placeholder,#app4 .route-card textarea::placeholder,
+#screen4 .route-card input::placeholder,#screen4 .route-card textarea::placeholder{color:#91a2b9 !important;opacity:1 !important;}
+#app4 .route-card input:focus,#app4 .route-card textarea:focus,#app4 .route-card select:focus,
+#screen4 .route-card input:focus,#screen4 .route-card textarea:focus,#screen4 .route-card select:focus{outline:none !important;border-color:#42a5ff !important;box-shadow:0 0 0 3px rgba(39,133,245,.18) !important;}
+#app4 .route-card button,#screen4 .route-card button{border-radius:12px !important;font-weight:700 !important;}
+#app4 .route-card .route-start-btn,#screen4 .route-card .route-start-btn{background:linear-gradient(135deg,#147a55,#0e5c42) !important;color:#b7ffdc !important;border:1px solid #23855f !important;box-shadow:0 4px 12px rgba(0,0,0,.18) !important;}
+#app4 .route-card .route-status-btn,#screen4 .route-card .route-status-btn{background:#26384f !important;color:#dceaff !important;border:1px solid #3b526f !important;}
+#app4 .route-card .route-coords-btn,#screen4 .route-card .route-coords-btn{background:#20334a !important;color:#a9d7ff !important;border:1px solid #385a7b !important;}
+#app4 .route-card .route-addr-collapsed,#screen4 .route-card .route-addr-collapsed{color:#dbeaff !important;font-weight:700 !important;}
+#app4 .route-card .route-note-collapsed,#screen4 .route-card .route-note-collapsed{color:#9eb0c8 !important;}
+#app4 .route-card .route-unresolved,#screen4 .route-card .route-unresolved{background:rgba(245,158,11,.10) !important;color:#ffd28a !important;border:1px solid rgba(245,158,11,.35) !important;border-radius:10px !important;padding:7px 9px !important;}
+#app4 .route-card.collapsed,#screen4 .route-card.collapsed{background:linear-gradient(135deg,#142238,#101a2a) !important;}
+#app4 .route-card.collapsed .route-top-row,#screen4 .route-card.collapsed .route-top-row{padding:10px 12px !important;}
+/* Keep slot headings consistent with the dark premium style */
+#app4 .route-time-header,#screen4 .route-time-header{color:#e5f1ff !important;}
+@media(max-width:600px){
+ #app4 .route-card,#screen4 .route-card{border-radius:15px !important;}
+ #app4 .route-card .route-top-row,#screen4 .route-card .route-top-row{padding:10px !important;gap:8px !important;}
+ #app4 .route-card input,#app4 .route-card textarea,#app4 .route-card select,#screen4 .route-card input,#screen4 .route-card textarea,#screen4 .route-card select{font-size:15px !important;}
+}
 </style>
 
-<!-- MVS Android note focus: removed delayed refocus to preserve native IME activation -->
-</body>
-</html>
 
-
-
-<style id="mvs-address-visible-short-card-only-fix">
-/* Только возвращаем адрес в короткую карточку; остальные элементы/поведение не меняем. */
-#screen4 #app4 .route-card.collapsed .route-top-row { display:flex !important; }
-#screen4 #app4 .route-card.collapsed .route-fields { display:flex !important; flex:1 1 0% !important; min-width:0 !important; }
-#screen4 #app4 .route-card.collapsed .route-addr-wrap { display:block !important; visibility:visible !important; opacity:1 !important; width:100% !important; min-width:0 !important; height:auto !important; max-height:none !important; overflow:visible !important; }
-#screen4 #app4 .route-card.collapsed .route-addr-collapsed { display:block !important; visibility:visible !important; opacity:1 !important; position:relative !important; width:100% !important; min-width:0 !important; height:auto !important; max-height:none !important; white-space:normal !important; overflow:visible !important; text-overflow:clip !important; overflow-wrap:anywhere !important; word-break:break-word !important; }
-#screen4 #app4 .route-card.collapsed .route-addr-input { display:none !important; }
+<style id="mvs-compact-dispatcher">
+/* Компактный диспетчер: плотная карточка, читаемые время и адрес */
+#app4 .route-time-block[data-time-id="t10_12"] .route-time-col .rtc-start,
+#app4 .route-time-block[data-time-id="t10_12"] .route-time-col .rtc-end,
+#screen4 .route-time-block[data-time-id="t10_12"] .route-time-col .rtc-start,
+#screen4 .route-time-block[data-time-id="t10_12"] .route-time-col .rtc-end {color:#f5b041 !important;}
+#app4 .route-time-block[data-time-id="t12_14"] .route-time-col .rtc-start,
+#app4 .route-time-block[data-time-id="t12_14"] .route-time-col .rtc-end,
+#screen4 .route-time-block[data-time-id="t12_14"] .route-time-col .rtc-start,
+#screen4 .route-time-block[data-time-id="t12_14"] .route-time-col .rtc-end {color:#b879d1 !important;}
+#app4 .route-time-block[data-time-id="t14_16"] .route-time-col .rtc-start,
+#app4 .route-time-block[data-time-id="t14_16"] .route-time-col .rtc-end,
+#screen4 .route-time-block[data-time-id="t14_16"] .route-time-col .rtc-start,
+#screen4 .route-time-block[data-time-id="t14_16"] .route-time-col .rtc-end {color:#5dade2 !important;}
+#app4 .route-time-block[data-time-id="t16_18"] .route-time-col .rtc-start,
+#app4 .route-time-block[data-time-id="t16_18"] .route-time-col .rtc-end,
+#screen4 .route-time-block[data-time-id="t16_18"] .route-time-col .rtc-start,
+#screen4 .route-time-block[data-time-id="t16_18"] .route-time-col .rtc-end {color:#58d68d !important;}
+#app4 .route-time-block .route-card .route-top-row,
+#screen4 .route-time-block .route-card .route-top-row {gap:8px !important;padding:9px 10px !important;align-items:flex-start !important;}
+#app4 .route-time-block .route-card .route-time-col,
+#screen4 .route-time-block .route-card .route-time-col {min-width:48px !important;width:48px !important;padding-top:4px !important;}
+#app4 .route-time-block .route-card .route-time-col .rtc-start,
+#app4 .route-time-block .route-card .route-time-col .rtc-end,
+#screen4 .route-time-block .route-card .route-time-col .rtc-start,
+#screen4 .route-time-block .route-card .route-time-col .rtc-end {font-size:14px !important;line-height:1.2 !important;font-weight:900 !important;letter-spacing:-.25px !important;}
+#app4 .route-time-block .route-card .route-fields,
+#screen4 .route-time-block .route-card .route-fields {gap:6px !important;min-width:0 !important;flex:1 1 auto !important;}
+#app4 .route-time-block .route-card .route-addr-collapsed,
+#screen4 .route-time-block .route-card .route-addr-collapsed {font-size:15px !important;line-height:1.3 !important;font-weight:750 !important;white-space:normal !important;overflow-wrap:anywhere !important;}
+#app4 .route-time-block .route-card .route-note-collapsed,
+#screen4 .route-time-block .route-card .route-note-collapsed {font-size:12px !important;line-height:1.3 !important;}
+#app4 .route-time-block .route-card.collapsed,
+#screen4 .route-time-block .route-card.collapsed {border-radius:12px !important;margin-bottom:7px !important;}
+#app4 .route-time-header,#screen4 .route-time-header {font-size:13px !important;letter-spacing:.2px !important;padding:10px 12px !important;}
+@media(max-width:600px){
+ #app4 .route-time-block .route-card .route-top-row,#screen4 .route-time-block .route-card .route-top-row{padding:8px !important;gap:7px !important;}
+ #app4 .route-time-block .route-card .route-time-col,#screen4 .route-time-block .route-card .route-time-col{min-width:45px !important;width:45px !important;}
+ #app4 .route-time-block .route-card .route-time-col .rtc-start,#app4 .route-time-block .route-card .route-time-col .rtc-end,#screen4 .route-time-block .route-card .route-time-col .rtc-start,#screen4 .route-time-block .route-card .route-time-col .rtc-end{font-size:13px !important;}
+}
 </style>
-<script id="mvs-address-visible-short-card-only-fix-js">
+
+
+<style id="mvs-smooth-card-expand">
+/* Без прыжков: раскрытие и сворачивание карточек без анимации перемещения. */
+#app4 .route-card, #screen4 .route-card,
+#app4 .route-card .route-top-row, #screen4 .route-card .route-top-row,
+#app4 .route-card .route-fields, #screen4 .route-card .route-fields,
+#app4 .route-card .route-note-input, #app4 .route-card .route-status-row,
+#screen4 .route-card .route-note-input, #screen4 .route-card .route-status-row {
+  animation: none !important;
+  transition: none !important;
+  transform: none !important;
+}
+</style>
+
+
+<style id="mvs-remove-voice-microphone">
+#mvs-floating-voice, #mvs-floating-voice-close, #mvs-floating-voice-status { display:none !important; }
+</style>
+
+
+<style id="mvs-longpress-copy-confirm">
+#mvs-card-actions{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:flex-end;justify-content:center;background:rgba(8,16,26,.18);padding:14px}
+#mvs-card-actions .mvs-ca-panel{width:min(420px,100%);border-radius:18px;padding:16px;background:#fff;color:#263442;box-shadow:0 10px 32px #0003;border:1px solid #e0e7ee;margin-bottom:env(safe-area-inset-bottom,0px)}
+#mvs-card-actions .mvs-ca-title{font-size:16px;font-weight:800;margin:0 0 6px}
+#mvs-card-actions .mvs-ca-sub{font-size:14px;line-height:1.35;color:#657383;overflow-wrap:anywhere;margin-bottom:14px}
+#mvs-card-actions .mvs-ca-grid{display:flex;gap:8px}
+#mvs-card-actions button{flex:1;min-height:44px;border:1px solid #d7e0e8;border-radius:12px;background:#f4f7fa;color:#263442;font:600 14px Arial,sans-serif;padding:10px}
+#mvs-card-actions button[data-action="confirm"]{background:#168b59;border-color:#168b59;color:#fff}
+body.dark #mvs-card-actions .mvs-ca-panel{background:#142238;color:#edf4ff;border-color:#2c405a}
+body.dark #mvs-card-actions .mvs-ca-sub{color:#b7c4d4}
+body.dark #mvs-card-actions button{background:#1c2b40;color:#edf4ff;border-color:#3b506b}
+body.dark #mvs-card-actions button[data-action="confirm"]{background:#168b59;color:#fff;border-color:#168b59}
+</style>
+
+
+<script id="mvs-route-card-longpress">
 (function(){
-  function syncAddress(card){
-    if(!card || !card.classList.contains('collapsed')) return;
-    var display=card.querySelector('.route-addr-collapsed');
-    var input=card.querySelector('.route-addr-input');
-    if(!display) return;
-    var value=(input && input.value || '').trim();
-    if(!value && input) value=(input.dataset.fullAddress || '').trim();
-    if(!value){
-      var wrap=card.querySelector('.route-addr-wrap');
-      var itemText=wrap && wrap.querySelector('[data-address], .address-text');
-      if(itemText) value=(itemText.textContent || '').trim();
-    }
-    if(value){
-      display.textContent=value;
-      display.style.setProperty('display','block','important');
-      display.style.setProperty('visibility','visible','important');
-    }
+  if(window.__mvsLongPressInstalled)return;
+  window.__mvsLongPressInstalled=true;
+  let timer=null,startX=0,startY=0;
+  const delay=620;
+  function closePrompt(){const el=document.getElementById('mvs-card-actions');if(el)el.remove();}
+  function addressFrom(card){
+    const selectors=['.route-addr-collapsed','.route-address','.route-addr','.address-text'];
+    for(const sel of selectors){const el=card.querySelector(sel);if(el&&el.textContent.trim())return el.textContent.trim();}
+    const input=card.querySelector('input.route-addr-input,input[name*="address" i],input');
+    return input&&input.value.trim()?input.value.trim():(card.innerText.split('\n').map(x=>x.trim()).find(x=>/улиц|ул\.|просп|шоссе|переул|дом/i.test(x))||'').trim();
   }
-  function scan(){ document.querySelectorAll('#screen4 #app4 .route-card.collapsed').forEach(syncAddress); }
-  document.addEventListener('DOMContentLoaded', scan);
-  scan();
-  var root=document.querySelector('#screen4 #app4') || document.body;
-  if(root){
-    new MutationObserver(function(records){
-      records.forEach(function(r){
-        var card=r.target && r.target.closest && r.target.closest('.route-card');
-        if(card) syncAddress(card);
-        if(r.addedNodes) r.addedNodes.forEach(function(n){
-          if(n.nodeType===1){ if(n.matches && n.matches('.route-card')) syncAddress(n); if(n.querySelectorAll) n.querySelectorAll('.route-card').forEach(syncAddress); }
-        });
-      });
-      scan();
-    }).observe(root,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
+  function showConfirm(card){
+    closePrompt();const addr=addressFrom(card);
+    const wrap=document.createElement('div');wrap.id='mvs-card-actions';
+    wrap.innerHTML='<div class="mvs-ca-panel" role="dialog" aria-label="Подтверждение копирования адреса"><div class="mvs-ca-title">Подтвердите действие</div><div class="mvs-ca-sub">Скопировать адрес?<br><strong class="mvs-ca-address"></strong></div><div class="mvs-ca-grid"><button data-action="cancel">Отмена</button><button data-action="confirm">Скопировать адрес</button></div></div>';
+    wrap.querySelector('.mvs-ca-address').textContent=addr||'Адрес не найден';
+    wrap.addEventListener('click',async e=>{
+      if(e.target===wrap||e.target.closest('[data-action="cancel"]')){closePrompt();return;}
+      if(!e.target.closest('[data-action="confirm"]'))return;
+      if(!addr){alert('Не удалось найти адрес в карточке.');closePrompt();return;}
+      try{await navigator.clipboard.writeText(addr);}
+      catch(err){const ta=document.createElement('textarea');ta.value=addr;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();const ok=document.execCommand('copy');ta.remove();if(!ok){window.prompt('Скопируй адрес:',addr);closePrompt();return;}}
+      const b=wrap.querySelector('[data-action="confirm"]');if(b)b.textContent='✓ Скопировано';setTimeout(closePrompt,850);
+    });
+    document.body.appendChild(wrap);
   }
-  document.addEventListener('input',function(e){
-    if(e.target && e.target.matches && e.target.matches('#screen4 #app4 .route-addr-input')){
-      var card=e.target.closest('.route-card');
-      var display=card && card.querySelector('.route-addr-collapsed');
-      if(display) display.textContent=e.target.value.trim();
-    }
-  },true);
+  function clear(){if(timer){clearTimeout(timer);timer=null;}}
+  document.addEventListener('pointerdown',e=>{
+    const card=e.target.closest&&e.target.closest('#app4 .route-card,#screen4 .route-card');
+    if(!card||e.target.closest('button,input,textarea,select,.status-menu,.status-overlay'))return;
+    clear();startX=e.clientX;startY=e.clientY;timer=setTimeout(()=>{timer=null;if(navigator.vibrate)navigator.vibrate(18);showConfirm(card);},delay);
+  },{passive:true});
+  document.addEventListener('pointermove',e=>{if(timer&&(Math.abs(e.clientX-startX)>12||Math.abs(e.clientY-startY)>12))clear();},{passive:true});
+  document.addEventListener('pointerup',clear,{passive:true});document.addEventListener('pointercancel',clear,{passive:true});
+  document.addEventListener('contextmenu',e=>{const card=e.target.closest&&e.target.closest('#app4 .route-card,#screen4 .route-card');if(card){e.preventDefault();showConfirm(card);}});
 })();
 </script>
+
+
+<style id="mvs-fix-light-status-text-and-slot-time">
+/* Светлая тема: статус не должен делать текст карточки нечитаемым */
+body:not(.dark) #screen4 .route-card,
+body:not(.dark) #app4 .route-card {
+  background:#fff !important;
+  color:#263442 !important;
+}
+body:not(.dark) #screen4 .route-card *,
+body:not(.dark) #app4 .route-card * {
+  text-shadow:none !important;
+}
+body:not(.dark) #screen4 .route-card .route-addr-collapsed,
+body:not(.dark) #app4 .route-card .route-addr-collapsed,
+body:not(.dark) #screen4 .route-card .route-fields,
+body:not(.dark) #app4 .route-card .route-fields,
+body:not(.dark) #screen4 .route-card .route-addr-wrap,
+body:not(.dark) #app4 .route-card .route-addr-wrap {
+  color:#263442 !important;
+  -webkit-text-fill-color:#263442 !important;
+  opacity:1 !important;
+}
+/* Цвет времени в списке встреч определяется классом слота на самой карточке */
+#screen4 .route-card.route-slot-t10_12 .route-time-col .rtc-start,
+#screen4 .route-card.route-slot-t10_12 .route-time-col .rtc-end,
+#app4 .route-card.route-slot-t10_12 .route-time-col .rtc-start,
+#app4 .route-card.route-slot-t10_12 .route-time-col .rtc-end {color:#c49b00!important;-webkit-text-fill-color:#c49b00!important}
+#screen4 .route-card.route-slot-t12_14 .route-time-col .rtc-start,
+#screen4 .route-card.route-slot-t12_14 .route-time-col .rtc-end,
+#app4 .route-card.route-slot-t12_14 .route-time-col .rtc-start,
+#app4 .route-card.route-slot-t12_14 .route-time-col .rtc-end {color:#9b59b6!important;-webkit-text-fill-color:#9b59b6!important}
+#screen4 .route-card.route-slot-t14_16 .route-time-col .rtc-start,
+#screen4 .route-card.route-slot-t14_16 .route-time-col .rtc-end,
+#app4 .route-card.route-slot-t14_16 .route-time-col .rtc-start,
+#app4 .route-card.route-slot-t14_16 .route-time-col .rtc-end {color:#2471a3!important;-webkit-text-fill-color:#2471a3!important}
+#screen4 .route-card.route-slot-t16_18 .route-time-col .rtc-start,
+#screen4 .route-card.route-slot-t16_18 .route-time-col .rtc-end,
+#app4 .route-card.route-slot-t16_18 .route-time-col .rtc-start,
+#app4 .route-card.route-slot-t16_18 .route-time-col .rtc-end {color:#219653!important;-webkit-text-fill-color:#219653!important}
+</style>
+
+
+<script id="mvs-startup-activity-and-white-screen-fix">
+(function(){
+  function showActivities(){
+    try {
+      var activity = document.querySelector('.bb-item[data-bb-tab="4"]');
+      if (!activity) return;
+      // Ensure visual default selection is Activities.
+      document.querySelectorAll('.bb-item[data-bb-tab]').forEach(function(b){ b.classList.toggle('active', b === activity); });
+      // If the app has a tab dispatcher, use the registered button handler.
+      // A synthetic click lets existing navigation logic perform the actual screen switch.
+      var current = document.querySelector('.bb-item[data-bb-tab].active');
+      if (current !== activity) activity.click();
+      // If an earlier script restored a different section, click Activities once on startup.
+      if (!activity.dataset.mvsStartupOpened) {
+        activity.dataset.mvsStartupOpened = '1';
+        activity.click();
+      }
+    } catch(e) { console.warn('MVS startup tab fallback:', e); }
+  }
+
+  function revealAppIfBlank(){
+    try {
+      var body = document.body;
+      if (!body) return;
+      // Do not override intentional overlays/modals. Only recover if page is visibly blank.
+      var text = (body.innerText || '').trim();
+      var hasUI = body.querySelector('#bottomBar, .bottom-bar, #app4, #screen4');
+      if ((!text || !hasUI) && !window.__appReady) {
+        body.style.visibility = 'visible';
+        body.style.opacity = '1';
+        var splash = document.getElementById('mvs-first-load-fallback');
+        if (!splash) {
+          splash = document.createElement('div');
+          splash.id = 'mvs-first-load-fallback';
+          splash.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:#101820;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;text-align:center;font:16px system-ui,sans-serif';
+          splash.innerHTML = '<div style="font-size:28px;font-weight:800;margin-bottom:10px">МВС</div><div style="opacity:.8;line-height:1.5;margin-bottom:18px">Приложение загружается…</div><button style="border:0;border-radius:12px;padding:13px 18px;background:#27ae60;color:#fff;font-weight:700;font-size:16px">Повторить запуск</button>';
+          splash.querySelector('button').addEventListener('click', function(){ location.reload(); });
+          body.appendChild(splash);
+        }
+        setTimeout(function(){ if(window.__appReady && splash.isConnected) splash.remove(); }, 500);
+      }
+    } catch(e) {}
+  }
+
+  function boot(){
+    // Wait briefly for app initialization, then choose Activities as the first section.
+    setTimeout(showActivities, 250);
+    setTimeout(showActivities, 900);
+    setTimeout(function(){
+      if (!window.__appReady) revealAppIfBlank();
+      else {
+        var splash = document.getElementById('mvs-first-load-fallback');
+        if (splash) splash.remove();
+      }
+    }, 2200);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, {once:true});
+  else boot();
+})();
+</script>
+
+
+
+<style id="mvs-reference-address-rendering">
+.route-addr-wrap {
+  min-width: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  align-items: stretch !important;
+}
+textarea.route-addr-input {
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: auto;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: hidden !important;
+  overflow-y: hidden !important;
+  overflow-x: hidden !important;
+  white-space: pre-wrap !important;
+  overflow-wrap: break-word !important;
+  word-break: normal !important;
+  text-overflow: clip !important;
+  resize: none !important;
+  box-sizing: border-box !important;
+  line-height: normal !important;
+}
+.route-fields, .route-top-row {
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+</style>
+
+
+<style id="mvs-address-notes-no-inner-scroll-final">
+/* Адрес и заметки: поле растёт по содержимому, внутренний скролл отключён. */
+#screen4 textarea.route-addr-input,
+#screen4 textarea.route-note-input,
+#app4 textarea.route-addr-input,
+#app4 textarea.route-note-input {
+  display:block !important;
+  box-sizing:border-box !important;
+  width:100% !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  min-height:38px !important;
+  max-height:none !important;
+  overflow:hidden !important;
+  overflow-y:hidden !important;
+  overflow-x:hidden !important;
+  resize:none !important;
+  white-space:pre-wrap !important;
+  overflow-wrap:anywhere !important;
+  word-break:break-word !important;
+  text-overflow:clip !important;
+  scrollbar-width:none !important;
+  -webkit-overflow-scrolling:auto !important;
+}
+#screen4 textarea.route-note-input,
+#app4 textarea.route-note-input { line-height:1.35 !important; }
+#screen4 textarea.route-addr-input::-webkit-scrollbar,
+#screen4 textarea.route-note-input::-webkit-scrollbar,
+#app4 textarea.route-addr-input::-webkit-scrollbar,
+#app4 textarea.route-note-input::-webkit-scrollbar { display:none !important; width:0 !important; height:0 !important; }
+</style>
+<script id="mvs-address-notes-autogrow-final">
+(function(){
+  'use strict';
+  const SELECTOR = '#screen4 textarea.route-addr-input, #screen4 textarea.route-note-input, #app4 textarea.route-addr-input, #app4 textarea.route-note-input';
+  function grow(el){
+    if(!el || !el.matches || !el.matches(SELECTOR)) return;
+    // Reset first so shrinking after deleting text works too.
+    el.style.setProperty('height','auto','important');
+    el.style.setProperty('max-height','none','important');
+    el.style.setProperty('overflow-y','hidden','important');
+    el.style.setProperty('overflow','hidden','important');
+    // scrollHeight includes wrapped lines; ceil avoids clipping fractional pixels.
+    const min = el.classList.contains('route-addr-input') ? 38 : 38;
+    const height = Math.max(min, Math.ceil(el.scrollHeight || 0));
+    el.style.setProperty('height', height + 'px', 'important');
+  }
+  function growSoon(el){
+    grow(el);
+    requestAnimationFrame(()=>grow(el));
+    setTimeout(()=>grow(el), 60);
+    setTimeout(()=>grow(el), 180);
+  }
+  function targetFromEvent(e){
+    const el=e.target;
+    return el && el.matches && el.matches(SELECTOR) ? el : null;
+  }
+  // Delegated handlers run after the app's own handlers, so older auto-height
+  // functions cannot leave the textarea clipped or restore an internal scrollbar.
+  ['input','change','paste','cut','compositionend','focus','blur'].forEach(type=>{
+    document.addEventListener(type, function(e){
+      const el=targetFromEvent(e);
+      if(el) growSoon(el);
+    }, true);
+  });
+  document.addEventListener('DOMContentLoaded', function(){
+    document.querySelectorAll(SELECTOR).forEach(growSoon);
+  });
+  const observer = new MutationObserver(mutations=>{
+    for(const m of mutations){
+      if(m.type==='childList'){
+        m.addedNodes.forEach(node=>{
+          if(node.nodeType!==1) return;
+          if(node.matches && node.matches(SELECTOR)) growSoon(node);
+          node.querySelectorAll && node.querySelectorAll(SELECTOR).forEach(growSoon);
+        });
+      }
+    }
+  });
+  function start(){
+    document.querySelectorAll(SELECTOR).forEach(growSoon);
+    observer.observe(document.body,{childList:true,subtree:true});
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start,{once:true});
+  else start();
+  window.addEventListener('resize',()=>document.querySelectorAll(SELECTOR).forEach(growSoon));
+})();
+</script>
+
+
+<!-- Targeted fix: preserve compact activity cards; only the text fields auto-grow. -->
+<style id="mvs-compact-card-and-text-autogrow">
+  /* Keep the existing compact-card interaction and its original layout. */
+  #screen4 #app4 .route-card.collapsed .route-addr-input,
+  #app4 .route-card.collapsed .route-addr-input,
+  #screen4 #app4 .route-card.collapsed .route-note-input,
+  #app4 .route-card.collapsed .route-note-input,
+  #screen4 #app4 .route-card.collapsed .route-mic-inline,
+  #app4 .route-card.collapsed .route-mic-inline {
+    display: none !important;
+  }
+  #screen4 #app4 .route-card.collapsed .route-addr-collapsed,
+  #app4 .route-card.collapsed .route-addr-collapsed,
+  #screen4 #app4 .route-card.collapsed .route-note-collapsed,
+  #app4 .route-card.collapsed .route-note-collapsed {
+    display: block !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    white-space: normal !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+  }
+  #screen4 #app4 .route-card:not(.collapsed) .route-addr-collapsed,
+  #app4 .route-card:not(.collapsed) .route-addr-collapsed,
+  #screen4 #app4 .route-card:not(.collapsed) .route-note-collapsed,
+  #app4 .route-card:not(.collapsed) .route-note-collapsed {
+    display: none !important;
+  }
+
+  /* Do not override .route-card height/overflow: that broke the compact cards. */
+  #screen4 #app4 .route-addr-wrap,
+  #screen4 #app4 .route-note-wrap,
+  #app4 .route-addr-wrap,
+  #app4 .route-note-wrap {
+    min-width: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+  #screen4 #app4 textarea.route-addr-input,
+  #screen4 #app4 textarea.route-note-input,
+  #app4 textarea.route-addr-input,
+  #app4 textarea.route-note-input {
+    display: block !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    min-height: 44px !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: hidden !important;
+    overflow-y: hidden !important;
+    overflow-x: hidden !important;
+    resize: none !important;
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+  }
+</style>
+<script id="mvs-compact-card-and-text-autogrow">
+(function () {
+  'use strict';
+  var selector = '#screen4 #app4 textarea.route-addr-input, #screen4 #app4 textarea.route-note-input, #app4 textarea.route-addr-input, #app4 textarea.route-note-input';
+
+  function grow(el) {
+    if (!el || !el.isConnected || (el.closest && el.closest('.route-card.collapsed'))) return;
+    el.style.setProperty('height', 'auto', 'important');
+    el.style.setProperty('max-height', 'none', 'important');
+    el.style.setProperty('overflow', 'hidden', 'important');
+    el.style.setProperty('overflow-y', 'hidden', 'important');
+    el.style.setProperty('overflow-x', 'hidden', 'important');
+    el.style.setProperty('display', 'block', 'important');
+    var h = Math.max(44, Math.ceil(el.scrollHeight || 0));
+    el.style.setProperty('height', h + 'px', 'important');
+  }
+
+  function schedule(el) {
+    if (!el || (el.closest && el.closest('.route-card.collapsed'))) return;
+    grow(el);
+    requestAnimationFrame(function () { grow(el); });
+    setTimeout(function () { grow(el); }, 80);
+    setTimeout(function () { grow(el); }, 220);
+  }
+
+  ['input', 'change', 'paste', 'cut', 'compositionend', 'focus', 'blur'].forEach(function (name) {
+    document.addEventListener(name, function (e) {
+      if (e.target && e.target.matches && e.target.matches(selector)) schedule(e.target);
+    }, true);
+  });
+
+  /* When a compact card opens, resize its text fields; don't alter card layout. */
+  document.addEventListener('click', function (e) {
+    var card = e.target && e.target.closest ? e.target.closest('.route-card') : null;
+    if (card && !card.classList.contains('collapsed')) {
+      setTimeout(function () { card.querySelectorAll('textarea.route-addr-input, textarea.route-note-input').forEach(schedule); }, 0);
+    }
+  }, true);
+
+  function scan() {
+    document.querySelectorAll(selector).forEach(schedule);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scan, { once: true });
+  else scan();
+  window.addEventListener('resize', scan);
+  window.addEventListener('orientationchange', function () { setTimeout(scan, 180); });
+})();
+</script>
+
+
+<!-- Targeted field-only fix: do not change compact/expanded card layout. -->
+<style id="mvs-field-only-autogrow-v2">
+  #screen4 #app4 textarea.route-addr-input,
+  #screen4 #app4 textarea.route-note-input,
+  #screen4 #app4 textarea.route-nondelivery-input,
+  #app4 textarea.route-addr-input,
+  #app4 textarea.route-note-input,
+  #app4 textarea.route-nondelivery-input {
+    box-sizing: border-box !important;
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    min-height: 44px !important;
+    height: 44px !important;
+    max-height: none !important;
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+    line-height: 1.35 !important;
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+    overflow: hidden !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+    text-overflow: clip !important;
+    resize: none !important;
+    scrollbar-width: none !important;
+  }
+  #screen4 #app4 .route-addr-wrap,
+  #screen4 #app4 .route-note-wrap,
+  #screen4 #app4 .route-nondelivery-wrap,
+  #app4 .route-addr-wrap,
+  #app4 .route-note-wrap,
+  #app4 .route-nondelivery-wrap {
+    min-width: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+  #screen4 #app4 textarea.route-addr-input::-webkit-scrollbar,
+  #screen4 #app4 textarea.route-note-input::-webkit-scrollbar,
+  #screen4 #app4 textarea.route-nondelivery-input::-webkit-scrollbar,
+  #app4 textarea.route-addr-input::-webkit-scrollbar,
+  #app4 textarea.route-note-input::-webkit-scrollbar,
+  #app4 textarea.route-nondelivery-input::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+</style>
+<script id="mvs-field-only-autogrow-v2-js">
+(function () {
+  'use strict';
+  var selector = [
+    '#screen4 #app4 textarea.route-addr-input',
+    '#screen4 #app4 textarea.route-note-input',
+    '#screen4 #app4 textarea.route-nondelivery-input',
+    '#app4 textarea.route-addr-input',
+    '#app4 textarea.route-note-input',
+    '#app4 textarea.route-nondelivery-input'
+  ].join(',');
+
+  function grow(el) {
+    if (!el || !el.isConnected) return;
+    // Preserve the existing compact card summary; only resize editable fields when expanded.
+    if (el.closest && el.closest('.route-card.collapsed')) return;
+
+    // Reset to zero before measuring: supports long -> short -> long edits reliably.
+    el.style.setProperty('height', '0px', 'important');
+    el.style.setProperty('min-height', '44px', 'important');
+    el.style.setProperty('max-height', 'none', 'important');
+    el.style.setProperty('overflow', 'hidden', 'important');
+    el.style.setProperty('overflow-y', 'hidden', 'important');
+    el.style.setProperty('overflow-x', 'hidden', 'important');
+
+    var height = Math.max(44, Math.ceil(el.scrollHeight || 0));
+    el.style.setProperty('height', height + 'px', 'important');
+  }
+
+  function schedule(el) {
+    if (!el || (el.closest && el.closest('.route-card.collapsed'))) return;
+    grow(el);
+    requestAnimationFrame(function () { grow(el); });
+    setTimeout(function () { grow(el); }, 80);
+    setTimeout(function () { grow(el); }, 220);
+  }
+
+  ['input', 'change', 'paste', 'cut', 'compositionend', 'focus', 'blur'].forEach(function (type) {
+    document.addEventListener(type, function (event) {
+      var el = event.target;
+      if (el && el.matches && el.matches(selector)) schedule(el);
+    }, true);
+  });
+
+  function scan(root) {
+    (root || document).querySelectorAll(selector).forEach(schedule);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { scan(document); }, { once: true });
+  } else {
+    scan(document);
+  }
+  window.addEventListener('resize', function () { scan(document); });
+  window.addEventListener('orientationchange', function () { setTimeout(function () { scan(document); }, 180); });
+
+  // Recheck only newly inserted fields; do not alter the card's own dimensions.
+  if (window.MutationObserver && document.documentElement) {
+    new MutationObserver(function (mutations) {
+      mutations.forEach(function (mutation) {
+        (mutation.addedNodes || []).forEach(function (node) {
+          if (node.nodeType === 1) {
+            if (node.matches && node.matches(selector)) schedule(node);
+            scan(node);
+          }
+        });
+      });
+    }).observe(document.documentElement, { childList: true, subtree: true });
+  }
+})();
+</script>
+
+</body>
+</html>
