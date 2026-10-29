@@ -17297,6 +17297,32 @@ textarea.route-addr-input {
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
 </script>
+<script id="mvs-force-expand-collapsed-card-v10">
+(function () {
+  if (window.__mvsForceExpandCollapsedCardV10) return;
+  window.__mvsForceExpandCollapsedCardV10 = true;
+  const ignored = 'input,textarea,button,select,a,[contenteditable="true"],.status-badge,.route-start-btn,.route-live,.route-mic-inline,.route-note-mic,.route-coords-btn,.route-side-btn,.route-status-btn,.route-add-btn,.voice-panel,.vp-btn,.vp-audio,.status-menu,.status-overlay,.route-addr-input,.route-note-input,.route-nondelivery-input';
+  document.addEventListener('click', function (e) {
+    const target = e.target instanceof Element ? e.target : e.target && e.target.parentElement;
+    if (!target || target.closest(ignored)) return;
+    const card = target.closest('#screen4 .route-card.collapsed');
+    if (!card || card.classList.contains('route-card-live')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    const parent = card.parentElement;
+    if (parent) parent.querySelectorAll('.route-card:not(.route-card-live)').forEach(function (other) {
+      if (other !== card) {
+        other.classList.add('collapsed');
+        if (other._routeItem) other._routeItem.uiExpanded = false;
+      }
+    });
+    card.classList.remove('collapsed');
+    if (card._routeItem) card._routeItem.uiExpanded = true;
+    try { if (typeof routeState !== 'undefined' && typeof saveRouteState === 'function') saveRouteState(routeState); } catch (_) {}
+  }, true);
+})();
+</script>
 </body>
 </html>
 
