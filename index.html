@@ -17377,5 +17377,27 @@ textarea.route-addr-input {
 }
 </style>
 
+
+<script id="mvs-collapsed-card-click-recovery">
+(function () {
+  function findCard(target) {
+    return target && target.closest ? target.closest('#screen4 .route-card.collapsed') : null;
+  }
+  document.addEventListener('click', function (e) {
+    var card = findCard(e.target);
+    if (!card) return;
+    if (e.target.closest('input, textarea, select, button, a, label, [contenteditable="true"], .route-addr-wrap, .route-note-wrap, .route-nondelivery-wrap')) return;
+    // Use the existing card click handler by dispatching a bubbling click on its surface.
+    // Mark the synthetic event to avoid recursion.
+    if (e.__mvsExpandReplay) return;
+    var surface = card.querySelector('.route-top-row, .route-fields') || card;
+    if (surface === e.target) return;
+    var ev = new MouseEvent('click', { bubbles: true, cancelable: true, view: window });
+    Object.defineProperty(ev, '__mvsExpandReplay', { value: true });
+    surface.dispatchEvent(ev);
+  }, false);
+})();
+</script>
+
 </body>
 </html>
