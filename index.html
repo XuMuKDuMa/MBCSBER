@@ -7394,35 +7394,12 @@ function goToTab(n, animate = true) {
     setTimeout(resetTotalsPosition, 50);
   }
 
-  // Если уходим с вкладки «Активности» — закрываем слот,
-// НО только если в нём НЕТ активной встречи.
-// На карту (n === 5) слот не закрываем: туда уходят по тапу на карточку,
-// и при возврате должна остаться кнопка «+ Добавить адрес».
-if (currentTab === 4 && n !== 4 && n !== 5) {
-  const activeSlot = findSlotWithActiveActivity();
-  if (!activeSlot) {
-    _openSlotId = null;
-  }
-  // Если активная встреча есть — слот остаётся "запомненным",
-  // при возврате откроется автоматически
+  // При уходе с вкладки «Активности» закрываем раскрытый слот.
+// При возвращении слот открывается только по явному нажатию пользователя;
+// активная встреча сама по себе больше не раскрывает слот повторно.
+if (currentTab === 4 && n !== 4) {
+  _openSlotId = null;
 }
-
-  if (n === 4) {
-    // ─── Открываем слот с активной встречей (если есть) ───
-    const activeSlot = findSlotWithActiveActivity();
-    let scrollToActive = false;
-
-    if (activeSlot) {
-      _openSlotId = activeSlot;
-      scrollToActive = true;
-    }
-    // Если активной встречи нет — НЕ открываем слот по времени
-    // (но и не сбрасываем уже открытый)
-
-    if (scrollToActive) {
-      setTimeout(scrollToActiveActivity, 600);
-    }
-  }
   currentTab = n;
   try { localStorage.setItem('mvs_last_tab', String(n)); } catch (e) {}
   document.body.classList.remove('tab-1', 'tab-2', 'tab-3', 'tab-4');
@@ -8003,16 +7980,8 @@ function getSlotDominantStatus(timeId) {
   return 'empty';
 }
 
-// Слот по умолчанию — null
+// Слот по умолчанию закрыт. Открытие — только по нажатию пользователя.
 let _openSlotId = null;
-
-// При старте — открываем ТОЛЬКО слот с активной встречей (в процессе)
-(function autoOpenActiveSlot() {
-  const activeSlot = findSlotWithActiveActivity();
-  if (activeSlot) {
-    _openSlotId = activeSlot;
-  }
-})();
 
 /* ═══════════════════════════════════════════════
    ВЫПАДАЮЩЕЕ МЕНЮ СТАТУСА
@@ -8285,6 +8254,7 @@ document.addEventListener('scroll', () => {
 function buildRouteCard(item, timeId, timeLabel) {
   const card = document.createElement('div');
   card.className = 'route-card';
+  card._routeItem = item;
   if (timeId) card.classList.add('route-slot-' + timeId);
   if (item.status === 'wait') card.classList.add('status-wait');
   if (item.status === 'done') card.classList.add('status-done');
@@ -8316,10 +8286,17 @@ function buildRouteCard(item, timeId, timeLabel) {
     if (card.classList.contains('collapsed')) {
       const parent = card.parentElement;
       if (parent) parent.querySelectorAll('.route-card:not(.route-card-live)').forEach(other => {
-        if (other !== card) other.classList.add('collapsed');
+        if (other !== card) {
+          other.classList.add('collapsed');
+          if (other._routeItem) other._routeItem.uiExpanded = false;
+        }
       });
       card.classList.remove('collapsed');
       item.uiExpanded = true;
+      // Не даём этому же тапу пройти дальше в обработчик открытия карты.
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
       saveRouteState(routeState);
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -8352,7 +8329,7 @@ function buildRouteCard(item, timeId, timeLabel) {
     if (!addr) return;
     vibro(10);
     openMapForAddress(addr);
-  });
+  }, true);
   const topRow = document.createElement('div');
 topRow.className = 'route-top-row';
 
@@ -8394,12 +8371,12 @@ function mvsStreetOnlyAddress(raw) {
   return value;
 }
 
-addrCollapsed.textContent = item.addr || '';
+addrCollapsed.textContent = String(item.addrDisplay || item.addr || '').trim();
 
 const addrInput = document.createElement('textarea');
 addrInput.className = 'route-addr-input';
 addrInput.placeholder = 'Адрес доставки';
-addrInput.value = item.addr || '';
+addrInput.value = String(item.addr || item.addrDisplay || '').trim();
 addrInput.rows = 1;
 addrInput.style.height = 'auto';
 addrInput.style.minHeight = '38px';
@@ -16927,7 +16904,7 @@ document.addEventListener('click', function(ev) {
 #screen4 .route-card.collapsed .route-note-input, #screen4 .route-card.collapsed .route-note-mic, #screen4 .route-card.collapsed .route-status-row, #screen4 .route-card.collapsed .status-badge, #screen4 .route-card.collapsed .route-start-btn, #screen4 .route-card.collapsed .route-live, #screen4 .route-card.collapsed .route-side-btn, #screen4 .route-card.collapsed .route-status-btn, #screen4 .route-card.collapsed .route-add-btn, #screen4 .route-card.collapsed .voice-panel, #screen4 .route-card.collapsed .route-extra, #screen4 .route-card.collapsed .route-actions, #screen4 .route-card.collapsed .status-menu, #screen4 .route-card.collapsed .status-overlay { display:none !important; }
 #screen4 .route-card.collapsed > *:not(.route-top-row) { display:none !important; }
 #screen4 .route-card.collapsed .route-top-row > *:not(.route-time-col):not(.route-fields) { display:none !important; }
-#screen4 .route-card.collapsed .route-fields > *:not(.route-addr-wrap):not(.route-note-wrap) { display:none !important; }
+#screen4 .route-card.collapsed .route-fields > *:not(.route-addr-wrap):not(.route-addr-line):not(.route-note-wrap) { display:none !important; }
 #screen4 .route-card:not(.collapsed) .route-note-collapsed, #screen4 .route-card:not(.collapsed) .route-addr-collapsed { display:none !important; }
 </style>
 
@@ -17290,6 +17267,60 @@ textarea.route-addr-input {
 
 
 
+
+<style id="mvs-final-short-address-visibility-fix">
+/* Final targeted fix: force the address text to be visible in short cards. */
+#app4 .route-card.collapsed .route-top-row,
+#screen4 .route-card.collapsed .route-top-row { display:flex !important; align-items:flex-start !important; min-width:0 !important; height:auto !important; max-height:none !important; overflow:visible !important; }
+#app4 .route-card.collapsed .route-fields,
+#screen4 .route-card.collapsed .route-fields { display:flex !important; flex:1 1 auto !important; min-width:0 !important; width:100% !important; height:auto !important; max-height:none !important; overflow:visible !important; }
+#app4 .route-card.collapsed .route-addr-line,
+#screen4 .route-card.collapsed .route-addr-line,
+#app4 .route-card.collapsed .route-addr-wrap,
+#screen4 .route-card.collapsed .route-addr-wrap { display:block !important; min-width:0 !important; width:100% !important; height:auto !important; max-height:none !important; overflow:visible !important; visibility:visible !important; opacity:1 !important; }
+#app4 .route-card.collapsed .route-addr-collapsed,
+#screen4 .route-card.collapsed .route-addr-collapsed { display:block !important; visibility:visible !important; opacity:1 !important; position:static !important; width:100% !important; min-width:0 !important; height:auto !important; max-height:none !important; padding:2px 4px !important; color:#fff !important; -webkit-text-fill-color:#fff !important; text-shadow:0 1px 2px #000 !important; font-size:15px !important; font-weight:800 !important; line-height:1.35 !important; white-space:normal !important; overflow:visible !important; text-overflow:clip !important; overflow-wrap:anywhere !important; word-break:break-word !important; }
+#app4 .route-card.collapsed .route-addr-input,
+#screen4 .route-card.collapsed .route-addr-input { display:none !important; }
+</style>
+<script id="mvs-final-short-address-sync-fix">
+(function(){
+  function sync(card){
+    if(!card || !card.classList.contains('collapsed')) return;
+    var out=card.querySelector('.route-addr-collapsed');
+    var input=card.querySelector('.route-addr-input');
+    if(!out) return;
+    var value=input && input.value ? input.value.trim() : '';
+    if(value) out.textContent=value;
+    if(!out.textContent.trim()) out.textContent='Адрес не указан';
+  }
+  function scan(){document.querySelectorAll('#app4 .route-card.collapsed,#screen4 .route-card.collapsed').forEach(sync);}
+  document.addEventListener('input',function(e){if(e.target && e.target.matches && e.target.matches('.route-addr-input')){var c=e.target.closest('.route-card');if(c)sync(c);}},true);
+  var observer=new MutationObserver(function(){requestAnimationFrame(scan);});
+  function init(){scan();if(document.body)observer.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+</script>
+
+<script id="mvs-auto-collapse-expanded-route-cards-v7">
+(function(){
+  if (window.__mvsAutoCollapseCardsV7) return;
+  window.__mvsAutoCollapseCardsV7 = true;
+  document.addEventListener('click', function(e){
+    const target = e.target;
+    if (!target || target.closest('.route-card')) return;
+    if (target.closest('.status-menu, .status-overlay, .mvs-dadata-list, .modal, .dialog, button, input, textarea, select, a')) return;
+    let changed = false;
+    document.querySelectorAll('#app4 .route-card:not(.collapsed), #screen4 .route-card:not(.collapsed)').forEach(card => {
+      if (card.classList.contains('route-card-live')) return;
+      card.classList.add('collapsed');
+      if (card._routeItem) card._routeItem.uiExpanded = false;
+      changed = true;
+    });
+    if (changed && typeof routeState !== 'undefined' && typeof saveRouteState === 'function') saveRouteState(routeState);
+  }, true);
+})();
+</script>
 </body>
 </html>
 
@@ -17303,4 +17334,71 @@ textarea.route-addr-input {
 #screen4 .route-mic-inline, #screen4 .route-note-mic { display:none !important; }
 #screen4 .route-card:not(.collapsed) .route-addr-input { height:auto !important; max-height:none !important; overflow:visible !important; overflow-y:hidden !important; white-space:pre-wrap !important; overflow-wrap:anywhere !important; }
 #screen4 .route-card:not(.collapsed) .route-addr-wrap, #screen4 .route-card:not(.collapsed) .route-addr-line, #screen4 .route-card:not(.collapsed) .route-fields, #screen4 .route-card:not(.collapsed) .route-top-row { height:auto !important; max-height:none !important; overflow:visible !important; }
+</style>
+
+
+<style id="mvs-only-restore-address-in-short-card">
+/* Minimal fix: keep the address visible in the collapsed/short activity card. */
+#app4 .route-card.collapsed .route-top-row .route-fields .route-addr-wrap,
+#screen4 .route-card.collapsed .route-top-row .route-fields .route-addr-wrap {
+  display:block !important; visibility:visible !important; opacity:1 !important;
+  min-width:0 !important; width:100% !important; max-width:100% !important;
+}
+#app4 .route-card.collapsed .route-addr-collapsed,
+#screen4 .route-card.collapsed .route-addr-collapsed {
+  display:block !important; visibility:visible !important; opacity:1 !important;
+  position:relative !important; width:100% !important; min-width:0 !important;
+  height:auto !important; max-height:none !important;
+  color:inherit !important; white-space:normal !important;
+  overflow:visible !important; text-overflow:clip !important;
+  overflow-wrap:anywhere !important; word-break:break-word !important;
+  line-height:1.3 !important; padding:0 4px !important;
+}
+#app4 .route-card.collapsed .route-addr-input,
+#screen4 .route-card.collapsed .route-addr-input { display:none !important; }
+</style>
+<script id="mvs-only-restore-address-in-short-card-js">
+(function(){
+  function syncCard(card){
+    if(!card || !card.classList.contains('collapsed')) return;
+    var display=card.querySelector('.route-addr-collapsed');
+    var input=card.querySelector('.route-addr-input');
+    if(!display) return;
+    var value=(input && input.value || '').trim();
+    if(!value){
+      var fields=card.querySelector('.route-fields');
+      var stateText=fields && fields.querySelector('.route-addr-input');
+      value=(stateText && stateText.value || '').trim();
+    }
+    if(value) display.textContent=value;
+    if(!display.textContent.trim()) display.textContent='Адрес не указан';
+  }
+  function scan(){document.querySelectorAll('#app4 .route-card.collapsed, #screen4 .route-card.collapsed').forEach(syncCard);}
+  document.addEventListener('input',function(e){
+    if(e.target && e.target.matches && e.target.matches('.route-addr-input')){
+      var card=e.target.closest('.route-card');
+      if(card){var display=card.querySelector('.route-addr-collapsed'); if(display) display.textContent=e.target.value.trim();}
+    }
+  },true);
+  var obs=new MutationObserver(function(){requestAnimationFrame(scan);});
+  function init(){if(document.body) obs.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});scan();}
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init,{once:true}); else init();
+})();
+</script>
+
+<style id="mvs-short-card-address-final-override">
+/* Final override: in collapsed cards show the address text, not the hidden duplicate/input. */
+#app4 .route-card.collapsed .route-addr-collapsed,
+#screen4 .route-card.collapsed .route-addr-collapsed {
+  display:block !important; visibility:visible !important; opacity:1 !important;
+  position:static !important; width:100% !important; min-width:0 !important;
+  height:auto !important; max-height:none !important; margin:0 !important;
+  padding:2px 4px !important; color:inherit !important;
+  -webkit-text-fill-color:currentColor !important; font-weight:800 !important;
+  line-height:1.3 !important; white-space:pre-wrap !important;
+  overflow:visible !important; text-overflow:clip !important;
+  overflow-wrap:anywhere !important; word-break:break-word !important;
+}
+#app4 .route-card.collapsed .route-addr-input,
+#screen4 .route-card.collapsed .route-addr-input { display:none !important; }
 </style>
