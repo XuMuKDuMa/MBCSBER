@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -8274,8 +8275,7 @@ function buildRouteCard(item, timeId, timeLabel) {
   if (item.status === 'done' || item.status === 'perenos') card.classList.add('route-card-compact');
   
    // Короткие карточки: первый тап раскрывает карточку, не открывая карту.
-  const isCollapsed = !item.startedAt && item.uiExpanded !== true && !!String(item.addrDisplay
- || item.addr || '').trim();
+  const isCollapsed = !item.startedAt && item.uiExpanded !== true && !!String(item.addrDisplay || item.addr || '').trim();
   if (isCollapsed) card.classList.add('collapsed');
     // Если встреча в процессе — добавляем класс "живой"
   if (item.startedAt) card.classList.add('route-card-live');
@@ -17358,173 +17358,297 @@ textarea.route-addr-input {
 #app4 textarea.route-addr-input::-webkit-scrollbar,
 #app4 textarea.route-note-input::-webkit-scrollbar { display:none !important; width:0 !important; height:0 !important; }
 </style>
-
+<script id="mvs-address-notes-autogrow-final">
+(function(){
+  'use strict';
+  const SELECTOR = '#screen4 textarea.route-addr-input, #screen4 textarea.route-note-input, #app4 textarea.route-addr-input, #app4 textarea.route-note-input';
+  function grow(el){
+    if(!el || !el.matches || !el.matches(SELECTOR)) return;
+    // Reset first so shrinking after deleting text works too.
+    el.style.setProperty('height','auto','important');
+    el.style.setProperty('max-height','none','important');
+    el.style.setProperty('overflow-y','hidden','important');
+    el.style.setProperty('overflow','hidden','important');
+    // scrollHeight includes wrapped lines; ceil avoids clipping fractional pixels.
+    const min = el.classList.contains('route-addr-input') ? 38 : 38;
+    const height = Math.max(min, Math.ceil(el.scrollHeight || 0));
+    el.style.setProperty('height', height + 'px', 'important');
+  }
+  function growSoon(el){
+    grow(el);
+    requestAnimationFrame(()=>grow(el));
+    setTimeout(()=>grow(el), 60);
+    setTimeout(()=>grow(el), 180);
+  }
+  function targetFromEvent(e){
+    const el=e.target;
+    return el && el.matches && el.matches(SELECTOR) ? el : null;
+  }
+  // Delegated handlers run after the app's own handlers, so older auto-height
+  // functions cannot leave the textarea clipped or restore an internal scrollbar.
+  ['input','change','paste','cut','compositionend','focus','blur'].forEach(type=>{
+    document.addEventListener(type, function(e){
+      const el=targetFromEvent(e);
+      if(el) growSoon(el);
+    }, true);
+  });
+  document.addEventListener('DOMContentLoaded', function(){
+    document.querySelectorAll(SELECTOR).forEach(growSoon);
+  });
+  const observer = new MutationObserver(mutations=>{
+    for(const m of mutations){
+      if(m.type==='childList'){
+        m.addedNodes.forEach(node=>{
+          if(node.nodeType!==1) return;
+          if(node.matches && node.matches(SELECTOR)) growSoon(node);
+          node.querySelectorAll && node.querySelectorAll(SELECTOR).forEach(growSoon);
+        });
+      }
+    }
+  });
+  function start(){
+    document.querySelectorAll(SELECTOR).forEach(growSoon);
+    observer.observe(document.body,{childList:true,subtree:true});
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start,{once:true});
+  else start();
+  window.addEventListener('resize',()=>document.querySelectorAll(SELECTOR).forEach(growSoon));
+})();
+</script>
 
 
 <!-- Targeted fix: preserve compact activity cards; only the text fields auto-grow. -->
-
-<style id="mvs-clean-final-styles">
-  /* 1. Прячем микрофоны навсегда */
-  #screen4 .route-mic-inline,
-  #screen4 .route-note-mic { 
-    display: none !important; 
-    visibility: hidden !important;
+<style id="mvs-compact-card-and-text-autogrow">
+  /* Keep the existing compact-card interaction and its original layout. */
+  #screen4 #app4 .route-card.collapsed .route-addr-input,
+  #app4 .route-card.collapsed .route-addr-input,
+  #screen4 #app4 .route-card.collapsed .route-note-input,
+  #app4 .route-card.collapsed .route-note-input,
+  #screen4 #app4 .route-card.collapsed .route-mic-inline,
+  #app4 .route-card.collapsed .route-mic-inline {
+    display: none !important;
   }
-
-  /* 2. Поле АДРЕСА — без скролла, растет по тексту */
-  #screen4 .route-addr-input {
-    box-sizing: border-box !important;
-    width: 100% !important;
-    min-height: 44px !important;
-    max-height: none !important; /* Разрешаем расти */
-    padding: 12px 45px 12px 12px !important;
-    font-size: 15px !important;
-    font-weight: 700 !important;
-    line-height: 1.3 !important;
-    background: #1c2b40 !important;
-    border: 1px solid #3b506b !important;
-    border-radius: 10px !important;
-    color: #edf4ff !important;
-    resize: none !important;
-    overflow: hidden !important; /* Убираем скролл */
-    overflow-y: hidden !important;
-    overflow-x: hidden !important;
-    white-space: pre-wrap !important;
+  #screen4 #app4 .route-card.collapsed .route-addr-collapsed,
+  #app4 .route-card.collapsed .route-addr-collapsed,
+  #screen4 #app4 .route-card.collapsed .route-note-collapsed,
+  #app4 .route-card.collapsed .route-note-collapsed {
+    display: block !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    white-space: normal !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    overflow-wrap: anywhere !important;
     word-break: break-word !important;
   }
-
-  /* Позиционируем булавку ровно справа */
-  #screen4 .route-coords-btn {
-    position: absolute !important;
-    right: 8px !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    width: 32px !important;
-    height: 32px !important;
-    z-index: 2 !important;
+  #screen4 #app4 .route-card:not(.collapsed) .route-addr-collapsed,
+  #app4 .route-card:not(.collapsed) .route-addr-collapsed,
+  #screen4 #app4 .route-card:not(.collapsed) .route-note-collapsed,
+  #app4 .route-card:not(.collapsed) .route-note-collapsed {
+    display: none !important;
   }
 
-  /* 3. Поле ЗАМЕТКИ — без скролла */
-  #screen4 .route-note-input {
-    box-sizing: border-box !important;
-    width: 100% !important;
-    min-height: 38px !important;
+  /* Do not override .route-card height/overflow: that broke the compact cards. */
+  #screen4 #app4 .route-addr-wrap,
+  #screen4 #app4 .route-note-wrap,
+  #app4 .route-addr-wrap,
+  #app4 .route-note-wrap {
+    min-width: 0 !important;
+    height: auto !important;
     max-height: none !important;
-    padding: 10px 12px !important;
-    font-size: 14px !important;
-    line-height: 1.4 !important;
-    background: #18232c !important;
-    border: 1px solid #2a3944 !important;
-    border-radius: 10px !important;
-    color: #aab8c1 !important;
-    resize: none !important;
-    overflow: hidden !important;
-    overflow-y: hidden !important;
-    margin-top: 6px !important;
   }
-
-  /* 4. Поле ПРИЧИНЫ — без скролла */
-  #screen4 .route-nondelivery-input {
+  #screen4 #app4 textarea.route-addr-input,
+  #screen4 #app4 textarea.route-note-input,
+  #app4 textarea.route-addr-input,
+  #app4 textarea.route-note-input {
+    display: block !important;
     box-sizing: border-box !important;
     width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
     min-height: 44px !important;
+    height: auto !important;
     max-height: none !important;
-    padding: 12px !important;
-    font-size: 14px !important;
-    background: #18232c !important;
-    border: 1px solid #2a3944 !important;
-    border-radius: 10px !important;
-    color: #aab8c1 !important;
-    resize: none !important;
     overflow: hidden !important;
     overflow-y: hidden !important;
-  }
-
-  /* Убираем полосы прокрутки (на всякий случай) */
-  #screen4 textarea::-webkit-scrollbar {
-    display: none !important;
-    width: 0 !important;
-  }
-
-  /* 5. Отступы контейнеров */
-  #screen4 .route-note-wrap { margin-top: 6px !important; }
-  #screen4 .route-nondelivery-wrap { margin-top: 12px !important; padding-top: 10px !important; border-top: 1px solid rgba(255,255,255,0.05) !important; }
-
-  /* ====================================================
-     КОРОТКАЯ (СВЕРНУТАЯ) КАРТОЧКА
-     ==================================================== */
-  
-  /* Жестко прячем ВСЕ поля ввода */
-  #screen4 .route-card.collapsed .route-addr-input,
-  #screen4 .route-card.collapsed .route-note-input,
-  #screen4 .route-card.collapsed .route-nondelivery-input,
-  #screen4 .route-card.collapsed .route-coords-btn {
-    display: none !important;
-  }
-  
-  /* Показываем ТЕКСТ АДРЕСА */
-  #screen4 .route-card.collapsed .route-addr-collapsed {
-    display: block !important;
-    min-height: 20px !important;
-    white-space: normal !important;
-    overflow: visible !important;
-    color: #dbeaff !important;
-    font-weight: 700 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-  
-  /* Показываем ТЕКСТ ЗАМЕТКИ (если она есть) */
-  #screen4 .route-card.collapsed .route-note-collapsed {
-    display: block !important;
-    white-space: normal !important;
-    overflow: visible !important;
-    color: #9eb0c8 !important;
-    font-size: 13px !important;
-    margin: 4px 0 0 0 !important;
-    padding: 0 !important;
-  }
-  
-  /* Скрываем пустые обертки, чтобы не было пустого места */
-  #screen4 .route-card.collapsed .route-note-wrap,
-  #screen4 .route-card.collapsed .route-nondelivery-wrap {
-    display: none !important;
-  }
-
-  /* ====================================================
-     РАЗВЕРНУТАЯ (БОЛЬШАЯ) КАРТОЧКА
-     ==================================================== */
-
-  /* Прячем свернутые тексты */
-  #screen4 .route-card:not(.collapsed) .route-addr-collapsed,
-  #screen4 .route-card:not(.collapsed) .route-note-collapsed {
-    display: none !important;
+    overflow-x: hidden !important;
+    resize: none !important;
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
   }
 </style>
-<script id="mvs-perfect-autogrow-final">
-document.addEventListener('input', function(e) {
-  if (e.target && e.target.tagName === 'TEXTAREA' && e.target.closest('#screen4')) {
-    if (e.target.offsetParent !== null) {
-      e.target.style.height = 'auto';
-      // Высота не ограничивается, поле растет под текст
-      e.target.style.height = e.target.scrollHeight + 'px';
-      e.target.style.overflowY = 'hidden'; // Всегда скрываем скролл
-    }
-  }
-}, true);
+<script id="mvs-compact-card-and-text-autogrow">
+(function () {
+  'use strict';
+  var selector = '#screen4 #app4 textarea.route-addr-input, #screen4 #app4 textarea.route-note-input, #app4 textarea.route-addr-input, #app4 textarea.route-note-input';
 
-// Принудительно применяем высоту при загрузке и переключении карточек
-document.addEventListener('click', function(e) {
-  if (e.target.closest('.route-card') && !e.target.closest('.route-card').classList.contains('collapsed')) {
-    setTimeout(() => {
-      document.querySelectorAll('#screen4 textarea').forEach(function(el) {
-        el.style.height = 'auto';
-        el.style.height = el.scrollHeight + 'px';
-        el.style.overflowY = 'hidden';
-      });
-    }, 50);
+  function grow(el) {
+    if (!el || !el.isConnected || (el.closest && el.closest('.route-card.collapsed'))) return;
+    el.style.setProperty('height', 'auto', 'important');
+    el.style.setProperty('max-height', 'none', 'important');
+    el.style.setProperty('overflow', 'hidden', 'important');
+    el.style.setProperty('overflow-y', 'hidden', 'important');
+    el.style.setProperty('overflow-x', 'hidden', 'important');
+    el.style.setProperty('display', 'block', 'important');
+    var h = Math.max(44, Math.ceil(el.scrollHeight || 0));
+    el.style.setProperty('height', h + 'px', 'important');
   }
-}, true);
+
+  function schedule(el) {
+    if (!el || (el.closest && el.closest('.route-card.collapsed'))) return;
+    grow(el);
+    requestAnimationFrame(function () { grow(el); });
+    setTimeout(function () { grow(el); }, 80);
+    setTimeout(function () { grow(el); }, 220);
+  }
+
+  ['input', 'change', 'paste', 'cut', 'compositionend', 'focus', 'blur'].forEach(function (name) {
+    document.addEventListener(name, function (e) {
+      if (e.target && e.target.matches && e.target.matches(selector)) schedule(e.target);
+    }, true);
+  });
+
+  /* When a compact card opens, resize its text fields; don't alter card layout. */
+  document.addEventListener('click', function (e) {
+    var card = e.target && e.target.closest ? e.target.closest('.route-card') : null;
+    if (card && !card.classList.contains('collapsed')) {
+      setTimeout(function () { card.querySelectorAll('textarea.route-addr-input, textarea.route-note-input').forEach(schedule); }, 0);
+    }
+  }, true);
+
+  function scan() {
+    document.querySelectorAll(selector).forEach(schedule);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scan, { once: true });
+  else scan();
+  window.addEventListener('resize', scan);
+  window.addEventListener('orientationchange', function () { setTimeout(scan, 180); });
+})();
 </script>
+
+
+<!-- Targeted field-only fix: do not change compact/expanded card layout. -->
+<style id="mvs-field-only-autogrow-v2">
+  #screen4 #app4 textarea.route-addr-input,
+  #screen4 #app4 textarea.route-note-input,
+  #screen4 #app4 textarea.route-nondelivery-input,
+  #app4 textarea.route-addr-input,
+  #app4 textarea.route-note-input,
+  #app4 textarea.route-nondelivery-input {
+    box-sizing: border-box !important;
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    min-height: 44px !important;
+    height: 44px !important;
+    max-height: none !important;
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+    line-height: 1.35 !important;
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+    overflow: hidden !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+    text-overflow: clip !important;
+    resize: none !important;
+    scrollbar-width: none !important;
+  }
+  #screen4 #app4 .route-addr-wrap,
+  #screen4 #app4 .route-note-wrap,
+  #screen4 #app4 .route-nondelivery-wrap,
+  #app4 .route-addr-wrap,
+  #app4 .route-note-wrap,
+  #app4 .route-nondelivery-wrap {
+    min-width: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+  #screen4 #app4 textarea.route-addr-input::-webkit-scrollbar,
+  #screen4 #app4 textarea.route-note-input::-webkit-scrollbar,
+  #screen4 #app4 textarea.route-nondelivery-input::-webkit-scrollbar,
+  #app4 textarea.route-addr-input::-webkit-scrollbar,
+  #app4 textarea.route-note-input::-webkit-scrollbar,
+  #app4 textarea.route-nondelivery-input::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+</style>
+<script id="mvs-field-only-autogrow-v2-js">
+(function () {
+  'use strict';
+  var selector = [
+    '#screen4 #app4 textarea.route-addr-input',
+    '#screen4 #app4 textarea.route-note-input',
+    '#screen4 #app4 textarea.route-nondelivery-input',
+    '#app4 textarea.route-addr-input',
+    '#app4 textarea.route-note-input',
+    '#app4 textarea.route-nondelivery-input'
+  ].join(',');
+
+  function grow(el) {
+    if (!el || !el.isConnected) return;
+    // Preserve the existing compact card summary; only resize editable fields when expanded.
+    if (el.closest && el.closest('.route-card.collapsed')) return;
+
+    // Reset to zero before measuring: supports long -> short -> long edits reliably.
+    el.style.setProperty('height', '0px', 'important');
+    el.style.setProperty('min-height', '44px', 'important');
+    el.style.setProperty('max-height', 'none', 'important');
+    el.style.setProperty('overflow', 'hidden', 'important');
+    el.style.setProperty('overflow-y', 'hidden', 'important');
+    el.style.setProperty('overflow-x', 'hidden', 'important');
+
+    var height = Math.max(44, Math.ceil(el.scrollHeight || 0));
+    el.style.setProperty('height', height + 'px', 'important');
+  }
+
+  function schedule(el) {
+    if (!el || (el.closest && el.closest('.route-card.collapsed'))) return;
+    grow(el);
+    requestAnimationFrame(function () { grow(el); });
+    setTimeout(function () { grow(el); }, 80);
+    setTimeout(function () { grow(el); }, 220);
+  }
+
+  ['input', 'change', 'paste', 'cut', 'compositionend', 'focus', 'blur'].forEach(function (type) {
+    document.addEventListener(type, function (event) {
+      var el = event.target;
+      if (el && el.matches && el.matches(selector)) schedule(el);
+    }, true);
+  });
+
+  function scan(root) {
+    (root || document).querySelectorAll(selector).forEach(schedule);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { scan(document); }, { once: true });
+  } else {
+    scan(document);
+  }
+  window.addEventListener('resize', function () { scan(document); });
+  window.addEventListener('orientationchange', function () { setTimeout(function () { scan(document); }, 180); });
+
+  // Recheck only newly inserted fields; do not alter the card's own dimensions.
+  if (window.MutationObserver && document.documentElement) {
+    new MutationObserver(function (mutations) {
+      mutations.forEach(function (mutation) {
+        (mutation.addedNodes || []).forEach(function (node) {
+          if (node.nodeType === 1) {
+            if (node.matches && node.matches(selector)) schedule(node);
+            scan(node);
+          }
+        });
+      });
+    }).observe(document.documentElement, { childList: true, subtree: true });
+  }
+})();
+</script>
+
 </body>
 </html>
