@@ -17321,6 +17321,40 @@ textarea.route-addr-input {
   }, true);
 })();
 </script>
+
+<script id="mvs-force-expand-collapsed-route-cards-v8">
+(function(){
+  if (window.__mvsForceExpandCollapsedRouteCardsV8) return;
+  window.__mvsForceExpandCollapsedRouteCardsV8 = true;
+  function expand(card, ev){
+    if (!card || !card.classList || !card.classList.contains('collapsed')) return false;
+    if (ev && ev.target && ev.target.closest && ev.target.closest('input,textarea,button,select,a,.status-badge,.route-coords-btn,.route-side-btn,.route-status-btn,.route-add-btn,.voice-panel,.vp-btn,.vp-audio,.status-menu,.status-overlay')) return false;
+    var parent = card.parentElement;
+    if (parent) parent.querySelectorAll('.route-card:not(.route-card-live)').forEach(function(other){
+      if (other !== card) { other.classList.add('collapsed'); if (other._routeItem) other._routeItem.uiExpanded = false; }
+    });
+    card.classList.remove('collapsed');
+    if (card._routeItem) card._routeItem.uiExpanded = true;
+    if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+    try { if (typeof routeState !== 'undefined' && typeof saveRouteState === 'function') saveRouteState(routeState); } catch (_) {}
+    return true;
+  }
+  // Use a delegated handler so taps still work if the card is rebuilt or child elements intercept click.
+  document.addEventListener('click', function(ev){
+    var target = ev.target;
+    if (!target || !target.closest) return;
+    var card = target.closest('#app4 .route-card.collapsed, #screen4 .route-card.collapsed');
+    if (card) expand(card, ev);
+  }, true);
+  document.addEventListener('pointerup', function(ev){
+    if (ev.pointerType === 'mouse') return;
+    var target = ev.target;
+    if (!target || !target.closest) return;
+    var card = target.closest('#app4 .route-card.collapsed, #screen4 .route-card.collapsed');
+    if (card) expand(card, ev);
+  }, true);
+})();
+</script>
 </body>
 </html>
 
