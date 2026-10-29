@@ -8370,12 +8370,12 @@ function mvsStreetOnlyAddress(raw) {
   return value;
 }
 
-addrCollapsed.textContent = item.addr || '';
+addrCollapsed.textContent = item.addrDisplay || item.addr || '';
 
 const addrInput = document.createElement('textarea');
 addrInput.className = 'route-addr-input';
 addrInput.placeholder = 'Адрес доставки';
-addrInput.value = item.addr || '';
+addrInput.value = item.addrDisplay || item.addr || '';
 addrInput.rows = 1;
 addrInput.style.height = 'auto';
 addrInput.style.minHeight = '38px';
@@ -8400,10 +8400,12 @@ function autoGrow(el) {
 }
 
 function persistAddressInput() {
-  const addrChanged = item.addr !== addrInput.value;
-  item.addr = addrInput.value;
-  if (addrChanged) item.addrDisplay = addrInput.value;   // ручная правка — короткая версия для отчёта тоже обновляется
-  addrCollapsed.textContent = item.addr || '';           // короткая карточка показывает актуальный адрес
+  // Поле показывает короткий адрес (улица, дом). Если текст не менялся — полный адрес для карты не трогаем.
+  const shown = String(item.addrDisplay || item.addr || '');
+  if (addrInput.value === shown) { autoGrow(addrInput); return; }
+  item.addr = addrInput.value;          // ручная правка — это и есть новый адрес
+  item.addrDisplay = addrInput.value;
+  addrCollapsed.textContent = item.addrDisplay || '';
   saveRouteState(routeState);
   autoGrow(addrInput);
   _mapHash = '';
@@ -8452,11 +8454,12 @@ btnMic.addEventListener('click', (e) => {
     // Заменяем слова-числительные на цифры
     const normalized = normalizeNumbers(clean);
     const existing = (item.addr || '').trim();
+    const existingShown = (item.addrDisplay || item.addr || '').trim();
     item.addr = existing ? existing + ', ' + normalized : normalized;
-    item.addrDisplay = item.addr;
+    item.addrDisplay = existingShown ? existingShown + ', ' + normalized : normalized;
     saveRouteState(routeState);
-    addrInput.value = item.addr;
-    addrCollapsed.textContent = item.addr || '';
+    addrInput.value = item.addrDisplay;
+    addrCollapsed.textContent = item.addrDisplay || '';
     autoGrow(addrInput);
     requestAnimationFrame(() => autoGrow(addrInput));
     setTimeout(() => autoGrow(addrInput), 100);
@@ -8531,13 +8534,14 @@ addrWrap.appendChild(btnMic);
     // В поле оставляем короткий адрес улицы и дома, полный адрес сохраняем для карты.
     const d = s.data || {};
     const street = d.street_with_type || d.street || d.route || '';
-    const house = d.house || d.house_fias_id || '';
-    const compactAddress = [street, d.house].filter(Boolean).join(' ').trim() || selectedAddress;
-    addrInput.value = selectedAddress;          // в поле — полный адрес (раньше резался до «улица дом»)
-    item.addrDisplay = compactAddress;          // короткий вариант остаётся только для отчёта
+    const houseFull = [d.house_type, d.house, d.block_type, d.block].filter(Boolean).join(' ').trim();
+    let compactAddress = [street, houseFull].filter(Boolean).join(', ').trim();
+    if (!compactAddress) compactAddress = (typeof mvsStreetOnlyAddress === 'function' ? mvsStreetOnlyAddress(selectedAddress) : '') || selectedAddress;
+    addrInput.value = compactAddress;           // в поле — только улица и дом, без «Россия, область, город…»
+    item.addrDisplay = compactAddress;
     addrInput.dataset.fullAddress = selectedAddress;
-    item.addr = selectedAddress;
-    addrCollapsed.textContent = selectedAddress;
+    item.addr = selectedAddress;                // полный адрес остаётся для карты и геокодера
+    addrCollapsed.textContent = compactAddress;
     saveRouteState(routeState);
     autoGrow(addrInput);
     if (s.data && s.data.geo_lat && s.data.geo_lon) {
@@ -8800,11 +8804,9 @@ function autoGrowNote(el) {
 
 // Android/Gboard: не сохраняем и не меняем состояние посреди русской IME-композиции.
 let noteComposing = false;
-noteInput.lang = 'ru';
-noteInput.setAttribute('inputmode', 'text');
-noteInput.setAttribute('autocomplete', 'on');
-noteInput.setAttribute('autocorrect', 'on');
-noteInput.setAttribute('spellcheck', 'true');
+// Язык клавиатуры не навязываем (раньше тут были lang='ru', inputmode, autocorrect):
+// на части Android-клавиатур такие подсказки сбрасывают раскладку на английскую.
+// Поле ведёт себя так же, как поле адреса, где русский работает.
 ['click', 'pointerdown', 'mousedown', 'touchstart'].forEach(type => {
   noteInput.addEventListener(type, e => e.stopPropagation(), { passive: true });
 });
@@ -9133,10 +9135,7 @@ reasonInput.className = 'route-nondelivery-input route-note-input';
 reasonInput.placeholder = 'Причина недоставки (если встреча под вопросом)';
 reasonInput.value = item.nonDeliveryReason || '';
 reasonInput.rows = 1;
-reasonInput.lang = 'ru';
-reasonInput.setAttribute('autocomplete', 'off');
-reasonInput.setAttribute('autocorrect', 'on');
-reasonInput.setAttribute('spellcheck', 'true');
+
 reasonInput.style.cssText = 'display:block;width:100%;min-width:0;box-sizing:border-box;border:1px solid #d8dee5;border-radius:8px;padding:8px 10px;font:inherit;font-size:13px;background:rgba(245,247,250,.8);color:inherit;resize:vertical;min-height:36px;';
 // Не блокируем события ввода и IME: русская экранная/физическая раскладка использует composition events.
 ['click', 'pointerdown', 'mousedown', 'touchstart'].forEach(type => {
@@ -9151,7 +9150,6 @@ function saveNonDeliveryReason(updateReport = false) {
   // композицию русской экранной клавиатуры (IME) на Android.
   if (updateReport && typeof updateAutoNonDeliveryReport === 'function') updateAutoNonDeliveryReport();
 }
-reasonInput.setAttribute('inputmode', 'text');
 reasonInput.addEventListener('compositionstart', () => { reasonComposing = true; });
 reasonInput.addEventListener('compositionend', () => {
   reasonComposing = false;
@@ -15964,7 +15962,8 @@ window.openActivityFromMap = function(timeId, addrEncoded) {
             const addrInput = card.querySelector('.route-addr-input');
             const addrCollapsed = card.querySelector('.route-addr-collapsed');
             const cardAddr = (addrInput ? addrInput.value : (addrCollapsed ? addrCollapsed.textContent : '')).trim();
-            if (cardAddr === targetAddr) targetCard = card;
+            const fullAddr = String((card.__routeItem && card.__routeItem.addr) || '').trim();
+            if (cardAddr === targetAddr || fullAddr === targetAddr) targetCard = card;
           });
         }
 
