@@ -4737,7 +4737,7 @@ body.dark #screen4 .route-time-col .rtc-end   { color: #81929d; }
   width: 100%;
 }
 #screen4 .route-addr-input {
-  padding-right: 68px !important;   /* под 📍 + 🎤 */
+  padding-right: 8px !important;   /* кнопка координат вынесена наружу */
 }
 /* ─── Контейнер для поля заметки + микрофона ─── */
 #screen4 .route-note-wrap {
@@ -4746,7 +4746,7 @@ body.dark #screen4 .route-time-col .rtc-end   { color: #81929d; }
 }
 
 #screen4 .route-note-wrap .route-note-input {
-  padding-right: 38px !important;   /* место под кнопку */
+  padding-right: 8px !important;
 }
 
 /* ─── Кнопка микрофона в поле заметки ─── */
@@ -8308,8 +8308,7 @@ function buildRouteCard(item, timeId, timeLabel) {
       '.route-mic-inline', '.route-note-mic', '.route-coords-btn',
       '.route-side-btn', '.route-status-btn', '.route-add-btn',
       '.voice-panel', '.vp-btn', '.vp-audio',
-      '.status-menu', '.status-overlay', '.route-note-wrap',
-      '.route-addr-wrap', '.route-nondelivery-wrap', '.route-fields', '.route-top-row',
+      '.status-menu', '.status-overlay',
       '.route-addr-input', '.route-note-input', '.route-nondelivery-input',
     ];
     if (ignoreSelectors.some(sel => e.target.closest(sel))) return;
@@ -8449,58 +8448,11 @@ addrInput.addEventListener('blur', persistAddressInput);
 addrInput.addEventListener('focus', () => requestAnimationFrame(() => autoGrow(addrInput)));
 addrInput.addEventListener('keyup', () => autoGrow(addrInput));
 addrInput.addEventListener('keydown', e => e.stopPropagation());
-// ─── Кнопка микрофона внутри поля адреса ───
-const btnMic = document.createElement('button');
-btnMic.type = 'button';
-btnMic.className = 'route-mic-inline';
-btnMic.innerHTML = MIC_SVG;
-btnMic.title = 'Голосовой ввод адреса';
-btnMic.addEventListener('click', (e) => {
-  e.stopPropagation();
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { showToast('🎤 Голосовой ввод не поддерживается'); return; }
-  const rec = new SR();
-  rec.lang = 'ru-RU';
-  rec.continuous = false;
-  rec.interimResults = false;
-  rec.maxAlternatives = 1;
-  vibro(15);
-  btnMic.classList.add('listening');
-  showToast('🎤 Говорите адрес...');
-    rec.onresult = (e) => {
-  const text = e.results[0][0].transcript.trim();
-  const clean = text.replace(/\.$/, '');
-  if (clean) {
-    // Заменяем слова-числительные на цифры
-    const normalized = normalizeNumbers(clean);
-    const existing = (item.addr || '').trim();
-    item.addr = existing ? existing + ', ' + normalized : normalized;
-    item.addrDisplay = item.addr;
-    saveRouteState(routeState);
-    addrInput.value = item.addr;
-    addrCollapsed.textContent = item.addr || '';
-    autoGrow(addrInput);
-    requestAnimationFrame(() => autoGrow(addrInput));
-    setTimeout(() => autoGrow(addrInput), 100);
-    showToast('✅ Добавлено: ' + normalized);
-  }
-};
-  rec.onerror = (e) => {
-    if (e.error === 'not-allowed') showToast('❌ Нет доступа к микрофону');
-    else if (e.error === 'no-speech') showToast('⚠️ Ничего не услышано');
-    else if (e.error !== 'aborted') showToast('❌ Ошибка: ' + e.error);
-  };
-  rec.onend = () => { btnMic.classList.remove('listening'); };
-  try { rec.start(); } catch (err) {
-    showToast('❌ Не удалось запустить распознавание');
-    btnMic.classList.remove('listening');
-  }
-});
-btnMic.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+
 
 addrWrap.appendChild(addrCollapsed);
 addrWrap.appendChild(addrInput);
-addrWrap.appendChild(btnMic);
+
 // ─── НАДЁЖНЫЕ ПОДСКАЗКИ АДРЕСОВ DADATA ───
 // Используем прямой API, чтобы поиск не зависел от локальных suggestions.min.js/css.
 // Ограничение по city_fias_id удалено: ранее был указан неверный идентификатор региона.
@@ -8780,8 +8732,11 @@ btnCoords.addEventListener('click', (e) => {
 });
 btnCoords.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
 
-addrWrap.appendChild(btnCoords);
-fields.appendChild(addrWrap);
+const addrLine = document.createElement('div');
+addrLine.className = 'route-addr-line';
+addrLine.appendChild(addrWrap);
+addrLine.appendChild(btnCoords);
+fields.appendChild(addrLine);
 
 // ─── Предупреждение: адрес не найден на карте ───
 if (item.status !== 'done' && item.status !== 'perenos' && isAddrUnresolved(item.addr)) {
@@ -8858,54 +8813,9 @@ noteInput.addEventListener('blur', saveNoteValue);
 requestAnimationFrame(() => autoGrowNote(noteInput));
 setTimeout(() => autoGrowNote(noteInput), 100);
 
-// ─── Кнопка микрофона в поле заметки ───
-const btnNoteMic = document.createElement('button');
-btnNoteMic.type = 'button';
-btnNoteMic.className = 'route-note-mic';
-btnNoteMic.innerHTML = MIC_SVG;
-btnNoteMic.title = 'Голосовой ввод заметки';
-btnNoteMic.addEventListener('click', (e) => {
-  e.stopPropagation();
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { showToast('🎤 Голосовой ввод не поддерживается'); return; }
-  const rec = new SR();
-  rec.lang = 'ru-RU';
-  rec.continuous = false;
-  rec.interimResults = false;
-  rec.maxAlternatives = 1;
-  vibro(15);
-  btnNoteMic.classList.add('listening');
-  showToast('🎤 Говорите...');
-
-  rec.onresult = (e) => {
-    const text = e.results[0][0].transcript.trim();
-    const clean = text.replace(/\.$/, '');
-    if (clean) {
-      const existing = (item.note || '').trim();
-      const normalized = normalizeNumbers(clean);
-item.note = existing ? existing + ', ' + normalized : normalized;
-      saveRouteState(routeState);
-      noteInput.value = item.note;
-      collapsedNote.textContent = (item.note || '').trim();
-      showToast('✅ ' + normalized);
-    }
-  };
-  rec.onerror = (e) => {
-    if (e.error === 'not-allowed') showToast('❌ Нет доступа к микрофону');
-    else if (e.error === 'no-speech') showToast('⚠️ Ничего не услышано');
-    else if (e.error !== 'aborted') showToast('❌ Ошибка: ' + e.error);
-  };
-  rec.onend = () => { btnNoteMic.classList.remove('listening'); };
-  try { rec.start(); } catch (err) {
-    showToast('❌ Не удалось запустить');
-    btnNoteMic.classList.remove('listening');
-  }
-});
-btnNoteMic.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
-
 noteWrap.appendChild(collapsedNote);
 noteWrap.appendChild(noteInput);
-noteWrap.appendChild(btnNoteMic);
+
 fields.appendChild(noteWrap);
 // ─── Панель записи голоса удалена ───
 topRow.appendChild(fields);
@@ -17378,26 +17288,19 @@ textarea.route-addr-input {
 </style>
 
 
-<script id="mvs-collapsed-card-click-recovery">
-(function () {
-  function findCard(target) {
-    return target && target.closest ? target.closest('#screen4 .route-card.collapsed') : null;
-  }
-  document.addEventListener('click', function (e) {
-    var card = findCard(e.target);
-    if (!card) return;
-    if (e.target.closest('input, textarea, select, button, a, label, [contenteditable="true"], .route-addr-wrap, .route-note-wrap, .route-nondelivery-wrap')) return;
-    // Use the existing card click handler by dispatching a bubbling click on its surface.
-    // Mark the synthetic event to avoid recursion.
-    if (e.__mvsExpandReplay) return;
-    var surface = card.querySelector('.route-top-row, .route-fields') || card;
-    if (surface === e.target) return;
-    var ev = new MouseEvent('click', { bubbles: true, cancelable: true, view: window });
-    Object.defineProperty(ev, '__mvsExpandReplay', { value: true });
-    surface.dispatchEvent(ev);
-  }, false);
-})();
-</script>
+
 
 </body>
 </html>
+
+
+<style id="mvs-card-click-address-layout-fix">
+/* Адрес и кнопка координат располагаются рядом, а не внутри поля */
+#screen4 .route-addr-line { display:flex !important; align-items:flex-start !important; gap:4px !important; width:100% !important; min-width:0 !important; overflow:visible !important; }
+#screen4 .route-addr-line .route-addr-wrap { position:relative !important; flex:1 1 auto !important; width:auto !important; min-width:0 !important; max-width:none !important; }
+#screen4 .route-addr-line .route-coords-btn { position:static !important; flex:0 0 32px !important; width:32px !important; height:36px !important; margin:0 !important; transform:none !important; align-self:flex-start !important; }
+#screen4 .route-addr-line .route-addr-input { padding-right:8px !important; width:100% !important; min-width:0 !important; max-width:100% !important; }
+#screen4 .route-mic-inline, #screen4 .route-note-mic { display:none !important; }
+#screen4 .route-card:not(.collapsed) .route-addr-input { height:auto !important; max-height:none !important; overflow:visible !important; overflow-y:hidden !important; white-space:pre-wrap !important; overflow-wrap:anywhere !important; }
+#screen4 .route-card:not(.collapsed) .route-addr-wrap, #screen4 .route-card:not(.collapsed) .route-addr-line, #screen4 .route-card:not(.collapsed) .route-fields, #screen4 .route-card:not(.collapsed) .route-top-row { height:auto !important; max-height:none !important; overflow:visible !important; }
+</style>
