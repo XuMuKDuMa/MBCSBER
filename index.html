@@ -8254,7 +8254,6 @@ document.addEventListener('scroll', () => {
 function buildRouteCard(item, timeId, timeLabel) {
   const card = document.createElement('div');
   card.className = 'route-card';
-  card._routeItem = item;
   if (timeId) card.classList.add('route-slot-' + timeId);
   if (item.status === 'wait') card.classList.add('status-wait');
   if (item.status === 'done') card.classList.add('status-done');
@@ -8286,10 +8285,7 @@ function buildRouteCard(item, timeId, timeLabel) {
     if (card.classList.contains('collapsed')) {
       const parent = card.parentElement;
       if (parent) parent.querySelectorAll('.route-card:not(.route-card-live)').forEach(other => {
-        if (other !== card) {
-          other.classList.add('collapsed');
-          if (other._routeItem) other._routeItem.uiExpanded = false;
-        }
+        if (other !== card) other.classList.add('collapsed');
       });
       card.classList.remove('collapsed');
       item.uiExpanded = true;
@@ -17299,60 +17295,6 @@ textarea.route-addr-input {
   var observer=new MutationObserver(function(){requestAnimationFrame(scan);});
   function init(){scan();if(document.body)observer.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
-})();
-</script>
-
-<script id="mvs-auto-collapse-expanded-route-cards-v7">
-(function(){
-  if (window.__mvsAutoCollapseCardsV7) return;
-  window.__mvsAutoCollapseCardsV7 = true;
-  document.addEventListener('click', function(e){
-    const target = e.target;
-    if (!target || target.closest('.route-card')) return;
-    if (target.closest('.status-menu, .status-overlay, .mvs-dadata-list, .modal, .dialog, button, input, textarea, select, a')) return;
-    let changed = false;
-    document.querySelectorAll('#app4 .route-card:not(.collapsed), #screen4 .route-card:not(.collapsed)').forEach(card => {
-      if (card.classList.contains('route-card-live')) return;
-      card.classList.add('collapsed');
-      if (card._routeItem) card._routeItem.uiExpanded = false;
-      changed = true;
-    });
-    if (changed && typeof routeState !== 'undefined' && typeof saveRouteState === 'function') saveRouteState(routeState);
-  }, true);
-})();
-</script>
-
-<script id="mvs-force-expand-collapsed-route-cards-v8">
-(function(){
-  if (window.__mvsForceExpandCollapsedRouteCardsV8) return;
-  window.__mvsForceExpandCollapsedRouteCardsV8 = true;
-  function expand(card, ev){
-    if (!card || !card.classList || !card.classList.contains('collapsed')) return false;
-    if (ev && ev.target && ev.target.closest && ev.target.closest('input,textarea,button,select,a,.status-badge,.route-coords-btn,.route-side-btn,.route-status-btn,.route-add-btn,.voice-panel,.vp-btn,.vp-audio,.status-menu,.status-overlay')) return false;
-    var parent = card.parentElement;
-    if (parent) parent.querySelectorAll('.route-card:not(.route-card-live)').forEach(function(other){
-      if (other !== card) { other.classList.add('collapsed'); if (other._routeItem) other._routeItem.uiExpanded = false; }
-    });
-    card.classList.remove('collapsed');
-    if (card._routeItem) card._routeItem.uiExpanded = true;
-    if (ev) { ev.preventDefault(); ev.stopPropagation(); }
-    try { if (typeof routeState !== 'undefined' && typeof saveRouteState === 'function') saveRouteState(routeState); } catch (_) {}
-    return true;
-  }
-  // Use a delegated handler so taps still work if the card is rebuilt or child elements intercept click.
-  document.addEventListener('click', function(ev){
-    var target = ev.target;
-    if (!target || !target.closest) return;
-    var card = target.closest('#app4 .route-card.collapsed, #screen4 .route-card.collapsed');
-    if (card) expand(card, ev);
-  }, true);
-  document.addEventListener('pointerup', function(ev){
-    if (ev.pointerType === 'mouse') return;
-    var target = ev.target;
-    if (!target || !target.closest) return;
-    var card = target.closest('#app4 .route-card.collapsed, #screen4 .route-card.collapsed');
-    if (card) expand(card, ev);
-  }, true);
 })();
 </script>
 </body>
