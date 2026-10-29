@@ -8280,7 +8280,9 @@ function buildRouteCard(item, timeId, timeLabel) {
   if (item.status === 'done' || item.status === 'perenos') card.classList.add('route-card-compact');
   
    // Короткие карточки: первый тап раскрывает карточку, не открывая карту.
-  const isCollapsed = !item.startedAt && !!String(item.addrDisplay || item.addr || '').trim();
+  // uiExpanded выставляется при смене типа встречи и B2C/B2B — тогда после перерисовки карточка остаётся открытой.
+  // Сворачивается только при выборе статуса (там uiExpanded = false).
+  const isCollapsed = !item.startedAt && !item.uiExpanded && !!String(item.addrDisplay || item.addr || '').trim();
   if (isCollapsed) card.classList.add('collapsed');
     // Если встреча в процессе — добавляем класс "живой"
   if (item.startedAt) card.classList.add('route-card-live');
@@ -8309,6 +8311,7 @@ function buildRouteCard(item, timeId, timeLabel) {
       });
       card.classList.remove('collapsed');
       item.uiExpanded = true;
+      vibro(12);   // вибро-отклик на открытие карточки
       try { saveRouteState(routeState); } catch (err) {}
       return;
     }
