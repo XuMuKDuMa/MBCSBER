@@ -8392,11 +8392,7 @@ addrInput.addEventListener('touchstart', e => e.stopPropagation(), { passive: tr
 addrInput.addEventListener('click', e => e.stopPropagation());
 
 function autoGrow(el) {
-  if (!el) return;
-  el.style.height = 'auto';
-  el.style.height = Math.max(el.scrollHeight, 38) + 'px';
-  el.style.overflowY = 'hidden';
-  el.style.overflowX = 'hidden';
+  if (el && window.mvsGrowField) window.mvsGrowField(el);   // единый модуль в конце файла; не трогает поле во время набора
 }
 
 function persistAddressInput() {
@@ -8796,10 +8792,7 @@ collapsedNote.textContent = (item.note || '').trim();
 
 // Авто-высота (до 3 строк)
 function autoGrowNote(el) {
-  el.style.height = 'auto';
-  const maxHeight = 60;  // ~3 строки
-  el.style.height = Math.min(el.scrollHeight, maxHeight) + 'px';
-  el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden';
+  if (el && window.mvsGrowField) window.mvsGrowField(el);
 }
 
 // Android/Gboard: не сохраняем и не меняем состояние посреди русской IME-композиции.
@@ -15205,13 +15198,13 @@ function showVpnWarning() {
   void el.offsetWidth;   // force reflow
   el.classList.add('show');
 
-  // Автоскрытие через 8 секунд
+  // Автоскрытие через 12 секунд (раньше 8 — легко было не заметить); тап закрывает сразу
   _vpnWarningTimeout = setTimeout(() => {
     el.classList.add('hiding');
     setTimeout(() => {
       el.classList.remove('show', 'hiding');
     }, 600);
-  }, 8000);
+  }, 12000);
 }
 
 /* ─── Универсальный HTTP-запрос (fetch → fallback на XHR) ─── */
@@ -15339,7 +15332,10 @@ function vpnCollect() {
 // force = true — проверить сейчас, игнорируя «свежий» результат (кнопка в меню)
 async function checkVpnAndWarn(force) {
   if (_vpnChecking) return window._vpnLast;
-  if (!force && Date.now() - _vpnLastOk < 60 * 1000) return window._vpnLast;   // свежая проверка (≤ минуты) уже была
+  if (!force && Date.now() - _vpnLastOk < 60 * 1000) {   // свежая проверка (≤ минуты) уже была
+    if (window._vpnLast && window._vpnLast.vpn) showVpnWarning();   // раньше тут предупреждение молча пропадало
+    return window._vpnLast;
+  }
   _vpnChecking = true;
   try {
     const results = await vpnCollect();
@@ -15375,7 +15371,7 @@ async function checkVpnAndWarn(force) {
     // Если сервисы проверки недоступны, показываем предупреждение о возможных сетевых ограничениях,
     // не утверждая, что VPN точно включён.
     try {
-      const w = document.getElementById('vpnWarning');
+      const w = (navigator.onLine === false) ? null : document.getElementById('vpnWarning');   // нет сети — не VPN
       if (w) {
         const t = w.querySelector('.vpn-warning-text span');
         if (t) t.textContent = 'Выключи VPN, затем перезайди в приложение или обнови экран, потянув сверху вниз';
@@ -17374,65 +17370,6 @@ textarea.route-addr-input {
 #app4 textarea.route-addr-input::-webkit-scrollbar,
 #app4 textarea.route-note-input::-webkit-scrollbar { display:none !important; width:0 !important; height:0 !important; }
 </style>
-<script id="mvs-address-notes-autogrow-final">
-(function(){
-  'use strict';
-  const SELECTOR = '#screen4 textarea.route-addr-input, #screen4 textarea.route-note-input, #app4 textarea.route-addr-input, #app4 textarea.route-note-input';
-  function grow(el){
-    if(!el || !el.matches || !el.matches(SELECTOR)) return;
-    // Reset first so shrinking after deleting text works too.
-    el.style.setProperty('height','auto','important');
-    el.style.setProperty('max-height','none','important');
-    el.style.setProperty('overflow-y','hidden','important');
-    el.style.setProperty('overflow','hidden','important');
-    // scrollHeight includes wrapped lines; ceil avoids clipping fractional pixels.
-    const min = el.classList.contains('route-addr-input') ? 38 : 38;
-    const height = Math.max(min, Math.ceil(el.scrollHeight || 0));
-    el.style.setProperty('height', height + 'px', 'important');
-  }
-  function growSoon(el){
-    grow(el);
-    requestAnimationFrame(()=>grow(el));
-    setTimeout(()=>grow(el), 60);
-    setTimeout(()=>grow(el), 180);
-  }
-  function targetFromEvent(e){
-    const el=e.target;
-    return el && el.matches && el.matches(SELECTOR) ? el : null;
-  }
-  // Delegated handlers run after the app's own handlers, so older auto-height
-  // functions cannot leave the textarea clipped or restore an internal scrollbar.
-  ['input','change','paste','cut','compositionend','focus','blur'].forEach(type=>{
-    document.addEventListener(type, function(e){
-      const el=targetFromEvent(e);
-      if(el) growSoon(el);
-    }, true);
-  });
-  document.addEventListener('DOMContentLoaded', function(){
-    document.querySelectorAll(SELECTOR).forEach(growSoon);
-  });
-  const observer = new MutationObserver(mutations=>{
-    for(const m of mutations){
-      if(m.type==='childList'){
-        m.addedNodes.forEach(node=>{
-          if(node.nodeType!==1) return;
-          if(node.matches && node.matches(SELECTOR)) growSoon(node);
-          node.querySelectorAll && node.querySelectorAll(SELECTOR).forEach(growSoon);
-        });
-      }
-    }
-  });
-  function start(){
-    document.querySelectorAll(SELECTOR).forEach(growSoon);
-    observer.observe(document.body,{childList:true,subtree:true});
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start,{once:true});
-  else start();
-  window.addEventListener('resize',()=>document.querySelectorAll(SELECTOR).forEach(growSoon));
-})();
-</script>
-
-
 <!-- Targeted fix: preserve compact activity cards; only the text fields auto-grow. -->
 <style id="mvs-compact-card-and-text-autogrow">
   /* Keep the existing compact-card interaction and its original layout. */
@@ -17494,56 +17431,6 @@ textarea.route-addr-input {
     word-break: break-word !important;
   }
 </style>
-<script id="mvs-compact-card-and-text-autogrow-js">
-(function () {
-  'use strict';
-  var selector = '#screen4 #app4 textarea.route-addr-input, #screen4 #app4 textarea.route-note-input, #app4 textarea.route-addr-input, #app4 textarea.route-note-input';
-
-  function grow(el) {
-    if (!el || !el.isConnected || (el.closest && el.closest('.route-card.collapsed'))) return;
-    el.style.setProperty('height', 'auto', 'important');
-    el.style.setProperty('max-height', 'none', 'important');
-    el.style.setProperty('overflow', 'hidden', 'important');
-    el.style.setProperty('overflow-y', 'hidden', 'important');
-    el.style.setProperty('overflow-x', 'hidden', 'important');
-    el.style.setProperty('display', 'block', 'important');
-    var h = Math.max(44, Math.ceil(el.scrollHeight || 0));
-    el.style.setProperty('height', h + 'px', 'important');
-  }
-
-  function schedule(el) {
-    if (!el || (el.closest && el.closest('.route-card.collapsed'))) return;
-    grow(el);
-    requestAnimationFrame(function () { grow(el); });
-    setTimeout(function () { grow(el); }, 80);
-    setTimeout(function () { grow(el); }, 220);
-  }
-
-  ['input', 'change', 'paste', 'cut', 'compositionend', 'focus', 'blur'].forEach(function (name) {
-    document.addEventListener(name, function (e) {
-      if (e.target && e.target.matches && e.target.matches(selector)) schedule(e.target);
-    }, true);
-  });
-
-  /* When a compact card opens, resize its text fields; don't alter card layout. */
-  document.addEventListener('click', function (e) {
-    var card = e.target && e.target.closest ? e.target.closest('.route-card') : null;
-    if (card && !card.classList.contains('collapsed')) {
-      setTimeout(function () { card.querySelectorAll('textarea.route-addr-input, textarea.route-note-input').forEach(schedule); }, 0);
-    }
-  }, true);
-
-  function scan() {
-    document.querySelectorAll(selector).forEach(schedule);
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scan, { once: true });
-  else scan();
-  window.addEventListener('resize', scan);
-  window.addEventListener('orientationchange', function () { setTimeout(scan, 180); });
-})();
-</script>
-
-
 <!-- Targeted field-only fix: do not change compact/expanded card layout. -->
 <style id="mvs-field-only-autogrow-v2">
   #screen4 #app4 textarea.route-addr-input,
@@ -17594,88 +17481,135 @@ textarea.route-addr-input {
     height: 0 !important;
   }
 </style>
-<script id="mvs-field-only-autogrow-v2-js">
+<script id="mvs-unified-field-autogrow">
+// Единая подгонка высоты полей адреса / заметки / причины.
+// Раньше работало 5 скриптов: на каждое нажатие они сбрасывали высоту поля в 0/auto и ставили её
+// заново по 3–4 раза — прямо посреди набора. Экранная клавиатура Android (особенно русская, со словарём)
+// из-за этого теряла композицию и не печатала. Теперь:
+//  • во время набора поле только РАСТЁТ (без сброса высоты);
+//  • полный пересчёт (в том числе уменьшение) — только после композиции, при blur и change;
+//  • пока идёт композиция слова — поле вообще не трогаем.
 (function () {
   'use strict';
-  var selector = [
-    '#screen4 #app4 textarea.route-addr-input',
-    '#screen4 #app4 textarea.route-note-input',
-    '#screen4 #app4 textarea.route-nondelivery-input',
-    '#app4 textarea.route-addr-input',
-    '#app4 textarea.route-note-input',
-    '#app4 textarea.route-nondelivery-input'
-  ].join(',');
-
-  function grow(el) {
-    if (!el || !el.isConnected) return;
-    // Preserve the existing compact card summary; only resize editable fields when expanded.
-    if (el.closest && el.closest('.route-card.collapsed')) return;
-
-    // Reset to zero before measuring: supports long -> short -> long edits reliably.
-    el.style.setProperty('height', '0px', 'important');
-    el.style.setProperty('min-height', '44px', 'important');
+  var SEL = 'textarea.route-addr-input, textarea.route-note-input, textarea.route-nondelivery-input';
+  function isField(el) { return !!(el && el.matches && el.matches(SEL)); }
+  function usable(el) {
+    return el.isConnected && el.clientWidth > 0 && !(el.closest && el.closest('.route-card.collapsed'));
+  }
+  function setH(el, h) {
+    el.style.setProperty('height', h + 'px', 'important');
     el.style.setProperty('max-height', 'none', 'important');
     el.style.setProperty('overflow', 'hidden', 'important');
-    el.style.setProperty('overflow-y', 'hidden', 'important');
-    el.style.setProperty('overflow-x', 'hidden', 'important');
-
-    var height = Math.max(44, Math.ceil(el.scrollHeight || 0));
-    el.style.setProperty('height', height + 'px', 'important');
   }
-
-  function schedule(el) {
-    if (!el || (el.closest && el.closest('.route-card.collapsed'))) return;
-    grow(el);
-    requestAnimationFrame(function () { grow(el); });
-    setTimeout(function () { grow(el); }, 80);
-    setTimeout(function () { grow(el); }, 220);
+  function borders(el) {
+    var cs = getComputedStyle(el);
+    return cs.boxSizing === 'border-box' ? (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.borderBottomWidth) || 0) : 0;
   }
+  function grow(el, full) {
+    if (!isField(el) || !usable(el) || el.__mvsComposing) return;
+    var b = borders(el);
+    var need = Math.max(44, Math.ceil(el.scrollHeight + b));
+    if (need > el.offsetHeight) { setH(el, need); return; }          // рост — без сброса высоты
+    if (full && need < el.offsetHeight - 1) {                          // уменьшение — только в «тихий» момент
+      el.style.setProperty('height', '0px', 'important');
+      setH(el, Math.max(44, Math.ceil(el.scrollHeight + b)));
+    }
+  }
+  window.mvsGrowField = function (el) { grow(el, document.activeElement !== el); };
 
-  ['input', 'change', 'paste', 'cut', 'compositionend', 'focus', 'blur'].forEach(function (type) {
-    document.addEventListener(type, function (event) {
-      var el = event.target;
-      if (el && el.matches && el.matches(selector)) schedule(el);
-    }, true);
+  function later(el, full) {
+    requestAnimationFrame(function () { grow(el, full); });
+  }
+  document.addEventListener('compositionstart', function (e) { if (isField(e.target)) e.target.__mvsComposing = true; }, true);
+  document.addEventListener('compositionend', function (e) {
+    if (!isField(e.target)) return;
+    e.target.__mvsComposing = false;
+    later(e.target, true);
+  }, true);
+  document.addEventListener('input', function (e) { if (isField(e.target)) grow(e.target, false); }, true);
+  ['change', 'blur'].forEach(function (t) {
+    document.addEventListener(t, function (e) { if (isField(e.target)) later(e.target, true); }, true);
+  });
+  ['paste', 'cut'].forEach(function (t) {
+    document.addEventListener(t, function (e) { if (isField(e.target)) setTimeout(function () { grow(e.target, false); }, 0); }, true);
   });
 
-  function scan(root) {
-    (root || document).querySelectorAll(selector).forEach(schedule);
+  function scan(root, full) {
+    (root || document).querySelectorAll(SEL).forEach(function (el) {
+      if (el === document.activeElement) return;      // поле, в которое сейчас печатают, не трогаем
+      grow(el, full !== false);
+    });
+  }
+  function scanSoon(root) {
+    requestAnimationFrame(function () { scan(root); });
+    setTimeout(function () { scan(root); }, 150);
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { scan(document); }, { once: true });
-  } else {
-    scan(document);
-  }
-  window.addEventListener('resize', function () { scan(document); });
-  window.addEventListener('orientationchange', function () { setTimeout(function () { scan(document); }, 180); });
-
-  // Карточка раскрывается снятием класса .collapsed. Раньше в этот момент поля были display:none
-  // (scrollHeight = 0) и оставались высотой 44px — длинный адрес обрезался. Следим за классом.
-  if (window.MutationObserver) {
-    new MutationObserver(function (mutations) {
-      mutations.forEach(function (m) {
-        var card = m.target;
-        if (card.classList && card.classList.contains('route-card') && !card.classList.contains('collapsed')) {
-          card.querySelectorAll('textarea.route-addr-input, textarea.route-note-input, textarea.route-nondelivery-input').forEach(schedule);
+  function start() {
+    scanSoon(document);
+    if (!window.MutationObserver) return;
+    new MutationObserver(function (list) {
+      list.forEach(function (m) {
+        if (m.type === 'childList') {
+          m.addedNodes.forEach(function (n) {
+            if (n.nodeType !== 1) return;
+            if (isField(n)) scanSoon(n.parentNode);
+            else if (n.querySelector && n.querySelector(SEL)) scanSoon(n);
+          });
+        } else if (m.type === 'attributes') {
+          var c = m.target;     // карточка раскрылась (снят .collapsed) — поля были скрыты и имели высоту 0
+          if (c.classList && c.classList.contains('route-card') && !c.classList.contains('collapsed')) scanSoon(c);
         }
       });
-    }).observe(document.body, { attributes: true, attributeFilter: ['class'], subtree: true });
+    }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
   }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
+  else start();
+  window.addEventListener('orientationchange', function () { setTimeout(function () { scan(document); }, 250); });
+  window.addEventListener('resize', function () {      // resize приходит и при открытии клавиатуры — активное поле не трогаем
+    clearTimeout(window.__mvsGrowRs);
+    window.__mvsGrowRs = setTimeout(function () { scan(document); }, 200);
+  });
+})();
+</script>
 
-  // Recheck only newly inserted fields; do not alter the card's own dimensions.
-  if (window.MutationObserver && document.documentElement) {
-    new MutationObserver(function (mutations) {
-      mutations.forEach(function (mutation) {
-        (mutation.addedNodes || []).forEach(function (node) {
-          if (node.nodeType === 1) {
-            if (node.matches && node.matches(selector)) schedule(node);
-            scan(node);
-          }
-        });
-      });
-    }).observe(document.documentElement, { childList: true, subtree: true });
+<script id="mvs-vpn-monitor">
+// Фоновый контроль VPN. Раньше проверка запускалась только при открытии вкладки «Карта» и нажатии «Маршрут»,
+// поэтому на других экранах и при включении VPN уже во время работы предупреждение не приходило.
+(function () {
+  'use strict';
+  var last = 0, MIN_GAP = 15000, EVERY = 3 * 60 * 1000;
+  function run(reason) {
+    try {
+      if (typeof checkVpnAndWarn !== 'function' || document.hidden) return;
+      if (navigator.onLine === false) return;
+      var now = Date.now();
+      if (now - last < MIN_GAP) return;
+      last = now;
+      checkVpnAndWarn(true);
+    } catch (e) {}
   }
+  var el = document.getElementById('vpnWarning');
+  if (el) el.addEventListener('click', function () {
+    try { clearTimeout(_vpnWarningTimeout); } catch (e) {}   // let из основного скрипта виден глобально
+    el.classList.add('hiding');
+    setTimeout(function () { el.classList.remove('show', 'hiding'); }, 600);
+  });
+  // старт: сеть при запуске часто ещё не готова — проверяем дважды
+  setTimeout(function () { run('start'); }, 2000);
+  setTimeout(function () { last = 0; run('start2'); }, 9000);
+  // вернулись в приложение (на любой вкладке) — VPN могли включить в шторке
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) setTimeout(function () { run('visible'); }, 800); });
+  window.addEventListener('focus', function () { setTimeout(function () { run('focus'); }, 800); });
+  window.addEventListener('pageshow', function () { setTimeout(function () { run('pageshow'); }, 800); });
+  // сеть поменялась (включили / выключили VPN или переключили Wi-Fi ↔ мобильная)
+  window.addEventListener('online', function () { setTimeout(function () { last = 0; run('online'); }, 1500); });
+  try {
+    var c = navigator.connection;
+    if (c && c.addEventListener) c.addEventListener('change', function () { setTimeout(function () { last = 0; run('conn'); }, 1500); });
+  } catch (e) {}
+  // и периодически, пока приложение открыто
+  setInterval(function () { run('timer'); }, EVERY);
 })();
 </script>
 
