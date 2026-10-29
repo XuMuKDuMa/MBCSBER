@@ -8332,6 +8332,17 @@ timeCol.innerHTML = `
   <div class="rtc-start">${startTime || '—'}</div>
   <div class="rtc-end">${endTime || ''}</div>
 `;
+// ─── Пульсирующий треугольник: у встречи заполнена причина недоставки ───
+const ndFlag = document.createElement('div');
+ndFlag.className = 'route-nd-flag';
+ndFlag.title = 'Есть причина недоставки';
+ndFlag.innerHTML = '<svg viewBox="0 0 24 22" width="22" height="20" aria-hidden="true"><path d="M12 1.5 23 20.5H1z" fill="#ff3b30" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/><rect x="11" y="8" width="2" height="6.5" rx="1" fill="#fff"/><circle cx="12" cy="17.2" r="1.2" fill="#fff"/></svg>';
+function updateNdFlag() {
+  const has = String(item.nonDeliveryReason || '').trim() !== '' && item.status !== 'done';
+  ndFlag.classList.toggle('show', has);
+}
+updateNdFlag();
+timeCol.appendChild(ndFlag);
 topRow.appendChild(timeCol);
 
 // ─── Поля: адрес + заметка ───
@@ -8389,7 +8400,10 @@ function autoGrow(el) {
 }
 
 function persistAddressInput() {
+  const addrChanged = item.addr !== addrInput.value;
   item.addr = addrInput.value;
+  if (addrChanged) item.addrDisplay = addrInput.value;   // ручная правка — короткая версия для отчёта тоже обновляется
+  addrCollapsed.textContent = item.addr || '';           // короткая карточка показывает актуальный адрес
   saveRouteState(routeState);
   autoGrow(addrInput);
   _mapHash = '';
@@ -8519,10 +8533,11 @@ addrWrap.appendChild(btnMic);
     const street = d.street_with_type || d.street || d.route || '';
     const house = d.house || d.house_fias_id || '';
     const compactAddress = [street, d.house].filter(Boolean).join(' ').trim() || selectedAddress;
-    addrInput.value = compactAddress;
-    item.addrDisplay = compactAddress;
+    addrInput.value = selectedAddress;          // в поле — полный адрес (раньше резался до «улица дом»)
+    item.addrDisplay = compactAddress;          // короткий вариант остаётся только для отчёта
     addrInput.dataset.fullAddress = selectedAddress;
     item.addr = selectedAddress;
+    addrCollapsed.textContent = selectedAddress;
     saveRouteState(routeState);
     autoGrow(addrInput);
     if (s.data && s.data.geo_lat && s.data.geo_lon) {
@@ -9130,6 +9145,7 @@ reasonInput.style.cssText = 'display:block;width:100%;min-width:0;box-sizing:bor
 let reasonComposing = false;
 function saveNonDeliveryReason(updateReport = false) {
   item.nonDeliveryReason = reasonInput.value;
+  updateNdFlag();   // треугольник в короткой карточке обновляется сразу при вводе
   saveRouteState(routeState);
   // Не обновляем отчёт во время набора: перерисовка может прервать
   // композицию русской экранной клавиатуры (IME) на Android.
@@ -17479,7 +17495,7 @@ textarea.route-addr-input {
     word-break: break-word !important;
   }
 </style>
-<script id="mvs-compact-card-and-text-autogrow">
+<script id="mvs-compact-card-and-text-autogrow-js">
 (function () {
   'use strict';
   var selector = '#screen4 #app4 textarea.route-addr-input, #screen4 #app4 textarea.route-note-input, #app4 textarea.route-addr-input, #app4 textarea.route-note-input';
@@ -17635,6 +17651,19 @@ textarea.route-addr-input {
   window.addEventListener('resize', function () { scan(document); });
   window.addEventListener('orientationchange', function () { setTimeout(function () { scan(document); }, 180); });
 
+  // Карточка раскрывается снятием класса .collapsed. Раньше в этот момент поля были display:none
+  // (scrollHeight = 0) и оставались высотой 44px — длинный адрес обрезался. Следим за классом.
+  if (window.MutationObserver) {
+    new MutationObserver(function (mutations) {
+      mutations.forEach(function (m) {
+        var card = m.target;
+        if (card.classList && card.classList.contains('route-card') && !card.classList.contains('collapsed')) {
+          card.querySelectorAll('textarea.route-addr-input, textarea.route-note-input, textarea.route-nondelivery-input').forEach(schedule);
+        }
+      });
+    }).observe(document.body, { attributes: true, attributeFilter: ['class'], subtree: true });
+  }
+
   // Recheck only newly inserted fields; do not alter the card's own dimensions.
   if (window.MutationObserver && document.documentElement) {
     new MutationObserver(function (mutations) {
@@ -17650,6 +17679,25 @@ textarea.route-addr-input {
   }
 })();
 </script>
+
+<style id="mvs-nondelivery-flag">
+/* Пульсирующий треугольник «есть причина недоставки» — только в короткой карточке */
+.route-nd-flag { display: none; }
+#screen4 .route-card.collapsed .route-time-col .route-nd-flag.show {
+  display: block !important; width: 22px; height: 20px; margin-top: 6px;
+  transform-origin: 50% 70%;
+  animation: mvsNdPulse 1.2s ease-in-out infinite;
+  filter: drop-shadow(0 0 4px rgba(255, 59, 48, .85));
+}
+#screen4 .route-card:not(.collapsed) .route-nd-flag { display: none !important; }
+@keyframes mvsNdPulse {
+  0%, 100% { transform: scale(1);    filter: drop-shadow(0 0 2px rgba(255, 59, 48, .6)); }
+  50%      { transform: scale(1.22); filter: drop-shadow(0 0 9px rgba(255, 59, 48, 1)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #screen4 .route-card.collapsed .route-time-col .route-nd-flag.show { animation: none; }
+}
+</style>
 
 </body>
 </html>
