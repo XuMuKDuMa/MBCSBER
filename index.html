@@ -8480,7 +8480,6 @@ btnMic.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: tru
 
 addrWrap.appendChild(addrCollapsed);
 addrWrap.appendChild(addrInput);
-addrWrap.appendChild(btnMic);
 // ─── НАДЁЖНЫЕ ПОДСКАЗКИ АДРЕСОВ DADATA ───
 // Используем прямой API, чтобы поиск не зависел от локальных suggestions.min.js/css.
 // Ограничение по city_fias_id удалено: ранее был указан неверный идентификатор региона.
@@ -8800,9 +8799,19 @@ function autoGrowNote(el) {
 
 // Android/Gboard: не сохраняем и не меняем состояние посреди русской IME-композиции.
 let noteComposing = false;
-// Язык клавиатуры не навязываем (раньше тут были lang='ru', inputmode, autocorrect):
-// на части Android-клавиатур такие подсказки сбрасывают раскладку на английскую.
-// Поле ведёт себя так же, как поле адреса, где русский работает.
+// Заметка редактируется в отдельном полноэкранном окне (как «Причины не доставок» на экране «Сегодня»):
+// там поле вне карточки и вне её обработчиков. В самой карточке поле только показывает текст.
+noteInput.readOnly = true;
+noteInput.setAttribute('inputmode', 'none');
+noteInput.addEventListener('focus', () => { if (noteInput.readOnly) noteInput.blur(); });
+noteInput.addEventListener('click', e => {
+  e.stopPropagation();
+  if (!window.mvsOpenFieldEditor) { noteInput.readOnly = false; noteInput.removeAttribute('inputmode'); noteInput.focus(); return; }
+  window.mvsOpenFieldEditor({
+    title: 'Заметка', placeholder: 'кв, этаж, код домофона…', value: noteInput.value,
+    onSave: v => { noteInput.value = v; saveNoteValue(); }
+  });
+});
 ['click', 'pointerdown', 'mousedown', 'touchstart'].forEach(type => {
   noteInput.addEventListener(type, e => e.stopPropagation(), { passive: true });
 });
@@ -8880,7 +8889,6 @@ btnNoteMic.addEventListener('touchstart', (e) => e.stopPropagation(), { passive:
 
 noteWrap.appendChild(collapsedNote);
 noteWrap.appendChild(noteInput);
-noteWrap.appendChild(btnNoteMic);
 fields.appendChild(noteWrap);
 // ─── Панель записи голоса удалена ───
 topRow.appendChild(fields);
@@ -9131,6 +9139,18 @@ reasonInput.className = 'route-nondelivery-input route-note-input';
 reasonInput.placeholder = 'Причина недоставки (если встреча под вопросом)';
 reasonInput.value = item.nonDeliveryReason || '';
 reasonInput.rows = 1;
+// Причина редактируется в отдельном полноэкранном окне; в карточке поле только показывает текст.
+reasonInput.readOnly = true;
+reasonInput.setAttribute('inputmode', 'none');
+reasonInput.addEventListener('focus', () => { if (reasonInput.readOnly) reasonInput.blur(); });
+reasonInput.addEventListener('click', e => {
+  e.stopPropagation();
+  if (!window.mvsOpenFieldEditor) { reasonInput.readOnly = false; reasonInput.removeAttribute('inputmode'); reasonInput.focus(); return; }
+  window.mvsOpenFieldEditor({
+    title: 'Причина недоставки', placeholder: 'Причина недоставки (если встреча под вопросом)', value: reasonInput.value,
+    onSave: v => { reasonInput.value = v; saveNonDeliveryReason(false); saveNonDeliveryReason(true); if (window.mvsGrowField) window.mvsGrowField(reasonInput); }
+  });
+});
 
 reasonInput.style.cssText = 'display:block;width:100%;min-width:0;box-sizing:border-box;border:1px solid #d8dee5;border-radius:8px;padding:8px 10px;font:inherit;font-size:13px;background:rgba(245,247,250,.8);color:inherit;resize:vertical;min-height:36px;';
 // Не блокируем события ввода и IME: русская экранная/физическая раскладка использует composition events.
@@ -17615,6 +17635,79 @@ textarea.route-addr-input {
   setInterval(function () { run('timer'); }, EVERY);
 })();
 </script>
+
+<script id="mvs-field-editor">
+// Полноэкранный редактор для «Заметки» и «Причины недоставки» — по образцу окна «Причины не доставок» на экране «Сегодня».
+(function () {
+  'use strict';
+  var ed, ta, titleEl, cb = null;
+  function build() {
+    if (ed) return;
+    ed = document.createElement('div');
+    ed.className = 'fullscreen-editor';
+    ed.id = 'mvsFieldEditor';
+    ed.innerHTML = '<div class="fe-header"><button type="button" class="fe-btn fe-cancel">Отмена</button><div class="fe-title"></div><button type="button" class="fe-btn fe-save">Сохранить</button></div><textarea class="fe-textarea"></textarea>';
+    document.body.appendChild(ed);
+    ta = ed.querySelector('textarea');
+    titleEl = ed.querySelector('.fe-title');
+    ed.querySelector('.fe-cancel').addEventListener('click', function () { close(false); });
+    ed.querySelector('.fe-save').addEventListener('click', function () { close(true); });
+  }
+  function close(save) {
+    if (!ed) return;
+    var f = cb, v = ta.value;
+    cb = null;
+    ed.classList.remove('show');
+    try { ta.blur(); } catch (e) {}
+    if (save && f) { try { f(v); } catch (e) { console.warn('field editor save', e); } }
+    try { vibro(save ? 15 : 8); } catch (e) {}
+    setTimeout(function () { if (!ed.classList.contains('show')) ta.value = ''; }, 420);
+  }
+  window.mvsOpenFieldEditor = function (o) {
+    build();
+    cb = o.onSave || null;
+    titleEl.textContent = o.title || '';
+    ta.placeholder = o.placeholder || '';
+    ta.value = o.value || '';
+    ed.classList.add('show');
+    try { vibro(10); } catch (e) {}
+    setTimeout(function () {
+      try { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) {}
+    }, 350);
+  };
+})();
+</script>
+
+<style id="mvs-address-pin-right-no-mic">
+/* Микрофоны убраны. Булавка (координаты) — справа от поля адреса, а не поверх текста. */
+.route-mic-inline, .route-note-mic { display: none !important; }
+#screen4 #app4 .route-card:not(.collapsed) .route-addr-wrap { display: flex !important; align-items: flex-start !important; gap: 6px !important; }
+#screen4 #app4 .route-card:not(.collapsed) .route-addr-wrap textarea.route-addr-input {
+  flex: 1 1 0 !important; width: auto !important; min-width: 0 !important; padding-right: 10px !important;
+}
+#screen4 #app4 .route-card:not(.collapsed) .route-addr-wrap .route-coords-btn {
+  position: static !important; transform: none !important; right: auto !important; top: auto !important;
+  flex: 0 0 44px !important; width: 44px !important; height: 44px !important; margin: 0 !important;
+  display: flex !important; align-items: center !important; justify-content: center !important; font-size: 18px !important;
+}
+#screen4 .route-note-wrap .route-note-input { padding-right: 10px !important; }
+#mvsFieldEditor { z-index: 2147483000 !important; }
+/* Светлая тема: поля адреса / заметки / причины были тёмно-синими с тёмным текстом — текст не читался */
+body:not(.dark) #screen4 #app4 .route-card textarea.route-addr-input,
+body:not(.dark) #screen4 #app4 .route-card textarea.route-note-input,
+body:not(.dark) #screen4 #app4 .route-card textarea.route-nondelivery-input {
+  background: #f3f6f9 !important; color: #1f2d3a !important; -webkit-text-fill-color: #1f2d3a !important;
+  border: 1px solid #c9d4de !important; caret-color: #1f2d3a !important;
+}
+body:not(.dark) #screen4 #app4 .route-card textarea.route-addr-input::placeholder,
+body:not(.dark) #screen4 #app4 .route-card textarea.route-note-input::placeholder,
+body:not(.dark) #screen4 #app4 .route-card textarea.route-nondelivery-input::placeholder {
+  color: #7a8794 !important; -webkit-text-fill-color: #7a8794 !important; opacity: 1 !important;
+}
+body:not(.dark) #screen4 #app4 .route-card .route-coords-btn { background: #e6edf4 !important; color: #2c4a66 !important; border: 1px solid #c9d4de !important; }   /* выше плашек-уведомлений, чтобы «Сохранить» не перекрывалось */
+/* Заметка и причина открываются в отдельном окне */
+#screen4 textarea.route-note-input[readonly], #screen4 textarea.route-nondelivery-input[readonly] { cursor: pointer; caret-color: transparent; }
+</style>
 
 <style id="mvs-nondelivery-flag">
 /* Пульсирующий треугольник «есть причина недоставки» — только в короткой карточке */
