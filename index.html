@@ -2,6 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
+<script>try{var __d=localStorage.getItem('mvs_theme')==='dark',__r=document.documentElement;__r.style.background=__d?'#101820':'#e6f6ec';__r.style.colorScheme=__d?'dark':'light';}catch(e){}</script>
 <script>
 // ─── Страховка от «белого экрана» ───
 // Если приложение не дошло до конца запуска за 6 секунд: один раз само чистит кэш и сервис-воркер
@@ -6573,6 +6574,29 @@ body:not(.dark) #screen4 .route-card .route-note-input::placeholder {
 </style>
 
 
+<style id="mvs-splash-v2">
+#mvsLiquidSplash{touch-action:none;-webkit-user-select:none;user-select:none;will-change:transform,opacity}
+#mvsLiquidSplash .mls-hint{animation:mlsHint 1.9s ease-in-out infinite}
+@keyframes mlsHint{0%,100%{transform:translateY(0);opacity:.75}50%{transform:translateY(-5px);opacity:1}}
+/* «Подпрыгивание» элементов после разблокировки, как иконки на iPhone */
+@keyframes mvsPop{
+  0%{opacity:0;transform:translate3d(0,28px,0) scale(.55)}
+  55%{opacity:1;transform:translate3d(0,-7px,0) scale(1.1)}
+  78%{transform:translate3d(0,2px,0) scale(.97)}
+  100%{opacity:1;transform:translate3d(0,0,0) scale(1)}
+}
+body.mvs-reveal #screen4 .route-stat,
+body.mvs-reveal #screen4 .slot-btn,
+body.mvs-reveal #screen4 .route-time-header,
+body.mvs-reveal #screen4 .route-card,
+body.mvs-reveal #bottomBar .bb-item{
+  animation:mvsPop .75s cubic-bezier(.2,.9,.3,1) both;
+  animation-delay:calc(var(--rv,0) * 45ms + 80ms);
+}
+@media(prefers-reduced-motion:reduce){
+  body.mvs-reveal #screen4 .route-stat,body.mvs-reveal #screen4 .slot-btn,body.mvs-reveal #screen4 .route-time-header,body.mvs-reveal #screen4 .route-card,body.mvs-reveal #bottomBar .bb-item{animation:none}
+}
+</style>
 <div id="mvsLiquidSplash" role="dialog" aria-label="Заставка МВС">
   <div class="mls-card">
     <div class="mls-sber">СБЕР</div><div class="mls-logo">МВС · WORKSPACE</div>
@@ -16875,40 +16899,123 @@ try { sessionStorage.removeItem('mvs_autoheal'); } catch (e) {}
     if(!splash || splash.dataset.swipeReady==='1') return;
     splash.dataset.swipeReady='1';
     document.body.classList.add('mvs-splash-open');
-    // Не переключаем вкладку при показе заставки: стартовый раздел — «Активности».
+    const card=splash.querySelector('.mls-card');
     try { const d=document.getElementById('mlsDate'); if(d) d.textContent=new Intl.DateTimeFormat('ru-RU',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date()); } catch(e) {}
     function stats(){
       let up=0, upFD=0;
-      try {
-        // Используем общий расчёт итогов приложения, чтобы заставка совпадала с разделом «Сегодня».
-        if(typeof calcTotals1==='function'){
-          const t=calcTotals1();
-          up=Number(t.up)||0;
-          upFD=Number(t.upFD)||0;
-        }
-      } catch(e) {}
+      try { if(typeof calcTotals1==='function'){ const t=calcTotals1(); up=Number(t.up)||0; upFD=Number(t.upFD)||0; } } catch(e) {}
       const a=document.getElementById('mlsDailyUP'), b=document.getElementById('mlsDailyFD');
       if(a) a.textContent=up.toFixed(2).replace('.', ',');
       if(b) b.textContent=upFD.toFixed(2).replace('.', ',');
     }
-    setTimeout(stats,500);setTimeout(stats,1600);setTimeout(()=>{try{if(window.map&&window.map.invalidateSize)window.map.invalidateSize(true)}catch(e){}},500);
-    let closed=false, startY=0,lastY=0,startT=0,dragging=false;
-    function close(){
-      if(closed)return; closed=true;
-      splash.classList.remove('mls-dragging'); splash.classList.add('mls-hide');
-      const done=()=>{try{splash.remove()}catch(e){};document.body.classList.remove('mvs-splash-open');document.body.style.overflow='';};
-      setTimeout(done,450);
+    setTimeout(stats,500);setTimeout(stats,1600);
+    setTimeout(()=>{try{if(window.map&&window.map.invalidateSize)window.map.invalidateSize(true)}catch(e){}},500);
+
+    const H=()=>window.innerHeight||800;
+    let closed=false, tracking=false, dragging=false, pid=null, startY=0, lastY=0, lastT=0, vel=0, dy=0, raf=0;
+
+    // Отрисовка кадра: стекло едет за пальцем 1:1, карточка внутри чуть отстаёт (параллакс)
+    function paint(){
+      raf=0;
+      const p=Math.min(1,Math.max(0,-dy/(H()*.85)));
+      splash.style.transform='translate3d(0,'+dy+'px,0)';
+      splash.style.opacity=String(1-p*.25);
+      const r=Math.round(p*44);
+      splash.style.borderRadius='0 0 '+r+'px '+r+'px';
+      if(card){ card.style.transform='translate3d(0,'+(dy*.16)+'px,0) scale('+(1-p*.06)+')'; card.style.opacity=String(1-p*.3); }
     }
-    const btn=document.getElementById('mlsOpenBtn'); if(btn){btn.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();close()},true);btn.addEventListener('touchend',function(e){e.preventDefault();close()},{passive:false});}
-    function y(e){return e.touches&&e.touches.length?e.touches[0].clientY:e.clientY}
-    function down(e){if(closed||e.target.closest('#mlsOpenBtn'))return;if(e.type==='pointerdown'&&e.button!==0)return;startY=lastY=y(e);startT=Date.now();dragging=true;splash.classList.add('mls-dragging');}
-    function move(e){if(!dragging||closed)return;lastY=y(e);const dy=Math.min(0,lastY-startY);splash.style.setProperty('--mls-drag-y',dy+'px');const card=splash.querySelector('.mls-card');if(card){const pr=Math.min(1,Math.abs(dy)/(innerHeight*.72));card.style.transform=`translate3d(0,${dy*.12}px,0) scale(${1-pr*.045})`;card.style.opacity=String(1-pr*.18)}if(e.cancelable)e.preventDefault();}
-    function up(e){if(!dragging||closed)return;lastY=y(e);const dy=lastY-startY,elapsed=Math.max(1,Date.now()-startT),velocity=dy/elapsed;dragging=false;splash.classList.remove('mls-dragging');if(dy < -Math.min(75,innerHeight*.12)||velocity<-.35){close()}else{ splash.style.setProperty('--mls-drag-y','0px');const card=splash.querySelector('.mls-card');if(card){card.style.transform='';card.style.opacity='';}}}
-    splash.addEventListener('pointerdown',down);splash.addEventListener('pointermove',move,{passive:false});splash.addEventListener('pointerup',up);splash.addEventListener('pointercancel',up);
-    splash.addEventListener('touchstart',down,{passive:true});splash.addEventListener('touchmove',move,{passive:false});splash.addEventListener('touchend',up,{passive:true});
-    splash.addEventListener('wheel',e=>{if(e.deltaY>10)close()},{passive:true});
-    // Accessible fallback: tap the glass card itself to dismiss if swipe is unavailable.
-    splash.querySelector('.mls-card')?.addEventListener('dblclick',close);
+    function schedule(){ if(!raf) raf=requestAnimationFrame(paint); }
+
+    // Подготовка анимации «подпрыгивания»: индекс для лесенки задержек
+    function prepareReveal(){
+      const groups=['#screen4 .route-stat','#screen4 .slot-btn','#screen4 .route-time-header','#screen4 .route-card','#bottomBar .bb-item'];
+      let i=0;
+      groups.forEach(sel=>document.querySelectorAll(sel).forEach(el=>{ el.style.setProperty('--rv',Math.min(i++,16)); }));
+    }
+    function buzz(ms){ try{ if(navigator.vibrate) navigator.vibrate(ms); }catch(e){} }
+
+    function finish(){
+      try{splash.remove()}catch(e){}
+      document.body.classList.remove('mvs-splash-open');
+      document.body.style.overflow='';
+      // убрать класс после проигрыша анимации, чтобы будущие перерисовки не «подпрыгивали»
+      setTimeout(()=>document.body.classList.remove('mvs-reveal'),1900);
+    }
+    // Улетаем вверх с учётом скорости пальца, как экран блокировки iPhone
+    function dismiss(v){
+      if(closed) return; closed=true;
+      if(raf){cancelAnimationFrame(raf);raf=0;}
+      splash.classList.remove('mls-dragging');
+      const target=-(H()+60), dist=Math.abs(target-dy), speed=Math.max(.9,Math.abs(v||0));
+      const dur=Math.round(Math.min(680,Math.max(380,dist/speed)));
+      const ease='cubic-bezier(.22,.82,.28,1)';
+      splash.style.transition='transform '+dur+'ms '+ease+', opacity '+Math.round(dur*.6)+'ms ease-out '+Math.round(dur*.4)+'ms, border-radius '+dur+'ms '+ease;
+      if(card) card.style.transition='transform '+dur+'ms '+ease+', opacity '+dur+'ms ease-out';
+      prepareReveal();
+      document.body.classList.add('mvs-reveal');
+      buzz(8);
+      requestAnimationFrame(()=>{
+        splash.style.transform='translate3d(0,'+target+'px,0)';
+        splash.style.opacity='0';
+        splash.style.borderRadius='0 0 44px 44px';
+        if(card){ card.style.transform='translate3d(0,'+(target*.16)+'px,0) scale(.93)'; card.style.opacity='0'; }
+      });
+      let done=false; const fin=()=>{ if(done) return; done=true; finish(); };
+      splash.addEventListener('transitionend',ev=>{ if(ev.target===splash && ev.propertyName==='transform') fin(); });
+      setTimeout(fin,dur+120);
+    }
+    // Не дотянули — пружинно возвращаемся на место
+    function springBack(){
+      splash.classList.remove('mls-dragging');
+      const ease='cubic-bezier(.34,1.45,.5,1)';
+      splash.style.transition='transform 520ms '+ease+', opacity 300ms ease-out, border-radius 300ms ease-out';
+      if(card) card.style.transition='transform 520ms '+ease+', opacity 300ms ease-out';
+      dy=0;
+      splash.style.transform='translate3d(0,0,0)'; splash.style.opacity='1'; splash.style.borderRadius='0';
+      if(card){ card.style.transform='translate3d(0,0,0) scale(1)'; card.style.opacity='1'; }
+    }
+    const rubber=x=>60*(1-Math.exp(-x/120));   // вниз тянется с сопротивлением
+
+    function down(e){
+      if(closed) return;
+      if(e.pointerType==='mouse' && e.button!==0) return;
+      tracking=true; dragging=false; pid=e.pointerId;
+      startY=lastY=e.clientY; lastT=e.timeStamp; vel=0;
+    }
+    function move(e){
+      if(!tracking||closed||e.pointerId!==pid) return;
+      const y=e.clientY, raw=y-startY;
+      if(!dragging){
+        if(Math.abs(raw)<7) return;
+        dragging=true;
+        splash.classList.add('mls-dragging');
+        splash.style.transition='none'; if(card) card.style.transition='none';
+        try{ splash.setPointerCapture(pid); }catch(_){}
+      }
+      const dt=e.timeStamp-lastT;
+      if(dt>0){ vel=vel*.6+((y-lastY)/dt)*.4; }
+      lastY=y; lastT=e.timeStamp;
+      dy = raw<0 ? raw : rubber(raw);
+      schedule();
+      if(e.cancelable) e.preventDefault();
+    }
+    function up(e){
+      if(!tracking||e.pointerId!==pid) return;
+      tracking=false;
+      if(!dragging||closed) return;
+      dragging=false;
+      if(raf){cancelAnimationFrame(raf);raf=0;paint();}
+      if(-dy>H()*.2 || vel<-.45) dismiss(vel); else springBack();
+    }
+    splash.addEventListener('pointerdown',down);
+    splash.addEventListener('pointermove',move,{passive:false});
+    splash.addEventListener('pointerup',up);
+    splash.addEventListener('pointercancel',up);
+
+    const btn=document.getElementById('mlsOpenBtn');
+    if(btn) btn.addEventListener('click',function(e){ e.preventDefault(); e.stopPropagation(); if(!dragging) dismiss(-1.1); });
+    splash.addEventListener('wheel',e=>{ if(e.deltaY>10) dismiss(-1.1); },{passive:true});
+    card&&card.addEventListener('dblclick',()=>dismiss(-1.1));
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
   setTimeout(init,900);
