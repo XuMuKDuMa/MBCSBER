@@ -8872,7 +8872,7 @@ noteInput.addEventListener('click', e => {
   if (!window.mvsOpenFieldEditor) { noteInput.readOnly = false; noteInput.removeAttribute('inputmode'); noteInput.focus(); return; }
   window.mvsOpenFieldEditor({
     title: 'Заметка', hint: 'Кв, этаж, код домофона и всё, что поможет найти клиента.', placeholder: 'кв, этаж, код домофона…', value: noteInput.value,
-    onSave: v => { noteInput.value = v; saveNoteValue(); }
+    onSave: v => { noteInput.value = v; saveNoteValue(); try { refreshFeBtns(); } catch (e) {} }
   });
 });
 ['click', 'pointerdown', 'mousedown', 'touchstart'].forEach(type => {
@@ -9211,7 +9211,7 @@ reasonInput.addEventListener('click', e => {
   if (!window.mvsOpenFieldEditor) { reasonInput.readOnly = false; reasonInput.removeAttribute('inputmode'); reasonInput.focus(); return; }
   window.mvsOpenFieldEditor({
     title: 'Причина недоставки', hint: 'Если встреча под вопросом — напиши причину. В короткой карточке появится мигающий треугольник.', placeholder: 'Причина недоставки (если встреча под вопросом)', value: reasonInput.value,
-    onSave: v => { reasonInput.value = v; saveNonDeliveryReason(false); saveNonDeliveryReason(true); if (window.mvsGrowField) window.mvsGrowField(reasonInput); }
+    onSave: v => { reasonInput.value = v; saveNonDeliveryReason(false); saveNonDeliveryReason(true); if (window.mvsGrowField) window.mvsGrowField(reasonInput); try { refreshFeBtns(); } catch (e) {} }
   });
 });
 
@@ -9247,6 +9247,36 @@ reasonInput.addEventListener('blur', () => saveNonDeliveryReason(true));
 // и не меняем DOM поля, пока пользователь печатает.
 reasonInput.addEventListener('focus', () => { reasonInput.style.caretColor = 'auto'; });
 reasonWrap.appendChild(reasonInput);
+// ─── Кнопки «Заметка» и «Причина»: тап открывает то же отдельное окно ввода ───
+var noteBtn, reasonBtn;
+function refreshFeBtns() {
+  if (!noteBtn || !reasonBtn) return;
+  const n = (item.note || '').trim(), r = (item.nonDeliveryReason || '').trim();
+  noteBtn.classList.toggle('filled', !!n);
+  reasonBtn.classList.toggle('filled', !!r);
+  noteBtn.querySelector('.fe-prev').textContent = n;
+  reasonBtn.querySelector('.fe-prev').textContent = r;
+}
+(function () {
+  const row = document.createElement('div');
+  row.className = 'route-fe-row';
+  function mk(kind, icon, label, target) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'route-fe-btn route-fe-' + kind;
+    b.innerHTML = '<span class="fe-main"><span class="fe-ic">' + icon + '</span><span class="fe-lb">' + label + '</span></span><span class="fe-prev"></span>';
+    ['pointerdown', 'mousedown', 'touchstart'].forEach(t => b.addEventListener(t, e => e.stopPropagation(), { passive: true }));
+    b.addEventListener('click', e => { e.stopPropagation(); e.preventDefault(); target.click(); });
+    return b;
+  }
+  noteBtn = mk('note', '📝', 'Заметка', noteInput);
+  reasonBtn = mk('reason', '⚠️', 'Причина', reasonInput);
+  row.appendChild(noteBtn); row.appendChild(reasonBtn);
+  reasonWrap.insertBefore(row, reasonInput);
+  reasonInput.classList.add('route-fe-hidden');
+  noteInput.classList.add('route-fe-hidden');
+  refreshFeBtns();
+})();
 card.appendChild(statusLine);
 card.appendChild(reasonWrap);
 
@@ -17669,10 +17699,12 @@ textarea.route-addr-input {
     bd.querySelector('.mvs-fe-cancel').addEventListener('click', function () { close(false); });
     bd.querySelector('.mvs-fe-save').addEventListener('click', function () { close(true); });
     bd.addEventListener('click', function (e) { if (e.target === bd) close(false); });   // тап по затемнению = отмена
+    ['touchend', 'click'].forEach(function (t) { ta.addEventListener(t, function () { if (document.activeElement !== ta) { try { ta.focus({ preventScroll: true }); } catch (e) {} } }); });
   }
   function close(save) {
     if (!bd || closing || !bd.classList.contains('show')) return;
     closing = true;
+    clearFocusTimers();
     var f = cb, v = ta.value;
     cb = null;
     try { ta.blur(); } catch (e) {}
@@ -17681,8 +17713,18 @@ textarea.route-addr-input {
     try { vibro(save ? 15 : 8); } catch (e) {}
     setTimeout(function () { closing = false; if (!bd.classList.contains('show')) ta.value = ''; }, 260);
   }
+  var focusTimers = [];
+  function clearFocusTimers() { focusTimers.forEach(clearTimeout); focusTimers = []; }
+  function grabFocus() {
+    if (!bd || !bd.classList.contains('show')) return;
+    if (document.activeElement === ta) return;
+    try { ta.focus({ preventScroll: true }); ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) {}
+  }
   window.mvsOpenFieldEditor = function (o) {
     build();
+    // повторный вызов, пока окно уже открыто (двойной тап) — не трогаем, чтобы не сбросить набранное
+    if (bd.classList.contains('show')) { grabFocus(); return; }
+    clearFocusTimers();
     closing = false;
     cb = o.onSave || null;
     titleEl.textContent = o.title || '';
@@ -17690,15 +17732,34 @@ textarea.route-addr-input {
     hintEl.style.display = o.hint ? '' : 'none';
     ta.placeholder = o.placeholder || '';
     ta.value = o.value || '';
+    ta.readOnly = false;
     bd.classList.add('show');
     try { vibro(10); } catch (e) {}
-    setTimeout(function () {
-      try { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) {}
-    }, 280);
+    // Фокус СРАЗУ, пока длится жест пользователя (иначе Android WebView иногда не даёт ввод),
+    // и ещё несколько попыток, если фокус всё же потерялся.
+    grabFocus();
+    [60, 180, 400, 800].forEach(function (ms) { focusTimers.push(setTimeout(grabFocus, ms)); });
   };
 })();
 </script>
 
+
+<style id="mvs-fe-buttons">
+/* Кнопки «Заметка» / «Причина» вместо полей в развёрнутой карточке */
+#screen4 .route-card .route-fe-hidden { display: none !important; }
+#screen4 .route-card .route-fe-row { display: flex; gap: 8px; width: 100%; }
+#screen4 .route-card.collapsed .route-fe-row { display: none !important; }
+#screen4 .route-card .route-fe-btn { flex: 1 1 0; min-width: 0; min-height: 44px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 8px 12px; border: 1px solid #d8dee5; border-radius: 12px; background: rgba(245,247,250,.9); color: #243541; font: inherit; font-size: 14px; font-weight: 700; text-align: left; cursor: pointer; -webkit-appearance: none; appearance: none; }
+#screen4 .route-card .route-fe-btn:active { transform: scale(.97); }
+#screen4 .route-card .route-fe-btn .fe-main { display: inline-flex; align-items: center; gap: 6px; }
+#screen4 .route-card .route-fe-btn .fe-prev { display: none; max-width: 100%; font-size: 12px; font-weight: 500; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#screen4 .route-card .route-fe-btn.filled .fe-prev { display: block; }
+#screen4 .route-card .route-fe-note.filled { border-color: #3498db; background: #eaf3fb; color: #1f5f8f; }
+#screen4 .route-card .route-fe-reason.filled { border-color: #e67e22; background: #fff4e5; color: #a85a00; }
+body.dark #screen4 .route-card .route-fe-btn { background: #2c3a48; border-color: #3a4a5a; color: #e8eef5; }
+body.dark #screen4 .route-card .route-fe-note.filled { background: #1f3a52; border-color: #5dade2; color: #bfe0f7; }
+body.dark #screen4 .route-card .route-fe-reason.filled { background: #4a3315; border-color: #f0a04b; color: #ffd9a8; }
+</style>
 <style id="mvs-address-pin-right-no-mic">
 /* Микрофоны убраны. Булавка (координаты) — справа от поля адреса, а не поверх текста. */
 .route-mic-inline, .route-note-mic { display: none !important; }
