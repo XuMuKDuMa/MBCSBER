@@ -7319,6 +7319,8 @@ function updateActivitiesBadge() {
 function goToTab(n, animate = true) {
   if (n < 1 || n > 5) return;
   if (n === currentTab) return;
+  // Поле остаётся «в фокусе», хотя раздел скрыт, — связь с экранной клавиатурой протухает, и русская раскладка перестаёт печатать.
+  try { const ae = document.activeElement; if (ae && /^(TEXTAREA|INPUT)$/.test(ae.tagName)) ae.blur(); } catch (e) {}
 
     // Сброс аккордеона и продуктов при уходе с «Сегодня»
   if (currentTab === 1 && n !== 1) {
@@ -17565,6 +17567,14 @@ textarea.route-addr-input {
     setTimeout(function () { scan(root); }, 150);
   }
 
+  // Если поле, в которое печатали, скрыли (карточку свернули, слот закрыли), снимаем с него фокус:
+  // иначе при возврате оно остаётся «активным» без живой связи с клавиатурой и русский текст не вводится.
+  function dropStaleFocus() {
+    var a = document.activeElement;
+    if (!a || a === document.body || !/^(TEXTAREA|INPUT)$/.test(a.tagName)) return;
+    if (a.getClientRects().length === 0 || (a.closest && a.closest('.route-card.collapsed'))) { try { a.blur(); } catch (e) {} }
+  }
+
   function start() {
     scanSoon(document);
     if (!window.MutationObserver) return;
@@ -17577,6 +17587,7 @@ textarea.route-addr-input {
             else if (n.querySelector && n.querySelector(SEL)) scanSoon(n);
           });
         } else if (m.type === 'attributes') {
+          dropStaleFocus();
           var c = m.target;     // карточка раскрылась (снят .collapsed) — поля были скрыты и имели высоту 0
           if (c.classList && c.classList.contains('route-card') && !c.classList.contains('collapsed')) scanSoon(c);
         }
