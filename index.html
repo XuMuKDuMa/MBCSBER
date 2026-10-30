@@ -7263,13 +7263,7 @@ const STATUS_ICONS = {
 
 
 
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+// (дубль escapeHtml удалён — рабочая версия, экранирующая и апостроф, объявлена ниже и использовалась и раньше)
 
 function updateBottomBarActive(n) {
   document.querySelectorAll('.bb-item').forEach(item => {
@@ -7862,7 +7856,10 @@ function loadRouteState() {
   } catch (e) {}
   return defaultRouteState();
 }
-function saveRouteState(s) { localStorage.setItem(ROUTE_KEY, JSON.stringify(s)); }
+function saveRouteState(s) {
+  try { localStorage.setItem(ROUTE_KEY, JSON.stringify(s)); return true; }
+  catch (e) { console.warn('saveRouteState: не удалось сохранить (переполнено хранилище / приватный режим)', e); return false; }
+}
 function getTodayKey23() {
   const now = new Date();
   // Сдвиг дня в 23:00 — рабочий день считается с вечера предыдущего дня
@@ -8808,7 +8805,7 @@ noteInput.addEventListener('click', e => {
   e.stopPropagation();
   if (!window.mvsOpenFieldEditor) { noteInput.readOnly = false; noteInput.removeAttribute('inputmode'); noteInput.focus(); return; }
   window.mvsOpenFieldEditor({
-    title: 'Заметка', placeholder: 'кв, этаж, код домофона…', value: noteInput.value,
+    title: 'Заметка', hint: 'Кв, этаж, код домофона и всё, что поможет найти клиента.', placeholder: 'кв, этаж, код домофона…', value: noteInput.value,
     onSave: v => { noteInput.value = v; saveNoteValue(); }
   });
 });
@@ -9147,7 +9144,7 @@ reasonInput.addEventListener('click', e => {
   e.stopPropagation();
   if (!window.mvsOpenFieldEditor) { reasonInput.readOnly = false; reasonInput.removeAttribute('inputmode'); reasonInput.focus(); return; }
   window.mvsOpenFieldEditor({
-    title: 'Причина недоставки', placeholder: 'Причина недоставки (если встреча под вопросом)', value: reasonInput.value,
+    title: 'Причина недоставки', hint: 'Если встреча под вопросом — напиши причину. В короткой карточке появится мигающий треугольник.', placeholder: 'Причина недоставки (если встреча под вопросом)', value: reasonInput.value,
     onSave: v => { reasonInput.value = v; saveNonDeliveryReason(false); saveNonDeliveryReason(true); if (window.mvsGrowField) window.mvsGrowField(reasonInput); }
   });
 });
@@ -17637,43 +17634,58 @@ textarea.route-addr-input {
 </script>
 
 <script id="mvs-field-editor">
-// Полноэкранный редактор для «Заметки» и «Причины недоставки» — по образцу окна «Причины не доставок» на экране «Сегодня».
+// Окно редактирования «Заметки» и «Причины недоставки» — в том же стиле, что «Добавить адреса в слот»:
+// затемнение, центральная карточка, заголовок, пояснение, кнопки «Отмена» / «Сохранить».
 (function () {
   'use strict';
-  var ed, ta, titleEl, cb = null;
+  var bd, ta, titleEl, hintEl, cb = null, closing = false;
   function build() {
-    if (ed) return;
-    ed = document.createElement('div');
-    ed.className = 'fullscreen-editor';
-    ed.id = 'mvsFieldEditor';
-    ed.innerHTML = '<div class="fe-header"><button type="button" class="fe-btn fe-cancel">Отмена</button><div class="fe-title"></div><button type="button" class="fe-btn fe-save">Сохранить</button></div><textarea class="fe-textarea"></textarea>';
-    document.body.appendChild(ed);
-    ta = ed.querySelector('textarea');
-    titleEl = ed.querySelector('.fe-title');
-    ed.querySelector('.fe-cancel').addEventListener('click', function () { close(false); });
-    ed.querySelector('.fe-save').addEventListener('click', function () { close(true); });
+    if (bd) return;
+    bd = document.createElement('div');
+    bd.className = 'mvs-fe-backdrop';
+    bd.innerHTML =
+      '<div class="mvs-fe-modal" role="dialog" aria-modal="true">' +
+        '<h3 class="mvs-fe-title"></h3>' +
+        '<div class="mvs-fe-hint"></div>' +
+        '<textarea class="mvs-fe-textarea" rows="5"></textarea>' +
+        '<div class="mvs-fe-actions">' +
+          '<button type="button" class="mvs-fe-cancel">Отмена</button>' +
+          '<button type="button" class="mvs-fe-save">Сохранить</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(bd);
+    ta = bd.querySelector('.mvs-fe-textarea');
+    titleEl = bd.querySelector('.mvs-fe-title');
+    hintEl = bd.querySelector('.mvs-fe-hint');
+    bd.querySelector('.mvs-fe-cancel').addEventListener('click', function () { close(false); });
+    bd.querySelector('.mvs-fe-save').addEventListener('click', function () { close(true); });
+    bd.addEventListener('click', function (e) { if (e.target === bd) close(false); });   // тап по затемнению = отмена
   }
   function close(save) {
-    if (!ed) return;
+    if (!bd || closing || !bd.classList.contains('show')) return;
+    closing = true;
     var f = cb, v = ta.value;
     cb = null;
-    ed.classList.remove('show');
     try { ta.blur(); } catch (e) {}
+    bd.classList.remove('show');
     if (save && f) { try { f(v); } catch (e) { console.warn('field editor save', e); } }
     try { vibro(save ? 15 : 8); } catch (e) {}
-    setTimeout(function () { if (!ed.classList.contains('show')) ta.value = ''; }, 420);
+    setTimeout(function () { closing = false; if (!bd.classList.contains('show')) ta.value = ''; }, 260);
   }
   window.mvsOpenFieldEditor = function (o) {
     build();
+    closing = false;
     cb = o.onSave || null;
     titleEl.textContent = o.title || '';
+    hintEl.textContent = o.hint || '';
+    hintEl.style.display = o.hint ? '' : 'none';
     ta.placeholder = o.placeholder || '';
     ta.value = o.value || '';
-    ed.classList.add('show');
+    bd.classList.add('show');
     try { vibro(10); } catch (e) {}
     setTimeout(function () {
       try { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) {}
-    }, 350);
+    }, 280);
   };
 })();
 </script>
@@ -17691,7 +17703,23 @@ textarea.route-addr-input {
   display: flex !important; align-items: center !important; justify-content: center !important; font-size: 18px !important;
 }
 #screen4 .route-note-wrap .route-note-input { padding-right: 10px !important; }
-#mvsFieldEditor { z-index: 2147483000 !important; }
+/* Окно заметки / причины — как «Добавить адреса в слот» */
+.mvs-fe-backdrop { position: fixed; inset: 0; z-index: 2147483000; background: #11182799; display: none; align-items: center; justify-content: center; padding: 14px; box-sizing: border-box; }
+.mvs-fe-backdrop.show { display: flex; animation: mvsFeFade .2s ease; }
+@keyframes mvsFeFade { from { opacity: 0; } to { opacity: 1; } }
+.mvs-fe-modal { width: min(560px, 100%); max-height: 90dvh; overflow: auto; background: var(--card-bg, #fff); color: var(--text-color, #1e293b); border-radius: 20px; padding: 18px; box-shadow: 0 20px 70px #0005; box-sizing: border-box; animation: mvsFeIn .22s ease; }
+@keyframes mvsFeIn { from { transform: translateY(14px) scale(.97); opacity: 0; } to { transform: none; opacity: 1; } }
+.mvs-fe-title { margin: 0 0 7px; font-size: 19px; }
+.mvs-fe-hint { font-size: 12px; opacity: .72; margin-bottom: 13px; }
+.mvs-fe-textarea { box-sizing: border-box; width: 100%; min-height: 120px; padding: 12px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; color: #172033; font: inherit; font-size: 16px; resize: vertical; }
+.mvs-fe-actions { display: flex; gap: 8px; margin-top: 14px; }
+.mvs-fe-actions button { flex: 1; border: 1px solid #cbd5e1; border-radius: 10px; padding: 11px 12px; background: #fff; color: #172033; font-weight: 700; font-size: 15px; }
+.mvs-fe-actions .mvs-fe-save { background: #167548; color: #fff; border-color: #167548; }
+body.dark .mvs-fe-modal { background: #1d2733; color: #eef3f8; }
+body.dark .mvs-fe-textarea { background: #111b26; color: #f1f5f9; border-color: #475569; }
+body.dark .mvs-fe-actions button { background: #263442; color: #f1f5f9; border-color: #475569; }
+body.dark .mvs-fe-actions .mvs-fe-save { background: #167548; border-color: #167548; }
+@media (prefers-reduced-motion: reduce) { .mvs-fe-modal, .mvs-fe-backdrop.show { animation: none; } }
 /* Светлая тема: поля адреса / заметки / причины были тёмно-синими с тёмным текстом — текст не читался */
 body:not(.dark) #screen4 #app4 .route-card textarea.route-addr-input,
 body:not(.dark) #screen4 #app4 .route-card textarea.route-note-input,
