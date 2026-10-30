@@ -9249,26 +9249,30 @@ reasonInput.addEventListener('focus', () => { reasonInput.style.caretColor = 'au
 reasonWrap.appendChild(reasonInput);
 // ─── Кнопки «Заметка» (под адресом) и «Причина» (внизу карточки): тап открывает окно ввода ───
 var noteBtn, reasonBtn;
+var FE_TRI = '<svg class="fe-tri" viewBox="0 0 24 22" width="18" height="16" aria-hidden="true"><path d="M12 1.5 23 20.5H1z" fill="#ff3b30" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/><rect x="11" y="8" width="2" height="6.5" rx="1" fill="#fff"/><circle cx="12" cy="17.2" r="1.2" fill="#fff"/></svg>';
 function refreshFeBtns() {
   if (!noteBtn || !reasonBtn) return;
   const n = (item.note || '').trim(), r = (item.nonDeliveryReason || '').trim();
+  // Заметка: пусто — «📝 Заметка»; есть текст — кнопка окрашена и показывает сам текст
   noteBtn.classList.toggle('filled', !!n);
+  noteBtn.querySelector('.fe-ic').style.display = n ? 'none' : '';
+  noteBtn.querySelector('.fe-lb').textContent = n || 'Заметка';
+  // Причина: название не меняется; есть текст — кнопка окрашена, вместо ⚠️ пульсирует треугольник
   reasonBtn.classList.toggle('filled', !!r);
-  noteBtn.querySelector('.fe-prev').textContent = n;
-  reasonBtn.querySelector('.fe-prev').textContent = r;
+  reasonBtn.querySelector('.fe-ic').innerHTML = r ? FE_TRI : '⚠️';
 }
 (function () {
   function mk(kind, icon, label, target) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'route-fe-btn route-fe-' + kind;
-    b.innerHTML = '<span class="fe-main"><span class="fe-ic">' + icon + '</span><span class="fe-lb">' + label + '</span></span><span class="fe-prev"></span>';
+    b.innerHTML = '<span class="fe-ic">' + icon + '</span><span class="fe-lb">' + label + '</span>';
     ['pointerdown', 'mousedown', 'touchstart'].forEach(t => b.addEventListener(t, e => e.stopPropagation(), { passive: true }));
     b.addEventListener('click', e => { e.stopPropagation(); e.preventDefault(); target.click(); });
     return b;
   }
   noteBtn = mk('note', '📝', 'Заметка', noteInput);
-  reasonBtn = mk('reason', '⚠️', 'Причина', reasonInput);
+  reasonBtn = mk('reason', '⚠️', 'Причина недоставки', reasonInput);
   // «Заметка» — сразу под полем адреса
   const noteRow = document.createElement('div');
   noteRow.className = 'route-fe-row route-fe-row-note';
@@ -17754,23 +17758,21 @@ textarea.route-addr-input {
 
 
 <style id="mvs-fe-buttons">
-/* Кнопки «Заметка» / «Причина» вместо полей в развёрнутой карточке */
+/* Компактные кнопки «Заметка» / «Причина недоставки» (размер как у «ФД обычная») */
 #screen4 #app4 .route-card .route-fe-hidden { display: none !important; }
-#screen4 #app4 .route-card .route-fe-row { display: flex; gap: 8px; width: 100%; }
+#screen4 #app4 .route-card .route-fe-row { display: flex; justify-content: flex-start; width: 100%; margin: 0; }
 #screen4 #app4 .route-card.collapsed .route-fe-row { display: none !important; }
-#screen4 #app4 .route-card .route-fe-btn { flex: 1 1 0; min-width: 0; min-height: 44px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 8px 12px; border: 1px solid #d8dee5; border-radius: 12px; background: rgba(245,247,250,.9); color: #243541; font: inherit; font-size: 14px; font-weight: 700; text-align: left; cursor: pointer; -webkit-appearance: none; appearance: none; }
+#screen4 #app4 .route-card .route-fe-btn { display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto; width: auto; max-width: 100%; min-width: 0; min-height: 38px; padding: 7px 18px; border: 1px solid #d8dee5; border-radius: 22px; background: rgba(245,247,250,.95); color: #243541; font: inherit; font-size: 15px; font-weight: 700; line-height: 1.25; text-align: left; cursor: pointer; -webkit-appearance: none; appearance: none; box-shadow: 0 2px 6px rgba(0,0,0,.12); }
 #screen4 #app4 .route-card .route-fe-btn:active { transform: scale(.97); }
-#screen4 #app4 .route-card .route-fe-btn .fe-main { display: inline-flex; align-items: center; gap: 6px; }
-#screen4 #app4 .route-card .route-fe-btn .fe-prev { display: none; max-width: 100%; font-size: 12px; font-weight: 500; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#screen4 #app4 .route-card .route-fe-btn.filled .fe-prev { display: block; }
+#screen4 #app4 .route-card .route-fe-btn .fe-ic { display: inline-flex; align-items: center; flex: 0 0 auto; }
+#screen4 #app4 .route-card .route-fe-btn .fe-lb { min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; overflow-wrap: anywhere; word-break: break-word; }
 #screen4 #app4 .route-card .route-fe-note.filled { border-color: #3498db; background: #eaf3fb; color: #1f5f8f; }
 #screen4 #app4 .route-card .route-fe-reason.filled { border-color: #e67e22; background: #fff4e5; color: #a85a00; }
-body.dark #screen4 #app4 .route-card .route-fe-btn { background: #2c3a48; border-color: #3a4a5a; color: #e8eef5; }
+#screen4 #app4 .route-card .route-fe-btn .fe-tri { transform-origin: 50% 70%; animation: mvsNdPulse 1.2s ease-in-out infinite; filter: drop-shadow(0 0 4px rgba(255,59,48,.85)); }
+body.dark #screen4 #app4 .route-card .route-fe-btn { background: #2c3a48; border-color: #3a4a5a; color: #e8eef5; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
 body.dark #screen4 #app4 .route-card .route-fe-note.filled { background: #1f3a52; border-color: #5dade2; color: #bfe0f7; }
 body.dark #screen4 #app4 .route-card .route-fe-reason.filled { background: #4a3315; border-color: #f0a04b; color: #ffd9a8; }
-#screen4 #app4 .route-card .route-note-wrap .route-fe-row { margin: 0; }
-#screen4 #app4 .route-card .route-fe-row-reason { margin: 0; }
-#screen4 #app4 .route-card .route-note-wrap { height: auto !important; min-height: 0 !important; }
+@media (prefers-reduced-motion: reduce) { #screen4 #app4 .route-card .route-fe-btn .fe-tri { animation: none; } }
 </style>
 <style id="mvs-address-pin-right-no-mic">
 /* Микрофоны убраны. Булавка (координаты) — справа от поля адреса, а не поверх текста. */
