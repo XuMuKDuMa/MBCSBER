@@ -83,6 +83,18 @@
   }
   pingAlive();
   setTimeout(pingAlive, 1500);
+  // воркер сообщает, что на сервере лежит новая версия (страница открывается из кэша мгновенно, а обновляется фоном)
+  try {
+    if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', function (e) {
+      if (!e.data || e.data.type !== 'updated') return;
+      var n = 0, t = setInterval(function () {
+        if (typeof iosBanner === 'function') {
+          clearInterval(t);
+          try { iosBanner({ title: 'Доступно обновление', sub: 'Загружено в фоне. Обнови, когда удобно.', icon: '⬆️', kind: 'info', sticky: true, actions: [{ label: 'Обновить', primary: true, fn: function () { location.reload(); } }, { label: 'Позже' }] }); } catch (x) {}
+        } else if (++n > 40) clearInterval(t);
+      }, 500);
+    });
+  } catch (e) {}
   var __wd = 0;
   setTimeout(function wd() {
     if (window.__appReady) return;
@@ -16878,9 +16890,9 @@ try { sessionStorage.removeItem('mvs_autoheal'); } catch (e) {}
   // Карта (Leaflet/Nominatim) по-прежнему требует интернет — это ожидаемо.
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      // ?v=4 — меняем адрес скрипта при каждой новой версии воркера: оболочка APK хранит старый sw.js в своём кэше
+      // ?v=5 — меняем адрес скрипта при каждой новой версии воркера: оболочка APK хранит старый sw.js в своём кэше
       // и без этого новый воркер до телефона не доходит
-      const SW_URL = './sw.js?v=4';
+      const SW_URL = './sw.js?v=5';
       // На одном адресе может работать только один воркер. Сборщик APK подсовывает свой (__wta_offline_sw__.js),
       // и он ломает запуск (белый экран). Находим чужой воркер, удаляем его и его кэш и ставим свой.
       async function ensureOurWorker() {
