@@ -2,7 +2,22 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<script>try{var __d=localStorage.getItem('mvs_theme')==='dark',__r=document.documentElement;__r.style.background=__d?'#101820':'#e6f6ec';__r.style.colorScheme=__d?'dark':'light';}catch(e){}</script>
+<script>try{var __d=localStorage.getItem('mvs_theme')==='dark',__r=document.documentElement;__r.style.background=__d?'#101820':'#e6f6ec';__r.style.colorScheme=__d?'dark':'light';}catch(e){}
+// Скрипты приложения запускаются ПОСЛЕ первой отрисовки заставки (см. загрузчик в конце body).
+// Если они подписываются на DOMContentLoaded/load, когда событие уже прошло — вызываем обработчик сами.
+(function(){
+  function wrap(t){
+    var o=t.addEventListener;
+    t.addEventListener=function(type,fn,opts){
+      if(window.__mvsRunning&&typeof fn==='function'&&((type==='DOMContentLoaded'&&document.readyState!=='loading')||(type==='load'&&document.readyState==='complete'))){
+        setTimeout(function(){try{fn.call(t,new Event(type))}catch(e){console.error(e)}},0);return;
+      }
+      return o.apply(this,arguments);
+    };
+  }
+  try{wrap(window);wrap(document);}catch(e){}
+})();
+</script>
 <script>
 // ─── Страховка от «белого экрана» ───
 // Если приложение не дошло до конца запуска за 6 секунд: один раз само чистит кэш и сервис-воркер
@@ -83,6 +98,81 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#101820">
 <!-- Подключение DaData для подсказок адресов (локально) -->
+</head>
+<body class="tab-4">
+<style id="mvs-liquid-splash-style">
+#mvsLiquidSplash{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;padding:24px;overflow:hidden;background:radial-gradient(ellipse at 15% 15%,rgba(65,190,120,.24),transparent 42%),radial-gradient(ellipse at 85% 80%,rgba(15,150,85,.20),transparent 45%),linear-gradient(145deg,rgba(220,255,232,.34) 0%,rgba(190,245,210,.25) 48%,rgba(225,255,235,.30) 100%);backdrop-filter:blur(5px) saturate(125%);-webkit-backdrop-filter:blur(5px) saturate(125%);color:#26364a;transition:transform 1.05s cubic-bezier(.16,1,.3,1),opacity .95s cubic-bezier(.16,1,.3,1),border-radius 1.05s cubic-bezier(.16,1,.3,1),filter .95s cubic-bezier(.16,1,.3,1);touch-action:none;will-change:transform,opacity;transform-origin:50% 50%;transform:translate3d(0,var(--mls-drag-y,0px),0)}
+#mvsLiquidSplash:before,#mvsLiquidSplash:after{content:"";position:absolute;border-radius:50%;filter:blur(2px);pointer-events:none}
+#mvsLiquidSplash:before{width:62vw;height:62vw;max-width:420px;max-height:420px;left:-18%;top:-10%;background:linear-gradient(135deg,#ffffff88,#9ccdf044);border:1px solid #ffffff88}
+#mvsLiquidSplash:after{width:72vw;height:72vw;max-width:480px;max-height:480px;right:-24%;bottom:-16%;background:linear-gradient(135deg,#ffffff77,#bd8ce544);border:1px solid #ffffff80}
+#mvsLiquidSplash .mls-card{position:relative;z-index:1;width:min(100%,440px);padding:28px 22px 24px;border:1px solid #ffffffb8;border-radius:32px;background:linear-gradient(135deg,rgba(226,255,235,.78),rgba(196,245,214,.52));box-shadow:0 24px 70px rgba(25,100,55,.18),inset 0 1px 0 #ffffffd9;backdrop-filter:blur(28px) saturate(150%);-webkit-backdrop-filter:blur(28px) saturate(150%);text-align:center}
+#mvsLiquidSplash .mls-logo{font-size:14px;font-weight:800;letter-spacing:.28em;color:#26784b;margin-bottom:18px}
+#mvsLiquidSplash .mls-sber{font-size:clamp(38px,11vw,58px);line-height:1;font-weight:950;letter-spacing:.04em;color:#159447;margin:0 0 14px;text-shadow:0 2px 0 rgba(255,255,255,.7)}
+#mvsLiquidSplash .mls-title{font-size:clamp(30px,8vw,42px);line-height:1.1;font-weight:850;letter-spacing:-.04em;margin:0 0 8px}
+#mvsLiquidSplash .mls-date{font-size:14px;color:#66788b;margin-bottom:24px}
+#mvsLiquidSplash .mls-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 20px}
+#mvsLiquidSplash .mls-stat{padding:18px 12px;border:1px solid #ffffffc7;border-radius:22px;background:#ffffff75;box-shadow:inset 0 1px 0 #fff}
+#mvsLiquidSplash .mls-stat-num{font-size:clamp(28px,7vw,38px);font-weight:850;line-height:1.1;color:#168746}
+#mvsLiquidSplash .mls-stat:nth-child(2) .mls-stat-num{color:#278a53}
+#mvsLiquidSplash .mls-stat-label{font-size:13px;font-weight:650;color:#596b7e;margin-top:8px}
+#mvsLiquidSplash .mls-hint{font-size:14px;color:#536d86;margin-top:12px}
+#mvsLiquidSplash .mls-open{appearance:none;border:1px solid #ffffffb8;border-radius:999px;padding:14px 24px;width:100%;font:inherit;font-weight:750;color:#fff;background:linear-gradient(110deg,#159447,#35b86b);box-shadow:0 10px 24px #6b80ac40;cursor:pointer}
+#mvsLiquidSplash.mls-dragging{transition:none!important}
+#mvsLiquidSplash.mls-dragging .mls-card{transition:none!important}
+#mvsLiquidSplash.mls-hide{opacity:0;transform:translate3d(0,-108%,0) scale(.94);border-radius:0 0 42px 42px;filter:blur(8px);pointer-events:none;box-shadow:0 30px 90px #24384c55}
+#mvsLiquidSplash .mls-card{transition:transform 1.05s cubic-bezier(.16,1,.3,1),opacity .85s cubic-bezier(.16,1,.3,1),filter .9s cubic-bezier(.16,1,.3,1)}
+#mvsLiquidSplash.mls-hide .mls-card{transform:translate3d(0,-28px,0) scale(.96);opacity:.45;filter:blur(3px)}
+#mvsLiquidSplash .mls-open{transition:transform .18s ease,box-shadow .18s ease}
+#mvsLiquidSplash .mls-open:active{transform:scale(.97)}
+#mvsLiquidSplash:before,#mvsLiquidSplash:after{transition:transform 1.05s cubic-bezier(.16,1,.3,1),opacity .9s cubic-bezier(.16,1,.3,1)}
+#mvsLiquidSplash.mls-hide:before{transform:translate3d(-8vw,-18vh,0) scale(.8);opacity:0}
+#mvsLiquidSplash.mls-hide:after{transform:translate3d(8vw,18vh,0) scale(.8);opacity:0}
+@media(prefers-reduced-motion:reduce){#mvsLiquidSplash{transition:none}}
+body.mvs-splash-open{overflow:hidden}
+
+</style>
+
+
+
+<style id="mvs-splash-v2">
+#mvsLiquidSplash{touch-action:none;-webkit-user-select:none;user-select:none;will-change:transform,opacity}
+#mvsLiquidSplash .mls-hint{animation:mlsHint 1.9s ease-in-out infinite}
+@keyframes mlsHint{0%,100%{transform:translateY(0);opacity:.75}50%{transform:translateY(-5px);opacity:1}}
+/* «Подпрыгивание» элементов после разблокировки, как иконки на iPhone */
+@keyframes mvsPop{
+  0%{opacity:0;transform:translate3d(0,28px,0) scale(.55)}
+  55%{opacity:1;transform:translate3d(0,-7px,0) scale(1.1)}
+  78%{transform:translate3d(0,2px,0) scale(.97)}
+  100%{opacity:1;transform:translate3d(0,0,0) scale(1)}
+}
+body.mvs-reveal #screen4 .route-stat,
+body.mvs-reveal #screen4 .slot-btn,
+body.mvs-reveal #screen4 .route-time-header,
+body.mvs-reveal #screen4 .route-card,
+body.mvs-reveal #bottomBar .bb-item{
+  animation:mvsPop .75s cubic-bezier(.2,.9,.3,1) both;
+  animation-delay:calc(var(--rv,0) * 45ms + 80ms);
+}
+@media(prefers-reduced-motion:reduce){
+  body.mvs-reveal #screen4 .route-stat,body.mvs-reveal #screen4 .slot-btn,body.mvs-reveal #screen4 .route-time-header,body.mvs-reveal #screen4 .route-card,body.mvs-reveal #bottomBar .bb-item{animation:none}
+}
+</style>
+<div id="mvsLiquidSplash" role="dialog" aria-label="Заставка МВС">
+  <div class="mls-card">
+    <div class="mls-sber">СБЕР</div><div class="mls-logo">МВС · WORKSPACE</div>
+    <h1 class="mls-title">Твой рабочий день</h1>
+    <div class="mls-date" id="mlsDate"></div>
+    <div class="mls-stats">
+      <div class="mls-stat"><div class="mls-stat-num" id="mlsDailyUP">—</div><div class="mls-stat-label">УП выполнено за день</div></div>
+      <div class="mls-stat"><div class="mls-stat-num" id="mlsDailyFD">—</div><div class="mls-stat-label">УП на ФД</div></div>
+    </div>
+    <button type="button" class="mls-open" id="mlsOpenBtn">Открыть МВС ↑</button>
+    <div class="mls-hint">Свайпни вверх, чтобы продолжить</div>
+  </div>
+</div>
+
+
+
 <style>
   /* ═══════════════════════════════════════════════
    ЦИТАТА ДНЯ
@@ -6523,38 +6613,7 @@ body.dark .route-card::after{filter:saturate(1.15) brightness(1.12)}
 @media(max-width:360px){#screen3 #app3 .mvs-efficiency-number{font-size:33px}
 #screen3 #app3 .sec-total { background:linear-gradient(110deg,#153e4a,#1b6a68)!important; }
 </style>
-</head>
-<body class="tab-4">
-<style id="mvs-liquid-splash-style">
-#mvsLiquidSplash{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;padding:24px;overflow:hidden;background:radial-gradient(ellipse at 15% 15%,rgba(65,190,120,.24),transparent 42%),radial-gradient(ellipse at 85% 80%,rgba(15,150,85,.20),transparent 45%),linear-gradient(145deg,rgba(220,255,232,.34) 0%,rgba(190,245,210,.25) 48%,rgba(225,255,235,.30) 100%);backdrop-filter:blur(5px) saturate(125%);-webkit-backdrop-filter:blur(5px) saturate(125%);color:#26364a;transition:transform 1.05s cubic-bezier(.16,1,.3,1),opacity .95s cubic-bezier(.16,1,.3,1),border-radius 1.05s cubic-bezier(.16,1,.3,1),filter .95s cubic-bezier(.16,1,.3,1);touch-action:none;will-change:transform,opacity;transform-origin:50% 50%;transform:translate3d(0,var(--mls-drag-y,0px),0)}
-#mvsLiquidSplash:before,#mvsLiquidSplash:after{content:"";position:absolute;border-radius:50%;filter:blur(2px);pointer-events:none}
-#mvsLiquidSplash:before{width:62vw;height:62vw;max-width:420px;max-height:420px;left:-18%;top:-10%;background:linear-gradient(135deg,#ffffff88,#9ccdf044);border:1px solid #ffffff88}
-#mvsLiquidSplash:after{width:72vw;height:72vw;max-width:480px;max-height:480px;right:-24%;bottom:-16%;background:linear-gradient(135deg,#ffffff77,#bd8ce544);border:1px solid #ffffff80}
-#mvsLiquidSplash .mls-card{position:relative;z-index:1;width:min(100%,440px);padding:28px 22px 24px;border:1px solid #ffffffb8;border-radius:32px;background:linear-gradient(135deg,rgba(226,255,235,.78),rgba(196,245,214,.52));box-shadow:0 24px 70px rgba(25,100,55,.18),inset 0 1px 0 #ffffffd9;backdrop-filter:blur(28px) saturate(150%);-webkit-backdrop-filter:blur(28px) saturate(150%);text-align:center}
-#mvsLiquidSplash .mls-logo{font-size:14px;font-weight:800;letter-spacing:.28em;color:#26784b;margin-bottom:18px}
-#mvsLiquidSplash .mls-sber{font-size:clamp(38px,11vw,58px);line-height:1;font-weight:950;letter-spacing:.04em;color:#159447;margin:0 0 14px;text-shadow:0 2px 0 rgba(255,255,255,.7)}
-#mvsLiquidSplash .mls-title{font-size:clamp(30px,8vw,42px);line-height:1.1;font-weight:850;letter-spacing:-.04em;margin:0 0 8px}
-#mvsLiquidSplash .mls-date{font-size:14px;color:#66788b;margin-bottom:24px}
-#mvsLiquidSplash .mls-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 20px}
-#mvsLiquidSplash .mls-stat{padding:18px 12px;border:1px solid #ffffffc7;border-radius:22px;background:#ffffff75;box-shadow:inset 0 1px 0 #fff}
-#mvsLiquidSplash .mls-stat-num{font-size:clamp(28px,7vw,38px);font-weight:850;line-height:1.1;color:#168746}
-#mvsLiquidSplash .mls-stat:nth-child(2) .mls-stat-num{color:#278a53}
-#mvsLiquidSplash .mls-stat-label{font-size:13px;font-weight:650;color:#596b7e;margin-top:8px}
-#mvsLiquidSplash .mls-hint{font-size:14px;color:#536d86;margin-top:12px}
-#mvsLiquidSplash .mls-open{appearance:none;border:1px solid #ffffffb8;border-radius:999px;padding:14px 24px;width:100%;font:inherit;font-weight:750;color:#fff;background:linear-gradient(110deg,#159447,#35b86b);box-shadow:0 10px 24px #6b80ac40;cursor:pointer}
-#mvsLiquidSplash.mls-dragging{transition:none!important}
-#mvsLiquidSplash.mls-dragging .mls-card{transition:none!important}
-#mvsLiquidSplash.mls-hide{opacity:0;transform:translate3d(0,-108%,0) scale(.94);border-radius:0 0 42px 42px;filter:blur(8px);pointer-events:none;box-shadow:0 30px 90px #24384c55}
-#mvsLiquidSplash .mls-card{transition:transform 1.05s cubic-bezier(.16,1,.3,1),opacity .85s cubic-bezier(.16,1,.3,1),filter .9s cubic-bezier(.16,1,.3,1)}
-#mvsLiquidSplash.mls-hide .mls-card{transform:translate3d(0,-28px,0) scale(.96);opacity:.45;filter:blur(3px)}
-#mvsLiquidSplash .mls-open{transition:transform .18s ease,box-shadow .18s ease}
-#mvsLiquidSplash .mls-open:active{transform:scale(.97)}
-#mvsLiquidSplash:before,#mvsLiquidSplash:after{transition:transform 1.05s cubic-bezier(.16,1,.3,1),opacity .9s cubic-bezier(.16,1,.3,1)}
-#mvsLiquidSplash.mls-hide:before{transform:translate3d(-8vw,-18vh,0) scale(.8);opacity:0}
-#mvsLiquidSplash.mls-hide:after{transform:translate3d(8vw,18vh,0) scale(.8);opacity:0}
-@media(prefers-reduced-motion:reduce){#mvsLiquidSplash{transition:none}}
-body.mvs-splash-open{overflow:hidden}
-
+<style id="mvs-liquid-splash-rest">
 /* Контраст названий встреч в светлой теме */
 body:not(.dark) #screen4 .route-card,
 body:not(.dark) #screen4 .route-card .route-addr-input,
@@ -6572,47 +6631,6 @@ body:not(.dark) #screen4 .route-card .route-note-input::placeholder {
 .daily-quote, .dq-text, .dq-author, .dq-icon, .dq-day { display:none !important; }
 
 </style>
-
-
-<style id="mvs-splash-v2">
-#mvsLiquidSplash{touch-action:none;-webkit-user-select:none;user-select:none;will-change:transform,opacity}
-#mvsLiquidSplash .mls-hint{animation:mlsHint 1.9s ease-in-out infinite}
-@keyframes mlsHint{0%,100%{transform:translateY(0);opacity:.75}50%{transform:translateY(-5px);opacity:1}}
-/* «Подпрыгивание» элементов после разблокировки, как иконки на iPhone */
-@keyframes mvsPop{
-  0%{opacity:0;transform:translate3d(0,28px,0) scale(.55)}
-  55%{opacity:1;transform:translate3d(0,-7px,0) scale(1.1)}
-  78%{transform:translate3d(0,2px,0) scale(.97)}
-  100%{opacity:1;transform:translate3d(0,0,0) scale(1)}
-}
-body.mvs-reveal #screen4 .route-stat,
-body.mvs-reveal #screen4 .slot-btn,
-body.mvs-reveal #screen4 .route-time-header,
-body.mvs-reveal #screen4 .route-card,
-body.mvs-reveal #bottomBar .bb-item{
-  animation:mvsPop .75s cubic-bezier(.2,.9,.3,1) both;
-  animation-delay:calc(var(--rv,0) * 45ms + 80ms);
-}
-@media(prefers-reduced-motion:reduce){
-  body.mvs-reveal #screen4 .route-stat,body.mvs-reveal #screen4 .slot-btn,body.mvs-reveal #screen4 .route-time-header,body.mvs-reveal #screen4 .route-card,body.mvs-reveal #bottomBar .bb-item{animation:none}
-}
-</style>
-<div id="mvsLiquidSplash" role="dialog" aria-label="Заставка МВС">
-  <div class="mls-card">
-    <div class="mls-sber">СБЕР</div><div class="mls-logo">МВС · WORKSPACE</div>
-    <h1 class="mls-title">Твой рабочий день</h1>
-    <div class="mls-date" id="mlsDate"></div>
-    <div class="mls-stats">
-      <div class="mls-stat"><div class="mls-stat-num" id="mlsDailyUP">—</div><div class="mls-stat-label">УП выполнено за день</div></div>
-      <div class="mls-stat"><div class="mls-stat-num" id="mlsDailyFD">—</div><div class="mls-stat-label">УП на ФД</div></div>
-    </div>
-    <button type="button" class="mls-open" id="mlsOpenBtn">Открыть МВС ↑</button>
-    <div class="mls-hint">Свайпни вверх, чтобы продолжить</div>
-  </div>
-</div>
-
-
-
 <div class="screens-viewport" id="screensViewport">
   <div class="screens-track" id="screensTrack">
 
@@ -6986,7 +7004,7 @@ body.mvs-reveal #bottomBar .bb-item{
   </div>
 </div>
 
-<script>
+<script type="text/plain" data-mvs-defer>
 
   // ═══════════════════════════════════════════════
 // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ КАРТЫ (объявляем СРАЗУ)
@@ -7495,7 +7513,7 @@ if (currentTab === 4 && n !== 4 && n !== 5) {
   }
   currentTab = n;
   try { localStorage.setItem('mvs_last_tab', String(n)); } catch (e) {}
-  document.body.classList.remove('tab-1', 'tab-2', 'tab-3', 'tab-4');
+  document.body.classList.remove('tab-1', 'tab-2', 'tab-3', 'tab-4', 'tab-5');
   document.body.classList.add('tab-' + n);
   updateBottomBarActive(n);
 
@@ -15271,7 +15289,7 @@ function forceOpenActivitiesTab() {
   
   screensTrack.style.transition = 'none';
   screensTrack.style.transform = `translateX(${-(_startOnMap ? 4 : 3) * w}px)`;
-  document.body.classList.remove('tab-1', 'tab-2', 'tab-3', 'tab-4');
+  document.body.classList.remove('tab-1', 'tab-2', 'tab-3', 'tab-4', 'tab-5');
   document.body.classList.add('tab-4');
   updateBottomBarActive(4);
   currentTab = 4;
@@ -15427,7 +15445,7 @@ const VPN_APIS = [
   { url: 'https://api.country.is/',                map: d => d && d.country ? { country: d.country, org: '' } : null },
   { url: 'https://get.geojs.io/v1/ip/geo.json',    map: d => d && d.country_code ? { country: d.country_code, org: d.organization_name || '' } : null },
   { url: 'https://api.ip.sb/geoip',                map: d => d && d.country_code ? { country: d.country_code, org: (d.isp || '') + ' ' + (d.organization || '') } : null },
-  // JSONP — запрос через <script>, не зависит от CORS (запасной путь для WebView в APK)
+  // JSONP — запрос через <script type="text/plain" data-mvs-defer>, не зависит от CORS (запасной путь для WebView в APK)
   { url: 'https://get.geojs.io/v1/ip/geo.js', jsonp: true, map: d => d && d.country_code ? { country: d.country_code, org: d.organization_name || '' } : null },
   { url: 'https://ipapi.co/jsonp/',           jsonp: true, map: d => d && d.country_code ? { country: d.country_code, org: (d.org || '') + ' ' + (d.asn || '') } : null }
 ];
@@ -16846,7 +16864,7 @@ try { window.__bootMark && window.__bootMark('ready'); } catch (e) {}
 try { sessionStorage.removeItem('mvs_autoheal'); } catch (e) {}
 </script>
 
-<script>
+<script type="text/plain" data-mvs-defer>
   // ─── Регистрация Service Worker для офлайн-работы ───
   // Карта (Leaflet/Nominatim) по-прежнему требует интернет — это ожидаемо.
   if ('serviceWorker' in navigator) {
@@ -16908,7 +16926,7 @@ try { sessionStorage.removeItem('mvs_autoheal'); } catch (e) {}
       if(a) a.textContent=up.toFixed(2).replace('.', ',');
       if(b) b.textContent=upFD.toFixed(2).replace('.', ',');
     }
-    setTimeout(stats,500);setTimeout(stats,1600);
+    setTimeout(stats,500);setTimeout(stats,1600);setTimeout(stats,3200);
     setTimeout(()=>{try{if(window.map&&window.map.invalidateSize)window.map.invalidateSize(true)}catch(e){}},500);
 
     const H=()=>window.innerHeight||800;
@@ -17022,7 +17040,7 @@ try { sessionStorage.removeItem('mvs_autoheal'); } catch (e) {}
 })();
 </script>
 
-<script>
+<script type="text/plain" data-mvs-defer>
 // FIX: intercept clicks on the two meeting tabs before any legacy/global handlers
 // can treat the tap as a confirmation/action on the active meeting card.
 document.addEventListener('click', function(ev) {
@@ -17041,7 +17059,7 @@ document.addEventListener('click', function(ev) {
 }, true);
 </script>
 
-<script>
+<script type="text/plain" data-mvs-defer>
 /* Плавающая голосовая кнопка МВС: команда «добавь встречу с 10 до 12 адрес…» */
 (function installMvsFloatingVoice(){
   if (window.__mvsFloatingVoiceInstalled) return;
@@ -17329,7 +17347,7 @@ body.dark #mvs-card-actions button[data-action="confirm"]{background:#168b59;col
 </style>
 
 
-<script id="mvs-route-card-longpress">
+<script type="text/plain" data-mvs-defer data-mvs-id="mvs-route-card-longpress">
 (function(){
   if(window.__mvsLongPressInstalled)return;
   window.__mvsLongPressInstalled=true;
@@ -17411,7 +17429,7 @@ body:not(.dark) #app4 .route-card .route-addr-wrap {
 </style>
 
 
-<script id="mvs-startup-activity-and-white-screen-fix">
+<script type="text/plain" data-mvs-defer data-mvs-id="mvs-startup-activity-and-white-screen-fix">
 (function(){
   function showActivities(){
     try {
@@ -17651,7 +17669,7 @@ textarea.route-addr-input {
     height: 0 !important;
   }
 </style>
-<script id="mvs-unified-field-autogrow">
+<script type="text/plain" data-mvs-defer data-mvs-id="mvs-unified-field-autogrow">
 // Единая подгонка высоты полей адреса / заметки / причины.
 // Раньше работало 5 скриптов: на каждое нажатие они сбрасывали высоту поля в 0/auto и ставили её
 // заново по 3–4 раза — прямо посреди набора. Экранная клавиатура Android (особенно русская, со словарём)
@@ -17752,7 +17770,7 @@ textarea.route-addr-input {
 })();
 </script>
 
-<script id="mvs-vpn-monitor">
+<script type="text/plain" data-mvs-defer data-mvs-id="mvs-vpn-monitor">
 // Фоновый контроль VPN. Раньше проверка запускалась только при открытии вкладки «Карта» и нажатии «Маршрут»,
 // поэтому на других экранах и при включении VPN уже во время работы предупреждение не приходило.
 (function () {
@@ -17792,7 +17810,7 @@ textarea.route-addr-input {
 })();
 </script>
 
-<script id="mvs-field-editor">
+<script type="text/plain" data-mvs-defer data-mvs-id="mvs-field-editor">
 // Окно редактирования «Заметки» и «Причины недоставки» — в том же стиле, что «Добавить адреса в слот»:
 // затемнение, центральная карточка, заголовок, пояснение, кнопки «Отмена» / «Сохранить».
 (function () {
@@ -17947,5 +17965,27 @@ body:not(.dark) #screen4 #app4 .route-card .route-coords-btn { background: #e6ed
 }
 </style>
 
+<script>
+(function(){
+  var ran=false;
+  function run(){
+    if(ran) return; ran=true;
+    var list=[].slice.call(document.querySelectorAll('script[data-mvs-defer]'));
+    window.__mvsRunning=true;
+    list.forEach(function(old){
+      var n=document.createElement('script');
+      if(old.getAttribute('data-mvs-id')) n.id=old.getAttribute('data-mvs-id');
+      n.textContent=old.textContent;
+      old.parentNode.replaceChild(n,old);
+    });
+    window.__mvsRunning=false;
+  }
+  function go(){
+    requestAnimationFrame(function(){ setTimeout(run,0); });   // сначала кадр с заставкой, потом тяжёлая инициализация
+    setTimeout(run,700);                                       // страховка, если кадры не идут (приложение в фоне)
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',go,{once:true}); else go();
+})();
+</script>
 </body>
 </html>
