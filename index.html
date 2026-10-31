@@ -2,6 +2,8 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://tile.openstreetmap.org" crossorigin>
 <script>try{var __d=localStorage.getItem('mvs_theme')==='dark',__r=document.documentElement;__r.style.background=__d?'#101820':'#e6f6ec';__r.style.colorScheme=__d?'dark':'light';}catch(e){}
 // Скрипты приложения запускаются ПОСЛЕ первой отрисовки заставки (см. загрузчик в конце body).
 // Если они подписываются на DOMContentLoaded/load, когда событие уже прошло — вызываем обработчик сами.
@@ -134,6 +136,13 @@ body.mvs-splash-open{overflow:hidden}
 
 
 
+<style id="mvs-map-placeholder">
+#mapView{background:#e6ebf0}
+body.dark #mapView{background:#18222d}
+#mapView:not(.leaflet-container)::before{content:"🗺 Загружаем карту…";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#6b7c8d;font:600 15px/1.3 system-ui,-apple-system,sans-serif;animation:mvsMapPulse 1.4s ease-in-out infinite}
+#mapView[data-fail]:not(.leaflet-container)::before{content:"⚠️ Карта недоступна — нет интернета";animation:none}
+@keyframes mvsMapPulse{50%{opacity:.45}}
+</style>
 <style id="mvs-splash-v2">
 #mvsLiquidSplash{touch-action:none;-webkit-user-select:none;user-select:none;will-change:transform,opacity}
 #mvsLiquidSplash .mls-hint{animation:mlsHint 1.9s ease-in-out infinite}
@@ -15626,7 +15635,7 @@ function loadLeaflet(callback) {
   if (window.L) { if (callback) callback(); return; }
   if (callback) _leafletQueue.push(callback);
   if (_leafletLoading) return;                       // уже грузится — второй раз не качаем
-  if (navigator.onLine === false) { _leafletQueue = []; try { showToast('⚠️ Нет интернета — карта недоступна'); } catch (e) {} return; }
+  if (navigator.onLine === false) { _leafletQueue = []; const mv = document.getElementById('mapView'); if (mv) mv.setAttribute('data-fail', '1'); try { showToast('⚠️ Нет интернета — карта недоступна'); } catch (e) {} return; }
   _leafletLoading = true;
 
   const link = document.createElement('link');
@@ -15634,8 +15643,8 @@ function loadLeaflet(callback) {
   link.href = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css';
   document.head.appendChild(link);
 
-  const finish = () => { _leafletLoading = false; const q = _leafletQueue; _leafletQueue = []; q.forEach(f => { try { f(); } catch (e) { console.warn(e); } }); };
-  const fail = () => { _leafletLoading = false; _leafletQueue = []; console.error('❌ Leaflet не загрузился'); try { showToast('⚠️ Карта не загрузилась — проверь интернет'); } catch (e) {} };
+  const finish = () => { _leafletLoading = false; const mv0 = document.getElementById('mapView'); if (mv0) mv0.removeAttribute('data-fail'); const q = _leafletQueue; _leafletQueue = []; q.forEach(f => { try { f(); } catch (e) { console.warn(e); } }); };
+  const fail = () => { _leafletLoading = false; _leafletQueue = []; const mv = document.getElementById('mapView'); if (mv) mv.setAttribute('data-fail', '1'); console.error('❌ Leaflet не загрузился'); try { showToast('⚠️ Карта не загрузилась — проверь интернет'); } catch (e) {} };
   const load = (url, ok, bad) => {
     const sc = document.createElement('script'); let done = false;
     const t = setTimeout(() => { if (!done) { done = true; sc.remove(); bad(); } }, 8000);   // не висим вечно на медленной сети
@@ -15648,7 +15657,7 @@ function loadLeaflet(callback) {
 }
 // Фоновая подгрузка Leaflet уже после запуска, в простое — карта открывается быстрее, а старт не тормозит
 window.addEventListener('load', () => {
-  setTimeout(() => { try { if (!window.L && navigator.onLine !== false) loadLeaflet(); } catch (e) {} }, 6000);
+  setTimeout(() => { try { if (!window.L && navigator.onLine !== false) loadLeaflet(); } catch (e) {} }, 2500);
 });
 
 // Инициализация карты
