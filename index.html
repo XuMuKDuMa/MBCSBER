@@ -29,7 +29,17 @@
   window.__appReady = false;
   // ─── Журнал запусков для диагностики: последние 10 запусков в localStorage ───
   var boot = { t: Date.now(), w: window.innerWidth, h: window.innerHeight, sw: !!(navigator.serviceWorker && navigator.serviceWorker.controller), vis: document.visibilityState, ol: navigator.onLine, nav: '' };
-  try { var nv = performance.getEntriesByType('navigation')[0]; boot.nav = nv ? nv.type : ''; } catch (e) {}
+  try {
+    var nv = performance.getEntriesByType('navigation')[0];
+    boot.nav = nv ? nv.type : '';
+    if (nv) {
+      boot.fb = Math.round(nv.responseStart);     // мс до первого байта страницы
+      boot.fe = Math.round(nv.responseEnd);       // мс до полной загрузки страницы (пока её нет — белый экран)
+      boot.wk = Math.round(nv.workerStart || 0);  // >0: страницу отдавал сервис-воркер
+      boot.tx = Math.round((nv.transferSize || 0) / 1000);  // КБ по сети (0 — из кэша)
+    }
+  } catch (e) {}
+  try { var _c = navigator.serviceWorker && navigator.serviceWorker.controller; boot.ctl = _c ? _c.scriptURL.split('/').pop().split('?')[0] : ''; } catch (e) {}
   function bootSave() {
     try {
       var a = JSON.parse(localStorage.getItem('boot_log') || '[]');
@@ -6789,7 +6799,7 @@ body:not(.dark) #screen4 .route-card .route-note-input::placeholder {
   <button id="btnFixDupHistory">🔧 Исправить дубли в истории</button>
   <button id="btnExportData" style="color:#27ae60;">💾 Сохранить данные</button>
   <button id="btnImportData" style="color:#2980b9;">📂 Загрузить данные</button>
-  <button id="btnClearMapCache" onclick="window.__clearMapCache && window.__clearMapCache()" style="color:#e67e22;">🗺 Очистить кэш карты</button>
+  <button id="btnClearMapCache" onclick="window.__clearMapCache && window.__clearMapCache()" style="color:#e67e22;">🗺 Очистить кэш карты</button>  <button id="btnBootLog" style="color:#8e44ad;">🧪 Диагностика запуска</button>
 </div>
 
 <div id="daDataKeyModal" class="modal" style="display:none;position:fixed;inset:0;z-index:2147483646;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:20px;">
@@ -12136,9 +12146,10 @@ document.getElementById('btnBootLog')?.addEventListener('click', async () => {
   const hm = t => new Date(t).toLocaleDateString('ru-RU').slice(0, 5) + ' ' + new Date(t).toLocaleTimeString('ru-RU');
   const lines = ['— Запуски страницы —'].concat(a.slice(-5).reverse().map(b => {
     return [
-      hm(b.t) + ' · ' + (b.nav || '?') + ' · SW ' + (b.sw ? 'да' : 'нет'),
+      hm(b.t) + ' · ' + (b.nav || '?') + ' · воркер: ' + (b.ctl || (b.sw ? 'да' : 'нет')),
+      (b.fe != null ? '   страница: 1-й байт ' + b.fb + ' мс, целиком ' + b.fe + ' мс · ' + (b.wk ? 'через воркер' : 'без воркера') + ' · по сети ' + (b.tx || 0) + ' КБ' : ''),
       '   ' + (b.ready != null ? '✓ готов за ' + b.ready + ' мс' : '✗ НЕ ДОШЁЛ ДО ГОТОВНОСТИ') + (b.ws ? ' · смена ширины: ' + b.ws : '')
-    ].join('\n');
+    ].filter(Boolean).join('\n');
   }));
   if (a.length === 0) lines.push('пока пусто');
   // Журнал сервис-воркера: что он отдал при каждом запуске
