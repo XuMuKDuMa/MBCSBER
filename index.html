@@ -16939,9 +16939,9 @@ try { sessionStorage.removeItem('mvs_autoheal'); } catch (e) {}
     let _swStarted = false;
     const startSw = () => {
       if (_swStarted) return; _swStarted = true;
-      // ?v=7 — меняем адрес скрипта при каждой новой версии воркера: оболочка APK хранит старый sw.js в своём кэше
-      // и без этого новый воркер до телефона не доходит
-      const SW_URL = './sw.js?v=7';
+      // Оболочка APK подсовывает свою старую копию sw.js (даже с ?v=...), поэтому новая версия воркера лежит под НОВЫМ ИМЕНЕМ.
+      // Следующая версия воркера = следующее имя файла (sw8.js и т.д.).
+      const SW_URL = './sw7.js';
       const note = (k, v) => { try { window.__bootNote && window.__bootNote(k, v); } catch (e) {} };
       // На одном адресе может работать только один воркер. Сборщик APK подсовывает свой (__wta_offline_sw__.js),
       // и он ломает запуск (белый экран). Находим чужой воркер, удаляем его и его кэш и ставим свой.
@@ -16951,7 +16951,7 @@ try { sessionStorage.removeItem('mvs_autoheal'); } catch (e) {}
       try {
         fetch(SW_URL, { cache: 'no-store' }).then(r => r.text().then(t => {
           const m = /CACHE_NAME\s*=\s*'([^']+)'/.exec(t);
-          note('swsrv', r.status + ' · ' + (m ? m[1] : 'не воркер?') + ' · ' + Math.round(t.length / 1000) + 'K');
+          note('swsrv', r.status + ' · ' + (m ? m[1] : 'не воркер?') + ' · ' + Math.round(t.length / 1000) + 'K · ' + ((r.headers.get('content-type') || '').split(';')[0] || 'без типа') + (r.redirected ? ' · РЕДИРЕКТ' : ''));
         })).catch(e => note('swsrv', 'ошибка: ' + ((e && e.message) || e)));
       } catch (e) {}
       async function ensureOurWorker() {
@@ -16972,7 +16972,7 @@ try { sessionStorage.removeItem('mvs_autoheal'); } catch (e) {}
           try { reg.update(); } catch (e) {}
         } catch (e) {
           console.warn('Service Worker не зарегистрирован:', e);
-          note('swr', 'ОШИБКА ' + ((e && e.name) || '') + ': ' + String((e && e.message) || e).slice(0, 80));
+          note('swr', 'ОШИБКА ' + ((e && e.name) || '') + ': ' + String((e && e.message) || e).slice(0, 400));
         }
       }
       ensureOurWorker();
