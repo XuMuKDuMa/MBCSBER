@@ -12147,6 +12147,7 @@ document.getElementById('btnBootLog')?.addEventListener('click', async () => {
   const lines = ['— Запуски страницы —'].concat(a.slice(-5).reverse().map(b => {
     return [
       hm(b.t) + ' · ' + (b.nav || '?') + ' · воркер: ' + (b.ctl || (b.sw ? 'да' : 'нет')),
+      '   dcl ' + (b.dcl != null ? b.dcl + ' мс' : '—') + ' · load ' + (b.load != null ? b.load + ' мс' : 'НЕ ПРИШЁЛ'),
       (b.fe != null ? '   страница: 1-й байт ' + b.fb + ' мс, целиком ' + b.fe + ' мс · ' + (b.wk ? 'через воркер' : 'без воркера') + ' · по сети ' + (b.tx || 0) + ' КБ' : ''),
       '   ' + (b.ready != null ? '✓ готов за ' + b.ready + ' мс' : '✗ НЕ ДОШЁЛ ДО ГОТОВНОСТИ') + (b.ws ? ' · смена ширины: ' + b.ws : '')
     ].filter(Boolean).join('\n');
@@ -12168,6 +12169,10 @@ document.getElementById('btnBootLog')?.addEventListener('click', async () => {
     }
   } catch (e) { swInfo = 'ошибка: ' + (e && e.message); }
   { const dg = window.__addrDiag; lines.push('', 'Подсказки адреса: ' + (dg ? ((dg.street ? 'улицы' : 'дома') + ' · «' + dg.q + '» · ' + dg.src + ' · найдено ' + dg.n + (dg.err ? ' · ошибка: ' + dg.err : '') + (dg.drop ? ' · показано ' + dg.shown + ' (отсеяно: город ' + dg.drop.city + ', улица ' + dg.drop.street + ', номер ' + dg.drop.num + ')' : '')) : 'пока не запускались')); }
+  { const last = a.length ? a[a.length - 1] : {};
+    lines.push('', 'Регистрация воркера при этом запуске: ' + (last.swr || 'не вызывалась'));
+    lines.push('sw.js на сервере: ' + (last.swsrv || 'не проверен'));
+    if (last.persist != null) lines.push('Постоянное хранилище: ' + (last.persist ? 'да' : 'нет')); }
   lines.push('', 'Воркер сейчас: ' + swInfo + (window.__swTakeover ? '\n   (воркер сборщика заменён на свой)' : ''));
   lines.push('', '— Что отдавал воркер —');
   if (!swl.length) lines.push('пока пусто');
@@ -16929,14 +16934,26 @@ try { sessionStorage.removeItem('mvs_autoheal'); } catch (e) {}
   // ─── Регистрация Service Worker для офлайн-работы ───
   // Карта (Leaflet/Nominatim) по-прежнему требует интернет — это ожидаемо.
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
+    // Раньше регистрация ждала событие load. В WebView оно может не прийти, если что-то грузится бесконечно —
+    // тогда новый воркер вообще не ставился. Теперь стартуем сразу, как страница готова, и не позже чем через 2,5 с.
+    let _swStarted = false;
+    const startSw = () => {
+      if (_swStarted) return; _swStarted = true;
       // ?v=7 — меняем адрес скрипта при каждой новой версии воркера: оболочка APK хранит старый sw.js в своём кэше
       // и без этого новый воркер до телефона не доходит
       const SW_URL = './sw.js?v=7';
+      const note = (k, v) => { try { window.__bootNote && window.__bootNote(k, v); } catch (e) {} };
       // На одном адресе может работать только один воркер. Сборщик APK подсовывает свой (__wta_offline_sw__.js),
       // и он ломает запуск (белый экран). Находим чужой воркер, удаляем его и его кэш и ставим свой.
-      // Просим «постоянное» хранилище: так Android реже стирает кэш страницы (из-за стёртого кэша запуск снова идёт через сеть)
-      try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().then(function (ok) { try { window.__bootNote && window.__bootNote('persist', ok ? 1 : 0); } catch (e) {} }); } catch (e) {}
+      // Просим «постоянное» хранилище: так Android реже стирает кэш страницы
+      try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().then(function (ok) { note('persist', ok ? 1 : 0); }); } catch (e) {}
+      // Что реально лежит на сервере под этим адресом (видно в «Диагностике запуска»)
+      try {
+        fetch(SW_URL, { cache: 'no-store' }).then(r => r.text().then(t => {
+          const m = /CACHE_NAME\s*=\s*'([^']+)'/.exec(t);
+          note('swsrv', r.status + ' · ' + (m ? m[1] : 'не воркер?') + ' · ' + Math.round(t.length / 1000) + 'K');
+        })).catch(e => note('swsrv', 'ошибка: ' + ((e && e.message) || e)));
+      } catch (e) {}
       async function ensureOurWorker() {
         try {
           const regs = await navigator.serviceWorker.getRegistrations();
@@ -16950,14 +16967,19 @@ try { sessionStorage.removeItem('mvs_autoheal'); } catch (e) {}
           }
           if (foreign) window.__swTakeover = true;
           const reg = await navigator.serviceWorker.register(SW_URL, { updateViaCache: 'none' });
+          const nm = w => w ? w.scriptURL.split('/').pop() : '';
+          note('swr', 'ok · active ' + (nm(reg.active) || '—') + (reg.installing ? ' · ставится ' + nm(reg.installing) : '') + (reg.waiting ? ' · ждёт ' + nm(reg.waiting) : ''));
           try { reg.update(); } catch (e) {}
         } catch (e) {
           console.warn('Service Worker не зарегистрирован:', e);
+          note('swr', 'ОШИБКА ' + ((e && e.name) || '') + ': ' + String((e && e.message) || e).slice(0, 80));
         }
       }
       ensureOurWorker();
       setTimeout(ensureOurWorker, 4000);   // оболочка может поставить свой воркер позже нас — перехватываем снова
-    });
+    };
+    if (document.readyState === 'complete') startSw();
+    else { window.addEventListener('load', startSw); setTimeout(startSw, 2500); }
   }
 </script>
 
