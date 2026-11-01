@@ -16890,11 +16890,13 @@ try { sessionStorage.removeItem('mvs_autoheal'); } catch (e) {}
   // Карта (Leaflet/Nominatim) по-прежнему требует интернет — это ожидаемо.
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      // ?v=5 — меняем адрес скрипта при каждой новой версии воркера: оболочка APK хранит старый sw.js в своём кэше
+      // ?v=6 — меняем адрес скрипта при каждой новой версии воркера: оболочка APK хранит старый sw.js в своём кэше
       // и без этого новый воркер до телефона не доходит
-      const SW_URL = './sw.js?v=5';
+      const SW_URL = './sw.js?v=6';
       // На одном адресе может работать только один воркер. Сборщик APK подсовывает свой (__wta_offline_sw__.js),
       // и он ломает запуск (белый экран). Находим чужой воркер, удаляем его и его кэш и ставим свой.
+      // Просим «постоянное» хранилище: так Android реже стирает кэш страницы (из-за стёртого кэша запуск снова идёт через сеть)
+      try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().then(function (ok) { try { window.__bootNote && window.__bootNote('persist', ok ? 1 : 0); } catch (e) {} }); } catch (e) {}
       async function ensureOurWorker() {
         try {
           const regs = await navigator.serviceWorker.getRegistrations();
