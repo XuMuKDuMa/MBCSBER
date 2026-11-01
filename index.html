@@ -2,7 +2,6 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="preconnect" href="https://tile.openstreetmap.org" crossorigin>
 <script>try{var __d=localStorage.getItem('mvs_theme')==='dark',__r=document.documentElement;__r.style.background=__d?'#101820':'#e6f6ec';__r.style.colorScheme=__d?'dark':'light';}catch(e){}
 // Скрипты приложения запускаются ПОСЛЕ первой отрисовки заставки (см. загрузчик в конце body).
@@ -15643,33 +15642,61 @@ document.getElementById('btnCheckVpn')?.addEventListener('click', async () => {
     'Ответили:'].concat(oks.length ? oks : ['—'], ['', 'Не ответили:'], bad.length ? bad : ['—'], ['', ...env]));
 });
 var _leafletQueue = [], _leafletLoading = false;
+// Источники Leaflet по порядку: свои файлы рядом с приложением (быстро и без интернета), затем два CDN как запасные
+var LEAFLET_SOURCES = [
+  { name: 'local',    css: './leaflet/leaflet.css', js: './leaflet/leaflet.js', timeout: 5000 },
+  { name: 'jsdelivr', css: 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css', js: 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js', timeout: 8000 },
+  { name: 'unpkg',    css: 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css', js: 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js', timeout: 8000 }
+];
 function loadLeaflet(callback) {
-  if (window.L) { if (callback) callback(); return; }
+  if (window.L && window.L.map) { if (callback) callback(); return; }
   if (callback) _leafletQueue.push(callback);
   if (_leafletLoading) return;                       // уже грузится — второй раз не качаем
-  if (navigator.onLine === false) { _leafletQueue = []; const mv = document.getElementById('mapView'); if (mv) mv.setAttribute('data-fail', '1'); try { showToast('⚠️ Нет интернета — карта недоступна'); } catch (e) {} return; }
   _leafletLoading = true;
 
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css';
-  document.head.appendChild(link);
-
-  const finish = () => { _leafletLoading = false; const mv0 = document.getElementById('mapView'); if (mv0) mv0.removeAttribute('data-fail'); const q = _leafletQueue; _leafletQueue = []; q.forEach(f => { try { f(); } catch (e) { console.warn(e); } }); };
-  const fail = () => { _leafletLoading = false; _leafletQueue = []; const mv = document.getElementById('mapView'); if (mv) mv.setAttribute('data-fail', '1'); console.error('❌ Leaflet не загрузился'); try { showToast('⚠️ Карта не загрузилась — проверь интернет'); } catch (e) {} };
-  const load = (url, ok, bad) => {
-    const sc = document.createElement('script'); let done = false;
-    const t = setTimeout(() => { if (!done) { done = true; sc.remove(); bad(); } }, 8000);   // не висим вечно на медленной сети
-    sc.onload = () => { if (!done) { done = true; clearTimeout(t); ok(); } };
-    sc.onerror = () => { if (!done) { done = true; clearTimeout(t); bad(); } };
-    sc.src = url; document.head.appendChild(sc);
+  const mv = () => document.getElementById('mapView');
+  const finish = (src) => {
+    _leafletLoading = false; window.__leafletSrc = src;
+    try { window.__bootNote && window.__bootNote('leaflet', src); } catch (e) {}
+    const m = mv(); if (m) m.removeAttribute('data-fail');
+    const q = _leafletQueue; _leafletQueue = []; q.forEach(f => { try { f(); } catch (e) { console.warn(e); } });
   };
-  load('https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js', finish,
-    () => load('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js', finish, fail));
+  const fail = () => {
+    _leafletLoading = false; _leafletQueue = [];
+    console.error('❌ Leaflet не загрузился ни с одного источника');
+    const m = mv(); if (m) m.setAttribute('data-fail', '1');
+    try { showToast('⚠️ Карта не загрузилась — проверь интернет'); } catch (e) {}
+  };
+  const tryOne = (i) => {
+    if (i >= LEAFLET_SOURCES.length) { fail(); return; }
+    const s = LEAFLET_SOURCES[i];
+    // CDN без интернета не пробуем — сразу ошибка; свои файлы можно грузить и офлайн
+    if (s.name !== 'local' && navigator.onLine === false) { fail(); return; }
+    const link = document.createElement('link');
+    link.rel = 'stylesheet'; link.href = s.css;
+    document.head.appendChild(link);
+    const sc = document.createElement('script');
+    let done = false;
+    const bad = () => {
+      if (done) return; done = true; clearTimeout(t);
+      try { sc.remove(); link.remove(); } catch (e) {}
+      tryOne(i + 1);
+    };
+    const t = setTimeout(bad, s.timeout);
+    sc.onload = () => {
+      if (done) return;
+      if (!(window.L && window.L.map)) { bad(); return; }   // файл пришёл, но это не Leaflet (например, страница 404)
+      done = true; clearTimeout(t); finish(s.name);
+    };
+    sc.onerror = bad;
+    sc.src = s.js;
+    document.head.appendChild(sc);
+  };
+  tryOne(0);
 }
 // Фоновая подгрузка Leaflet уже после запуска, в простое — карта открывается быстрее, а старт не тормозит
 window.addEventListener('load', () => {
-  setTimeout(() => { try { if (!window.L && navigator.onLine !== false) loadLeaflet(); } catch (e) {} }, 2500);
+  setTimeout(() => { try { if (!(window.L && window.L.map)) loadLeaflet(); } catch (e) {} }, 2500);
 });
 
 // Инициализация карты
@@ -16890,9 +16917,9 @@ try { sessionStorage.removeItem('mvs_autoheal'); } catch (e) {}
   // Карта (Leaflet/Nominatim) по-прежнему требует интернет — это ожидаемо.
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      // ?v=6 — меняем адрес скрипта при каждой новой версии воркера: оболочка APK хранит старый sw.js в своём кэше
+      // ?v=7 — меняем адрес скрипта при каждой новой версии воркера: оболочка APK хранит старый sw.js в своём кэше
       // и без этого новый воркер до телефона не доходит
-      const SW_URL = './sw.js?v=6';
+      const SW_URL = './sw.js?v=7';
       // На одном адресе может работать только один воркер. Сборщик APK подсовывает свой (__wta_offline_sw__.js),
       // и он ломает запуск (белый экран). Находим чужой воркер, удаляем его и его кэш и ставим свой.
       // Просим «постоянное» хранилище: так Android реже стирает кэш страницы (из-за стёртого кэша запуск снова идёт через сеть)
