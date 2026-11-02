@@ -1325,6 +1325,8 @@ body.dark #screen4 .slot-btn.slot-live[data-slot-id="t16_18"] .slot-summary-main
 .vpn-warning.show {
   top: max(48px, calc(env(safe-area-inset-top, 0px) + 20px));
   opacity: 1;
+  pointer-events: auto;      /* раньше было none — тап и свайп не доходили */
+  touch-action: none;        /* жест забираем себе, страница под ним не прокручивается */
 }
 .vpn-warning.hiding {
   top: -160px;
@@ -15430,6 +15432,7 @@ function showVpnWarning() {
 
   clearTimeout(_vpnWarningTimeout);
   el.classList.remove('show', 'hiding');
+  el.style.transform = ''; el.style.opacity = ''; el.style.transition = '';   // сброс после свайпа
 
   void el.offsetWidth;   // force reflow
   el.classList.add('show');
@@ -17894,11 +17897,58 @@ textarea.route-addr-input {
     } catch (e) {}
   }
   var el = document.getElementById('vpnWarning');
-  if (el) el.addEventListener('click', function () {
-    try { clearTimeout(_vpnWarningTimeout); } catch (e) {}   // let из основного скрипта виден глобально
-    el.classList.add('hiding');
-    setTimeout(function () { el.classList.remove('show', 'hiding'); }, 600);
-  });
+  if (el) (function () {
+    var sx = 0, sy = 0, dx = 0, dy = 0, t0 = 0, drag = false, moved = false, pid = null;
+    function reset() { el.style.transition = ''; el.style.transform = ''; el.style.opacity = ''; }
+    function hideNow() {
+      try { clearTimeout(_vpnWarningTimeout); } catch (e) {}   // let из основного скрипта виден глобально
+      el.classList.add('hiding');
+      setTimeout(function () { el.classList.remove('show', 'hiding'); reset(); }, 600);
+    }
+    el.addEventListener('pointerdown', function (e) {
+      drag = true; moved = false; pid = e.pointerId;
+      sx = e.clientX; sy = e.clientY; dx = dy = 0; t0 = Date.now();
+      try { clearTimeout(_vpnWarningTimeout); } catch (er) {}   // пока держим — не скрываем по таймеру
+      try { el.setPointerCapture(pid); } catch (er) {}
+      el.style.transition = 'none';
+    });
+    el.addEventListener('pointermove', function (e) {
+      if (!drag || e.pointerId !== pid) return;
+      dx = e.clientX - sx; dy = e.clientY - sy;
+      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) moved = true;
+      if (dy > 0) dy = dy * 0.15;                     // вниз тянется с сопротивлением
+      el.style.transform = 'translateX(calc(-50% + ' + dx + 'px)) translateY(' + dy + 'px)';
+      el.style.opacity = String(Math.max(0.2, 1 - Math.max(Math.abs(dx) / 260, -dy / 140)));
+    });
+    function end(e) {
+      if (!drag || (e && e.pointerId !== pid)) return;
+      drag = false;
+      try { el.releasePointerCapture(pid); } catch (er) {}
+      var dt = Math.max(1, Date.now() - t0);
+      var vx = dx / dt, vy = dy / dt;                 // px/мс
+      var out = (-dy > 40) || (Math.abs(dx) > 90) || (vy < -0.5) || (Math.abs(vx) > 0.6);
+      if (!moved) { hideNow(); return; }              // обычный тап — закрыть
+      if (out) {
+        // улетает в сторону жеста
+        var horiz = Math.abs(dx) > Math.abs(dy);
+        var tx = horiz ? (dx > 0 ? 600 : -600) : dx;
+        var ty = horiz ? dy : -300;
+        el.style.transition = 'transform .28s cubic-bezier(.4,0,1,1), opacity .28s ease';
+        el.style.transform = 'translateX(calc(-50% + ' + tx + 'px)) translateY(' + ty + 'px)';
+        el.style.opacity = '0';
+        try { clearTimeout(_vpnWarningTimeout); } catch (er) {}
+        setTimeout(function () { el.classList.remove('show', 'hiding'); reset(); }, 300);
+      } else {
+        // не дотянули — пружинно возвращается и снова скрывается по таймеру
+        el.style.transition = 'transform .35s cubic-bezier(.22,1.4,.36,1), opacity .2s ease';
+        el.style.transform = ''; el.style.opacity = '';
+        _vpnWarningTimeout = setTimeout(hideNow, 6000);
+      }
+    }
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+    el.addEventListener('click', function (e) { e.stopPropagation(); });   // тап обрабатываем в pointerup
+  })();
   // старт: сеть при запуске часто ещё не готова — проверяем дважды
   setTimeout(function () { run('start'); }, 2000);
   setTimeout(function () { last = 0; run('start2'); }, 9000);
