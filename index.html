@@ -9616,8 +9616,29 @@ function openMvsVoiceBatch(){
   modal.innerHTML=`<h3>Добавить адреса в слот</h3><div class="mvs-vb-muted">Выбери время, введи адреса — каждый с новой строки. Начни вводить адрес — выбери подсказку. Каждый адрес вводи с новой строки.</div><label for="mvs-vb-slot">Временной слот</label><select id="mvs-vb-slot" class="mvs-vb-slot">${times.map(t=>`<option value="${t.id}" ${t.id===getCurrentSlotId()?'selected':''}>${t.label}</option>`).join('')}</select><label for="mvs-vb-addresses">Адреса</label><textarea id="mvs-vb-addresses" rows="5" placeholder="Например: Красногорск, улица Ленина, дом 5\nКрасногорск, улица Мира, дом 10" style="box-sizing:border-box;width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font:inherit;resize:vertical"></textarea><div class="mvs-vb-hint" id="mvs-vb-hint">Адресов: 0</div><div class="mvs-vb-actions"><button type="button" id="mvs-vb-cancel">Отмена</button></div><div class="mvs-vb-actions"><button type="button" class="mvs-vb-confirm" id="mvs-vb-yes">Добавить в слот</button></div>`;
   overlay.appendChild(modal); document.body.appendChild(overlay);
   const area=modal.querySelector('#mvs-vb-addresses'), hint=modal.querySelector('#mvs-vb-hint'), mic=modal.querySelector('#mvs-vb-mic');
-  const updateCount=()=>{const n=area.value.split(/\n+/).map(x=>x.trim()).filter(Boolean).length;hint.textContent='Адресов: '+n;};
-  area.addEventListener('input',updateCount);
+  area.setAttribute('lang','ru'); area.setAttribute('autocomplete','off');
+  // У каждого слота — свой черновик адресов: при смене слота поле обновляется, а введённое ранее не пропадает
+  const slotSel=modal.querySelector('#mvs-vb-slot');
+  const countLines=t=>String(t||'').split(/\n+/).map(x=>x.trim()).filter(Boolean).length;
+  let curSlot=slotSel.value; const drafts={};
+  Array.from(slotSel.options).forEach(o=>{o.dataset.label=o.textContent;});
+  const refreshSlotLabels=()=>{drafts[curSlot]=area.value;Array.from(slotSel.options).forEach(o=>{const n=countLines(drafts[o.value]);o.textContent=o.dataset.label+(n?' · '+n+' адр.':'');});};
+  const updateCount=()=>{
+    const n=countLines(area.value); let total=0, slots=0;
+    Object.keys(drafts).forEach(k=>{const c=countLines(k===curSlot?area.value:drafts[k]); if(c){total+=c;slots++;}});
+    const ex=(routeState.lists[curSlot]||[]).filter(i=>i&&i.addr&&String(i.addr).trim()).length;
+    hint.textContent='Адресов в этом слоте: '+n+(ex?' · уже в слоте: '+ex:'')+(slots>1?' · всего в '+slots+' слотах: '+total:'');
+  };
+  area.addEventListener('input',()=>{refreshSlotLabels();updateCount();});
+  slotSel.addEventListener('change',()=>{
+    drafts[curSlot]=area.value;                 // сохранить введённое для прежнего слота
+    curSlot=slotSel.value;
+    area.value=drafts[curSlot]||'';             // показать черновик нового слота (или пустое поле)
+    try{closeSuggest();}catch(e){}
+    refreshSlotLabels(); updateCount();
+    try{area.focus({preventScroll:true});}catch(e){}
+  });
+  updateCount();
   // Автоподсказки адресов в массовом добавлении: используем тот же ключ DaData, что и в карточках.
   let suggestTimer=null, suggestController=null, suggestItems=[], activeSuggest=-1;
   const suggestList=document.createElement('div');
@@ -9636,12 +9657,18 @@ function openMvsVoiceBatch(){
   modal.querySelector('#mvs-vb-cancel').addEventListener('click',close);
   overlay.addEventListener('click',e=>{if(e.target===overlay)close();});
   modal.querySelector('#mvs-vb-yes').addEventListener('click',()=>{
-    const addresses=area.value.split(/\n+/).map(x=>x.trim()).filter(Boolean);
-    if(!addresses.length){hint.textContent='Сначала введи или надиктуй хотя бы один адрес.';return;}
-    const slotId=modal.querySelector('#mvs-vb-slot').value;
-    if(!routeState.lists[slotId])routeState.lists[slotId]=[];
-    addresses.forEach(addr=>routeState.lists[slotId].push({addr,addrDisplay:addr,note:'',status:null}));
-    saveRouteState(routeState);close();_openSlotId=slotId;renderRoute();if(typeof updateDrawerRoutes==='function')updateDrawerRoutes();_mapHash='';if(typeof map!=='undefined'&&map&&typeof renderMapMarkers==='function')renderMapMarkers();if(typeof showToast==='function')showToast('Добавлено адресов: '+addresses.length);
+    drafts[curSlot]=area.value;
+    let total=0; const used=[];
+    Object.keys(drafts).forEach(sid=>{
+      const addrs=String(drafts[sid]||'').split(/\n+/).map(x=>x.trim()).filter(Boolean);
+      if(!addrs.length) return;
+      if(!routeState.lists[sid])routeState.lists[sid]=[];
+      addrs.forEach(addr=>routeState.lists[sid].push({addr,addrDisplay:addr,note:'',status:null}));
+      total+=addrs.length; used.push(sid);
+    });
+    if(!total){hint.textContent='Сначала введи или надиктуй хотя бы один адрес.';return;}
+    const openId=used.indexOf(curSlot)>=0?curSlot:used[0];
+    saveRouteState(routeState);close();_openSlotId=openId;renderRoute();if(typeof updateDrawerRoutes==='function')updateDrawerRoutes();_mapHash='';if(typeof map!=='undefined'&&map&&typeof renderMapMarkers==='function')renderMapMarkers();if(typeof showToast==='function')showToast('Добавлено адресов: '+total+(used.length>1?' в '+used.length+' слотах':''));
   });
 }
 function renderRoute() {
@@ -17917,6 +17944,8 @@ textarea.route-addr-input {
       '</div>';
     document.body.appendChild(bd);
     ta = bd.querySelector('.mvs-fe-textarea');
+    ta.setAttribute('lang', 'ru'); ta.setAttribute('inputmode', 'text'); ta.setAttribute('autocapitalize', 'sentences');
+    ta.setAttribute('autocomplete', 'off'); ta.setAttribute('spellcheck', 'true'); ta.setAttribute('enterkeyhint', 'done');
     titleEl = bd.querySelector('.mvs-fe-title');
     hintEl = bd.querySelector('.mvs-fe-hint');
     bd.querySelector('.mvs-fe-cancel').addEventListener('click', function () { close(false); });
@@ -17941,7 +17970,7 @@ textarea.route-addr-input {
   function grabFocus() {
     if (!bd || !bd.classList.contains('show')) return;
     if (document.activeElement === ta) return;
-    try { ta.focus({ preventScroll: true }); ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) {}
+    try { ta.focus({ preventScroll: true }); } catch (e) {}
   }
   window.mvsOpenFieldEditor = function (o) {
     build();
@@ -17957,6 +17986,7 @@ textarea.route-addr-input {
     ta.value = o.value || '';
     ta.readOnly = false;
     bd.classList.add('show');
+    try { ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) {}   // курсор в конец ДО фокуса: клавиатуре не нужно перестраиваться
     try { vibro(10); } catch (e) {}
     // Фокус СРАЗУ, пока длится жест пользователя (иначе Android WebView иногда не даёт ввод),
     // и ещё несколько попыток, если фокус всё же потерялся.
