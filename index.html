@@ -93,14 +93,45 @@
   pingAlive();
   setTimeout(pingAlive, 1500);
   // воркер сообщает, что на сервере лежит новая версия (страница открывается из кэша мгновенно, а обновляется фоном)
+  function curBuild() { try { return JSON.parse(document.getElementById('mvs-changelog').textContent).build | 0; } catch (e) { return 0; } }
+  function parseLog(html) {
+    var m = /<script[^>]*id=["']mvs-changelog["'][^>]*>([\s\S]*?)<\/script>/.exec(html || '');
+    if (!m) return null;
+    try { return JSON.parse(m[1]); } catch (e) { return null; }
+  }
+  function loadLog(u) { return fetch(u, { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(parseLog).catch(function () { return null; }); }
+  // список изменений берём из НОВОЙ версии страницы (запущенная версия о ней ещё не знает)
+  function loadNewLog() {
+    return loadLog(cleanUrl()).then(function (j) {
+      if (j && (j.build | 0) > curBuild()) return j;
+      return loadLog(cleanUrl() + '?chg=' + Date.now()).then(function (j2) { return j2 || j; });
+    });
+  }
+  function changeLines(j) {
+    var cur = curBuild(), out = [];
+    if (j && j.history) j.history.forEach(function (h) { if ((h.build | 0) > cur) (h.items || []).forEach(function (t) { out.push(String(t)); }); });
+    return out;
+  }
+  function showUpdateBanner() {
+    var plain = 'Загружено в фоне. Обнови, когда удобно.';
+    loadNewLog().then(function (j) {
+      var lines = changeLines(j), sub = plain;
+      if (lines.length) {
+        var shown = lines.slice(0, 4).map(function (t) { return '• ' + t; });
+        if (lines.length > 4) shown.push('…и ещё ' + (lines.length - 4));
+        sub = shown.join('\n') + '\n\nЗагружено в фоне. Обнови, когда удобно.';
+      }
+      return { title: 'Доступно обновление' + (j && j.label && lines.length ? ' ' + j.label : ''), sub: sub };
+    }, function () { return { title: 'Доступно обновление', sub: plain }; }).then(function (t) {
+      try { iosBanner({ title: t.title, sub: t.sub, icon: '⬆️', kind: 'info', sticky: true, actions: [{ label: 'Обновить', primary: true, fn: function () { location.reload(); } }, { label: 'Позже' }] }); } catch (x) {}
+    });
+  }
   try {
     if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', function (e) {
       if (!e.data || e.data.type !== 'updated') return;
       var n = 0, t = setInterval(function () {
-        if (typeof iosBanner === 'function') {
-          clearInterval(t);
-          try { iosBanner({ title: 'Доступно обновление', sub: 'Загружено в фоне. Обнови, когда удобно.', icon: '⬆️', kind: 'info', sticky: true, actions: [{ label: 'Обновить', primary: true, fn: function () { location.reload(); } }, { label: 'Позже' }] }); } catch (x) {}
-        } else if (++n > 40) clearInterval(t);
+        if (typeof iosBanner === 'function') { clearInterval(t); showUpdateBanner(); }
+        else if (++n > 40) clearInterval(t);
       }, 500);
     });
   } catch (e) {}
@@ -123,6 +154,13 @@
 <!-- Подключение DaData для подсказок адресов (локально) -->
 </head>
 <body class="tab-4">
+<script type="application/json" id="mvs-changelog">
+{"build":7,"label":"v7","history":[
+ {"build":7,"items":["Уведомление об обновлении теперь показывает, что именно изменилось"]},
+ {"build":6,"items":["Уведомление про VPN можно смахнуть: вверх, влево, вправо или тапом"]},
+ {"build":5,"items":["В окошке маркера на карте теперь полный адрес, как в карточке"]}
+]}
+</script>
 <style id="mvs-liquid-splash-style">
 #mvsLiquidSplash{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;padding:24px;overflow:hidden;background:radial-gradient(ellipse at 15% 15%,rgba(65,190,120,.24),transparent 42%),radial-gradient(ellipse at 85% 80%,rgba(15,150,85,.20),transparent 45%),linear-gradient(145deg,rgba(220,255,232,.34) 0%,rgba(190,245,210,.25) 48%,rgba(225,255,235,.30) 100%);backdrop-filter:blur(5px) saturate(125%);-webkit-backdrop-filter:blur(5px) saturate(125%);color:#26364a;transition:transform 1.05s cubic-bezier(.16,1,.3,1),opacity .95s cubic-bezier(.16,1,.3,1),border-radius 1.05s cubic-bezier(.16,1,.3,1),filter .95s cubic-bezier(.16,1,.3,1);touch-action:none;will-change:transform,opacity;transform-origin:50% 50%;transform:translate3d(0,var(--mls-drag-y,0px),0)}
 #mvsLiquidSplash:before,#mvsLiquidSplash:after{content:"";position:absolute;border-radius:50%;filter:blur(2px);pointer-events:none}
@@ -6455,7 +6493,7 @@ body.dark .ios-banner { --ib-bg: rgba(44,44,46,.94); --ib-fg: #fff; --ib-sub: rg
 .ios-banner:not(.k-ok):not(.k-info):not(.k-warn):not(.k-error):not(.k-grey) .ib-icon { background: rgba(120,120,128,.18); font-size: 21px; }
 .ib-body { flex: 1; min-width: 0; }
 .ib-title { font-size: 15px; font-weight: 600; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
-.ib-sub { font-size: 13px; line-height: 1.25; margin-top: 2px; color: var(--ib-sub); }
+.ib-sub { font-size: 13px; line-height: 1.25; margin-top: 2px; color: var(--ib-sub); white-space: pre-line; }
 .ios-banner.has-actions { align-items: flex-start; }
 .ib-actions { display: flex; gap: 8px; margin-top: 10px; }
 .ib-btn {
