@@ -15993,6 +15993,7 @@ async function renderMapMarkers() {
         timeId: t.id,
         timeLabel: t.label,
         addr: item.addr,
+        addrDisplay: item.addrDisplay,
         note: item.note,
         status: item.status,
         startedAt: item.startedAt,
@@ -16139,13 +16140,7 @@ if (tooltipText) {
     const addrKey = (group.addr || '').trim().toLowerCase();
 const totalInHouse = addrCounts[addrKey] || 1;
 const popupAddrFull = String(group.addr || '').trim();
-const popupAddrShort = (() => {
-  // Show only street and house in the popup title; keep the full address in group.addr for routing.
-  const m = popupAddrFull.match(/((?:ул\.?|улица|пр-?кт|проспект|пер\.?|переулок|ш\.?|шоссе|б-р|бул\.?|набережная|наб\.?|пл\.?|площадь)\s*[^,]+(?:,?\s*(?:д\.?|дом)\s*[^,]+)?)/i);
-  if (m) return m[1].replace(/\s+/g, ' ').trim();
-  const parts = popupAddrFull.split(',').map(x => x.trim()).filter(Boolean);
-  return parts.length > 1 ? parts.slice(-2).join(', ') : popupAddrFull;
-})();
+const popupAddrShort = String((group.items[0] && group.items[0].addrDisplay) || popupAddrFull).replace(/\s+/g, ' ').trim();   // тот же адрес, что в карточке
 const popupContent = `
   <div class="map-popup" onclick="openActivityFromMap('${group.items[0].timeId}', '${encodeURIComponent(group.addr || '')}')">
     <div class="map-popup-addr">${escapeHtml(popupAddrShort)}</div>
