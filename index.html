@@ -155,7 +155,8 @@
 </head>
 <body class="tab-4">
 <script type="application/json" id="mvs-changelog">
-{"build":7,"label":"v7","history":[
+{"build":8,"label":"v8","history":[
+ {"build":8,"items":["В вечернем отчёте больше нет строки «Встреч не в слот»","Вечернее напоминание: «Отправь два вечерних отчёта», кнопки «Ок» и «Позже»"]},
  {"build":7,"items":["Уведомление об обновлении теперь показывает, что именно изменилось"]},
  {"build":6,"items":["Уведомление про VPN можно смахнуть: вверх, влево, вправо или тапом"]},
  {"build":5,"items":["В окошке маркера на карте теперь полный адрес, как в карточке"]}
@@ -6881,8 +6882,8 @@ body:not(.dark) #screen4 .route-card .route-note-input::placeholder {
 <div class="modal-overlay" id="reminderModal">
   <div class="modal">
     <div class="emoji">📋</div>
-    <h2>Не забудь про отчёт!</h2>
-    <p>Отправь отчёт руководителю, когда будешь готов.</p>
+    <h2>Вечерние отчёты</h2>
+    <p>Отправь два вечерних отчёта.</p>
     <button id="btnCloseReminder">Ок, понял</button>
   </div>
 </div>
@@ -10167,7 +10168,8 @@ const B2C1 = [
 ];
 const STORAGE_KEY1 = 'report_day_v1';
 const HISTORY_KEY1 = 'report_day_history';
-const REPORT_SENT_KEY = 'report_day_sent_today';
+const REPORT_SENT_KEY = 'report_day_sent_today';          // вечерний отчёт №1 («Сегодня»)
+const REPORT2_SENT_KEY = 'report2_day_sent_today';       // вечерний отчёт №2 («МВС ЗАПАД»)
 const PLAN_KEY = 'report_day_plan_up';
 const QUICK_REPORT_KEY = 'quick_report_v2';
 const QUICK_REPORT_DAY_KEY = 'quick_report_last_day';
@@ -11287,7 +11289,7 @@ const b2cLine = `${b2cTotal}/${b2cDone}`;
 const b2bLine = `${b2bTotalFinal}/${b2bDone}`;
 // «B2C слот»: встречи, проведённые не в слот, в слотовый показатель не входят
 const b2cSlotLine = `${b2cTotal - outB2C}/${b2cDone - outB2C}`;
-const outNote = outAll > 0 ? '\nВстреч не в слот: ' + outAll : '';
+const outNote = '';   // фразу «Встреч не в слот: N» в отчёт больше не пишем
   return `‼️‼️‼️
 Новый формат ✅
 
@@ -14047,7 +14049,7 @@ document.getElementById('btnFixDupHistory')?.addEventListener('click', () => {
    ═══════════════════════════════════════════════ */
 const BACKUP_KEYS = [
   'report_day_v1', 'report_day_history', 'report_months_history',
-  'report_day_plan_up', 'report_day_sent_today', 'report_day_last_reset',
+  'report_day_plan_up', 'report_day_sent_today', 'report2_day_sent_today', 'report_day_last_reset',
   'report2_vaziev_v4', 'report2_history', 'report2_last_month',
   'routes_v2', 'routes_last_day', 'routes_history', 'route_started_last_day',
   'quick_report_v2', 'quick_report_last_day', 'quick_report_sent_today',
@@ -14603,7 +14605,7 @@ saveState2(state2);
       saveState2(state2);
 
       const text = buildReport2();
-      localStorage.setItem(REPORT_SENT_KEY, new Date().toDateString());
+      localStorage.setItem(REPORT2_SENT_KEY, new Date().toDateString());
       await copyText(text);
       showSuccessNotification('Отчёт готов', 'done');
       openReportGroup('evening', text);
@@ -14977,7 +14979,9 @@ render2();
 function checkReminder() {
   const now = new Date();
   const hours = now.getHours();
-  const sentToday = localStorage.getItem(REPORT_SENT_KEY) === now.toDateString();
+  // напоминаем, пока не отправлены ОБА вечерних отчёта
+  const sentToday = localStorage.getItem(REPORT_SENT_KEY) === now.toDateString() &&
+                    localStorage.getItem(REPORT2_SENT_KEY) === now.toDateString();
   if (hours >= 17 && hours < 18 && !sentToday) {
     // Не показывать, если уже открыта модалка предварительного отчёта
     const quickModal = document.getElementById('quickReportModal');
@@ -14993,8 +14997,8 @@ function showReportReminder(kind) {
   const cfg = {
     morning: { icon: '⏰', k: 'warn', title: 'Утренний отчёт', sub: 'Отправь отчёт МВС руководителю до 9:00',
                label: 'Утр.отчёт', fn: () => document.getElementById('btnMorningReport2')?.click() },
-    evening: { icon: '📋', k: 'info', title: 'Отчёт за день', sub: 'Отправь отчёт руководителю, когда будешь готов',
-               label: 'Открыть', fn: () => goToTab(2) },
+    evening: { icon: '📋', k: 'info', title: 'Вечерние отчёты', sub: 'Отправь два вечерних отчёта',
+               label: 'Ок', fn: () => {} },
     quick:   { icon: '📝', k: 'info', title: 'Предварительный отчёт', sub: 'Заполни план и встречи на день',
                label: 'Заполнить', fn: () => openQuickReport() }
   }[kind];
