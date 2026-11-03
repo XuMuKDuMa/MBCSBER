@@ -121,9 +121,13 @@
         if (lines.length > 4) shown.push('…и ещё ' + (lines.length - 4));
         sub = shown.join('\n') + '\n\nЗагружено в фоне. Обнови, когда удобно.';
       }
-      return { title: 'Доступно обновление' + (j && j.label && lines.length ? ' ' + j.label : ''), sub: sub };
-    }, function () { return { title: 'Доступно обновление', sub: plain }; }).then(function (t) {
-      try { iosBanner({ title: t.title, sub: t.sub, icon: '⬆️', kind: 'info', sticky: true, actions: [{ label: 'Обновить', primary: true, fn: function () { location.reload(); } }, { label: 'Позже' }] }); } catch (x) {}
+      return { title: 'Доступно обновление' + (j && j.label && lines.length ? ' ' + j.label : ''), sub: sub, seen: (j && lines.length) ? (j.build | 0) : 0 };
+    }, function () { return { title: 'Доступно обновление', sub: plain, seen: 0 }; }).then(function (t) {
+      try { iosBanner({ title: t.title, sub: t.sub, icon: '⬆️', kind: 'info', sticky: true, actions: [{ label: 'Обновить', primary: true, fn: function () {
+        // список уже показан в баннере — после перезапуска окно «Что нового» не повторяем
+        try { if (t.seen) localStorage.setItem('mvs_seen_build', String(t.seen)); } catch (e) {}
+        location.reload();
+      } }, { label: 'Позже' }] }); } catch (x) {}
     });
   }
   try {
@@ -155,7 +159,8 @@
 </head>
 <body class="tab-4">
 <script type="application/json" id="mvs-changelog">
-{"build":8,"label":"v8","history":[
+{"build":9,"label":"v9","history":[
+ {"build":9,"items":["Окно «Причины не доставок»: теперь можно печатать (как в «Заметке»)","После обновления один раз показывается окно «Что нового»"]},
  {"build":8,"items":["В вечернем отчёте больше нет строки «Встреч не в слот»","Вечернее напоминание: «Отправь два вечерних отчёта», кнопки «Ок» и «Позже»"]},
  {"build":7,"items":["Уведомление об обновлении теперь показывает, что именно изменилось"]},
  {"build":6,"items":["Уведомление про VPN можно смахнуть: вверх, влево, вправо или тапом"]},
@@ -7315,16 +7320,24 @@ function openReasonsFullscreen() {
   const currentText = getManual1('reasons') || '';
   textarea.value = currentText;
   
+  textarea.setAttribute('lang', 'ru'); textarea.setAttribute('inputmode', 'text');
+  textarea.setAttribute('autocapitalize', 'sentences'); textarea.setAttribute('autocomplete', 'off');
+  textarea.readOnly = false;
+
   // Показываем
   editor.classList.add('show');
-  
-  // Фокус на текстовое поле (с задержкой для анимации)
-  setTimeout(() => {
-    textarea.focus();
-    // Курсор в конец
-    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-  }, 350);
-  
+
+  // Курсор в конец ДО фокуса, фокус СРАЗУ (пока длится жест пользователя — иначе Android WebView
+  // иногда не даёт печатать) и ещё несколько попыток, если фокус потерялся.
+  try { textarea.setSelectionRange(textarea.value.length, textarea.value.length); } catch (e) {}
+  const grab = () => {
+    if (!editor.classList.contains('show')) return;
+    if (document.activeElement === textarea) return;
+    try { textarea.focus({ preventScroll: true }); } catch (e) {}
+  };
+  grab();
+  [60, 180, 400, 800].forEach(ms => setTimeout(grab, ms));
+
   vibro(15);
 }
 
@@ -7391,6 +7404,9 @@ document.addEventListener('click', (e) => {
 });
 
 // ─── Escape закрывает ───
+['touchend', 'click'].forEach(t => document.getElementById('feTextarea')?.addEventListener(t, function () {
+  if (document.activeElement !== this) { try { this.focus({ preventScroll: true }); } catch (e) {} }
+}));
 document.getElementById('feTextarea')?.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeReasonsFullscreen(false);
@@ -18187,6 +18203,56 @@ body:not(.dark) #screen4 #app4 .route-card .route-coords-btn { background: #e6ed
     setTimeout(run,700);                                       // страховка, если кадры не идут (приложение в фоне)
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',go,{once:true}); else go();
+})();
+</script>
+<script id="mvs-whats-new">
+(function () {
+  var KEY = 'mvs_seen_build';
+  function log() { try { return JSON.parse(document.getElementById('mvs-changelog').textContent); } catch (e) { return null; } }
+  var j = log();
+  if (!j || !(j.build | 0)) return;
+  var cur = j.build | 0, seen;
+  try { var raw = localStorage.getItem(KEY); seen = (raw === null) ? cur - 1 : (parseInt(raw, 10) || 0); } catch (e) { return; }
+  if (seen >= cur) return;                            // уже видели эту версию
+  var lines = [];
+  (j.history || []).forEach(function (h) { if ((h.build | 0) > seen) (h.items || []).forEach(function (t) { lines.push(String(t)); }); });
+  if (!lines.length) { try { localStorage.setItem(KEY, String(cur)); } catch (e) {} return; }
+
+  var css = document.createElement('style');
+  css.textContent =
+    '#mvsWhatsNew{position:fixed;inset:0;z-index:5000;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.6)}' +
+    '#mvsWhatsNew.show{display:flex}' +
+    '#mvsWhatsNew .modal{text-align:left;max-height:80vh;overflow-y:auto}' +
+    '#mvsWhatsNew h2{color:#1f7a4d;text-align:center}' +
+    '#mvsWhatsNew ul{margin:0 0 20px;padding-left:20px;font-size:14px;line-height:1.5;color:#444}' +
+    '#mvsWhatsNew li{margin-bottom:6px}' +
+    'body.dark #mvsWhatsNew h2{color:#5fd39a}body.dark #mvsWhatsNew ul{color:#cdd8e3}';
+  document.head.appendChild(css);
+
+  var ov = document.createElement('div');
+  ov.id = 'mvsWhatsNew';
+  var box = document.createElement('div'); box.className = 'modal'; box.setAttribute('role', 'dialog');
+  var em = document.createElement('div'); em.className = 'emoji'; em.style.textAlign = 'center'; em.textContent = '🆕';
+  var h2 = document.createElement('h2'); h2.textContent = 'Что нового' + (j.label ? ' · ' + j.label : '');
+  var ul = document.createElement('ul');
+  lines.slice(0, 6).forEach(function (t) { var li = document.createElement('li'); li.textContent = t; ul.appendChild(li); });
+  if (lines.length > 6) { var more = document.createElement('li'); more.textContent = '…и ещё ' + (lines.length - 6); ul.appendChild(more); }
+  var btn = document.createElement('button'); btn.type = 'button'; btn.textContent = 'Ок';
+  box.appendChild(em); box.appendChild(h2); box.appendChild(ul); box.appendChild(btn); ov.appendChild(box);
+  document.body.appendChild(ov);
+
+  function close() { ov.classList.remove('show'); try { localStorage.setItem(KEY, String(cur)); } catch (e) {} }
+  btn.addEventListener('click', close);
+  ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+
+  // показываем, когда заставка уже снята и нет других открытых окон
+  var tries = 0, t = setInterval(function () {
+    if (++tries > 900) { clearInterval(t); return; }                       // ~10 минут и хватит
+    if (document.body.classList.contains('mvs-splash-open') || document.getElementById('mvsLiquidSplash')) return;
+    if (document.querySelector('.modal-overlay.show, .fullscreen-editor.show, .mvs-fe-backdrop.show')) return;
+    clearInterval(t);
+    setTimeout(function () { ov.classList.add('show'); }, 1500);   // после анимации «выпрыгивания» элементов
+  }, 700);
 })();
 </script>
 </body>
