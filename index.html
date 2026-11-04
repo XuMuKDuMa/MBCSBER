@@ -159,7 +159,11 @@
 </head>
 <body class="tab-4">
 <script type="application/json" id="mvs-changelog">
-{"build":9,"label":"v9","history":[
+{"build":13,"label":"v13","history":[
+ {"build":13,"items":["Причины недоставок: убраны отдельные кнопки, остался только аккордеон «Все причины»"]},
+ {"build":12,"items":["Причины недоставок: аккордеон «Все причины» с готовым списком (добавлены «Недозвон, полный адрес, встреча вечером», «Недозвон, адрес не полный», «Клиент сегодня не может, должен перенести»)"]},
+ {"build":11,"items":["Кнопки причин: Недозвон, Отказ клиента, Отмена клиентом, Клиент не в городе","Напоминание о незавершённой встрече приходит через 15 минут после «Начать»"]},
+ {"build":10,"items":["Быстрые причины недоставок: кнопки-подсказки в окне причины","Подсказка «Следующая встреча» и время до конца слота на экране «Активности»","Кнопка «🧭 Порядок» в слоте: адреса по карте в удобном порядке","Напоминание о незавершённой встрече"]},
  {"build":9,"items":["Окно «Причины не доставок»: теперь можно печатать (как в «Заметке»)","После обновления один раз показывается окно «Что нового»"]},
  {"build":8,"items":["В вечернем отчёте больше нет строки «Встреч не в слот»","Вечернее напоминание: «Отправь два вечерних отчёта», кнопки «Ок» и «Позже»"]},
  {"build":7,"items":["Уведомление об обновлении теперь показывает, что именно изменилось"]},
@@ -7324,6 +7328,8 @@ function openReasonsFullscreen() {
   textarea.setAttribute('autocapitalize', 'sentences'); textarea.setAttribute('autocomplete', 'off');
   textarea.readOnly = false;
 
+  if (window.mvsRenderReasonChips) window.mvsRenderReasonChips(document.getElementById('feChips'), textarea);
+
   // Показываем
   editor.classList.add('show');
 
@@ -9341,7 +9347,7 @@ reasonInput.addEventListener('click', e => {
   e.stopPropagation();
   if (!window.mvsOpenFieldEditor) { reasonInput.readOnly = false; reasonInput.removeAttribute('inputmode'); reasonInput.focus(); return; }
   window.mvsOpenFieldEditor({
-    title: 'Причина недоставки', hint: 'Если встреча под вопросом — напиши причину. В короткой карточке появится мигающий треугольник.', placeholder: 'Причина недоставки (если встреча под вопросом)', value: reasonInput.value,
+    chips: true, title: 'Причина недоставки', hint: 'Если встреча под вопросом — напиши причину. В короткой карточке появится мигающий треугольник.', placeholder: 'Причина недоставки (если встреча под вопросом)', value: reasonInput.value,
     onSave: v => { reasonInput.value = v; saveNonDeliveryReason(false); saveNonDeliveryReason(true); if (window.mvsGrowField) window.mvsGrowField(reasonInput); try { refreshFeBtns(); } catch (e) {} }
   });
 });
@@ -9752,6 +9758,7 @@ voiceBatchBtn.innerHTML = '＋ Добавить встречи в слот';
 voiceBatchBtn.style.minHeight = '34px';
 voiceBatchBtn.addEventListener('click', openMvsVoiceBatch);
 frag.appendChild(voiceBatchBtn);
+if (window.mvsBuildNextHint) { try { frag.appendChild(window.mvsBuildNextHint()); } catch (e) {} }
 
 
 
@@ -9897,6 +9904,7 @@ if (_openSlotId) {
       <div class="rth-right"><div class="rth-count">${list.length}</div></div>
     `;
     block.appendChild(header);
+    if (window.mvsAddRouteBtn) { try { window.mvsAddRouteBtn(header, t.id); } catch (e) {} }
     // Нажатие на заголовок временного слота переключает все карточки этого слота
     // между коротким и большим видом. Обработчик действует только в разделе встреч.
     header.setAttribute('role', 'button');
@@ -17073,6 +17081,7 @@ try { sessionStorage.removeItem('mvs_autoheal'); } catch (e) {}
     <div class="fe-title">Причины не доставок</div>
     <button class="fe-btn fe-save" id="feSave">Сохранить</button>
   </div>
+  <div class="fe-chips" id="feChips"></div>
   <textarea class="fe-textarea" id="feTextarea" 
             placeholder="Введи причины не доставок..."></textarea>
 </div>
@@ -18040,6 +18049,7 @@ textarea.route-addr-input {
         '<h3 class="mvs-fe-title"></h3>' +
         '<div class="mvs-fe-hint"></div>' +
         '<textarea class="mvs-fe-textarea" rows="5"></textarea>' +
+        '<div class="mvs-fe-chips" style="display:none"></div>' +
         '<div class="mvs-fe-actions">' +
           '<button type="button" class="mvs-fe-cancel">Отмена</button>' +
           '<button type="button" class="mvs-fe-save">Сохранить</button>' +
@@ -18088,6 +18098,9 @@ textarea.route-addr-input {
     ta.placeholder = o.placeholder || '';
     ta.value = o.value || '';
     ta.readOnly = false;
+    var chipsBox = bd.querySelector('.mvs-fe-chips');
+    if (o.chips && window.mvsRenderReasonChips) { window.mvsRenderReasonChips(chipsBox, ta); chipsBox.style.display = ''; }
+    else { chipsBox.innerHTML = ''; chipsBox.style.display = 'none'; }
     bd.classList.add('show');
     try { ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) {}   // курсор в конец ДО фокуса: клавиатуре не нужно перестраиваться
     try { vibro(10); } catch (e) {}
@@ -18203,6 +18216,295 @@ body:not(.dark) #screen4 #app4 .route-card .route-coords-btn { background: #e6ed
     setTimeout(run,700);                                       // страховка, если кадры не идут (приложение в фоне)
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',go,{once:true}); else go();
+})();
+</script>
+<style id="mvs-workday-css">
+/* быстрые причины */
+.mvs-fe-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;max-height:40vh;overflow-y:auto}
+.fe-chips{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;flex-shrink:0;max-height:45vh;overflow-y:auto}
+.mvs-chip{border:1px solid #cbd5e1;background:rgba(148,163,184,.14);color:inherit;border-radius:16px;padding:6px 11px;font:inherit;font-size:13px;font-weight:600;line-height:1.2;cursor:pointer;-webkit-appearance:none;appearance:none}
+.mvs-chip:active{transform:scale(.96);background:rgba(52,152,219,.22)}
+.mvs-acc-toggle{flex:1 0 100%;text-align:left;border:0;background:transparent;color:inherit;font:inherit;font-size:13px;font-weight:800;padding:6px 2px;opacity:.85;cursor:pointer;-webkit-appearance:none;appearance:none}
+.mvs-acc-list{flex:1 0 100%;display:none;flex-direction:column;gap:6px}
+.mvs-acc-list.open{display:flex}
+.mvs-reason-row{text-align:left;border:1px solid #cbd5e1;background:rgba(148,163,184,.10);color:inherit;border-radius:12px;padding:10px 12px;font:inherit;font-size:14px;font-weight:600;line-height:1.25;cursor:pointer;-webkit-appearance:none;appearance:none}
+.mvs-reason-row:active{transform:scale(.98);background:rgba(52,152,219,.22)}
+/* подсказка «следующая встреча» */
+.mvs-next-hint{margin:8px 0 2px;padding:9px 12px;border-radius:14px;background:rgba(52,152,219,.10);border:1px solid rgba(52,152,219,.28);color:inherit}
+.mvs-next-hint .nh1{font-size:14px;font-weight:800;line-height:1.25;overflow-wrap:anywhere}
+.mvs-next-hint .nh2{font-size:12px;opacity:.82;margin-top:2px;line-height:1.3}
+.mvs-next-hint.warn{background:rgba(230,126,34,.14);border-color:rgba(230,126,34,.5)}
+.mvs-next-hint.warn .nh2{opacity:1;font-weight:700;color:#c0670f}
+body.dark .mvs-next-hint.warn .nh2{color:#ffb366}
+/* порядок по карте */
+.mvs-route-btn{border:1px solid rgba(255,255,255,.65);background:rgba(255,255,255,.22);color:#fff;border-radius:14px;padding:3px 10px;margin-right:8px;font:inherit;font-size:12px;font-weight:800;cursor:pointer;-webkit-appearance:none;appearance:none}
+.mvs-route-btn:active{transform:scale(.96)}
+.mvs-ro-backdrop{position:fixed;inset:0;z-index:4000;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.6)}
+.mvs-ro-modal{width:min(520px,100%);max-height:86dvh;overflow:auto;box-sizing:border-box;background:var(--card-bg,#fff);color:var(--text-color,#1e293b);border-radius:20px;padding:18px;box-shadow:0 20px 70px #0005}
+body.dark .mvs-ro-modal{background:#1c2733;color:#e8eef5}
+.mvs-ro-modal h3{margin:0 0 8px;font-size:18px}
+.mvs-ro-sum{font-size:13px;margin-bottom:10px;line-height:1.4}
+.mvs-ro-sum b{font-weight:800}
+.mvs-ro-list{list-style:none;margin:0 0 12px;padding:0}
+.mvs-ro-list li{display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid rgba(120,130,140,.2);font-size:14px;line-height:1.3}
+.mvs-ro-list .n{flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:#27ae60;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.mvs-ro-list .km{margin-left:auto;flex:0 0 auto;font-size:12px;opacity:.7;white-space:nowrap}
+.mvs-ro-note{font-size:12px;opacity:.75;margin-bottom:10px}
+.mvs-ro-actions{display:flex;gap:8px}
+.mvs-ro-actions button{flex:1;border:1px solid #cbd5e1;border-radius:10px;padding:11px 12px;background:transparent;color:inherit;font:inherit;font-weight:700;cursor:pointer}
+.mvs-ro-actions button.primary{background:#27ae60;border-color:#27ae60;color:#fff}
+</style>
+<script id="mvs-workday-helpers">
+(function () {
+  'use strict';
+  function $(id) { return document.getElementById(id); }
+  function lsGet(k, d) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  function fmtMin(m) { m = Math.max(0, Math.round(m)); return m >= 60 ? Math.floor(m / 60) + ' ч ' + (m % 60) + ' мин' : m + ' мин'; }
+  function addrOf(it) { return String((it && (it.addrDisplay || it.addr)) || '').replace(/\s+/g, ' ').trim(); }
+  function isPending(it) { return !!(it && String(it.addr || '').trim() && it.status !== 'done' && it.status !== 'perenos' && !it.startedAt); }
+  function lists() { return (typeof routeState !== 'undefined' && routeState && routeState.lists) ? routeState.lists : null; }
+
+  /* ═══ 1. Быстрые причины недоставок ═══ */
+  var ALL = (['Недозвон', 'Отказ клиента', 'Отмена клиентом', 'Клиент не в городе']).concat(['Недозвон, полный адрес, встреча вечером', 'Недозвон, адрес не полный', 'Клиент сегодня не может, должен перенести']);   // список в аккордеоне «Все причины»
+  function lowerFirst(t) { return t.charAt(0).toLowerCase() + t.slice(1); }
+  function addReason(ta, txt) {
+    var v = String(ta.value || '').trim();
+    if (v.toLowerCase().indexOf(txt.toLowerCase()) >= 0) return false;    // такая причина уже записана
+    var sep = (v.indexOf(',') >= 0 || txt.indexOf(',') >= 0) ? '; ' : ', ';   // «; », чтобы составные причины не путались с запятыми
+    ta.value = v ? v.replace(/[,;.\s]+$/, '') + sep + lowerFirst(txt) : txt;
+    try { ta.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+    try { ta.focus({ preventScroll: true }); ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) {}
+    try { vibro(8); } catch (e) {}
+    return true;
+  }
+  window.mvsRenderReasonChips = function (box, ta) {
+    if (!box || !ta) return;
+    box.innerHTML = '';
+    function mk(t, cls) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = cls; b.textContent = t;
+      ['pointerdown', 'mousedown'].forEach(function (ev) { b.addEventListener(ev, function (e) { e.preventDefault(); }); });   // фокус остаётся в поле
+      b.addEventListener('click', function () { addReason(ta, t); });
+      return b;
+    }
+    var tg = document.createElement('button');
+    tg.type = 'button'; tg.className = 'mvs-acc-toggle'; tg.setAttribute('aria-expanded', 'false'); tg.textContent = 'Все причины (' + ALL.length + ') ▾';
+    var list = document.createElement('div'); list.className = 'mvs-acc-list';
+    ALL.forEach(function (t) { list.appendChild(mk(t, 'mvs-reason-row')); });
+    ['pointerdown', 'mousedown'].forEach(function (ev) { tg.addEventListener(ev, function (e) { e.preventDefault(); }); });
+    tg.addEventListener('click', function () {
+      var open = !list.classList.contains('open');
+      list.classList.toggle('open', open);
+      tg.setAttribute('aria-expanded', open ? 'true' : 'false');
+      tg.textContent = 'Все причины (' + ALL.length + ') ' + (open ? '▴' : '▾');
+    });
+    box.appendChild(tg); box.appendChild(list);
+  };
+
+  /* ═══ 2. Подсказка «следующая встреча» ═══ */
+  function slotEnd(rt) {
+    var m = /[–-]\s*(\d{1,2}):(\d{2})\s*$/.exec(rt.label || '');
+    if (!m) return null;
+    var d = new Date(); d.setHours(+m[1], +m[2], 0, 0); return d.getTime();
+  }
+  function avgMeetingMin() {
+    var L = lists(), sum = 0, n = 0, dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+    if (!L) return 15;
+    ROUTE_TIMES.forEach(function (rt) { (L[rt.id] || []).forEach(function (it) {
+      if (it && it.status === 'done' && it.meetStart && it.doneAt && it.doneAt > it.meetStart && it.meetStart >= dayStart.getTime()) {
+        var m = (it.doneAt - it.meetStart) / 60000; if (m >= 3 && m <= 180) { sum += m; n++; }
+      }
+    }); });
+    return n ? Math.min(60, Math.max(5, Math.round(sum / n))) : 15;
+  }
+  function hintData() {
+    var L = lists(); if (!L || typeof ROUTE_TIMES === 'undefined') return null;
+    var now = new Date(), h = now.getHours(), live = null, anyPending = false;
+    ROUTE_TIMES.forEach(function (rt) { (L[rt.id] || []).forEach(function (it) {
+      if (it && it.startedAt && String(it.addr || '').trim() && (!live || it.startedAt < live.startedAt)) live = it;
+      if (isPending(it)) anyPending = true;
+    }); });
+    if (!live && !anyPending) return null;
+    var out = { l1: '', l2: '', warn: false }, per = avgMeetingMin();
+    if (live) out.l1 = '▶ Идёт: ' + addrOf(live) + ' · ' + fmtMin((Date.now() - live.startedAt) / 60000);
+    var cur = (h >= 10 && h < 18) ? ROUTE_TIMES.filter(function (r) { return r.id === getCurrentSlotId(); })[0] : null;
+    if (!cur) {
+      if (!live && h < 10) {
+        var first = null, total = 0;
+        ROUTE_TIMES.forEach(function (rt) { (L[rt.id] || []).forEach(function (it) { if (isPending(it)) { total++; if (!first) first = it; } }); });
+        out.l1 = 'Первая: ' + addrOf(first); out.l2 = 'Старт в 10:00 · встреч впереди: ' + total; return out;
+      }
+      return live ? out : null;
+    }
+    var pend = (L[cur.id] || []).filter(isPending), end = slotEnd(cur), left = end ? (end - now.getTime()) / 60000 : null;
+    if (!out.l1) {
+      if (pend.length) out.l1 = 'Следующая: ' + addrOf(pend[0]);
+      else {
+        var nxt = null; ROUTE_TIMES.forEach(function (rt) { if (!nxt && rt.id > cur.id) { var p = (L[rt.id] || []).filter(isPending); if (p.length) nxt = { rt: rt, p: p }; } });
+        if (!nxt) return null;
+        out.l1 = 'В этом слоте всё. Дальше: ' + nxt.rt.label; out.l2 = 'Встреч впереди: ' + nxt.p.length; return out;
+      }
+    }
+    if (pend.length && left !== null) {
+      if (left <= 0) { out.l2 = '⚠️ Слот закончился, не начато: ' + pend.length; out.warn = true; }
+      else if (left < pend.length * per) { out.l2 = '⚠️ Мало времени: до конца слота ' + fmtMin(left) + ', не начато ' + pend.length + ' (≈' + per + ' мин на встречу)'; out.warn = true; }
+      else out.l2 = 'До конца слота ' + fmtMin(left) + ' · не начато: ' + pend.length;
+    } else if (left !== null) out.l2 = 'До конца слота ' + fmtMin(left);
+    return out;
+  }
+  function fillHint(el) {
+    var d = null; try { d = hintData(); } catch (e) {}
+    if (!d) { el.style.display = 'none'; return; }
+    el.style.display = '';
+    el.classList.toggle('warn', !!d.warn);
+    el.innerHTML = '';
+    var a = document.createElement('div'); a.className = 'nh1'; a.textContent = d.l1; el.appendChild(a);
+    if (d.l2) { var b = document.createElement('div'); b.className = 'nh2'; b.textContent = d.l2; el.appendChild(b); }
+  }
+  window.mvsBuildNextHint = function () { var el = document.createElement('div'); el.className = 'mvs-next-hint'; el.id = 'mvsNextHint'; fillHint(el); return el; };
+  setInterval(function () { var el = $('mvsNextHint'); if (el && document.visibilityState === 'visible') fillHint(el); }, 30000);
+
+  /* ═══ 3. Порядок адресов слота по карте ═══ */
+  function hav(a, b) {
+    var r = Math.PI / 180, dLat = (b[0] - a[0]) * r, dLon = (b[1] - a[1]) * r;
+    var x = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return 2 * 6371 * Math.asin(Math.sqrt(x));
+  }
+  function pathLen(start, pts, order) { var d = 0, prev = start; order.forEach(function (i) { d += hav(prev, pts[i]); prev = pts[i]; }); return d; }
+  function optimize(start, pts, idx) {                    // фиксированный старт, открытый путь: ближайший сосед + 2-opt
+    var left = idx.slice(), order = [], cur = start;
+    while (left.length) {
+      var bk = 0, bd = Infinity;
+      left.forEach(function (i, k) { var d = hav(cur, pts[i]); if (d < bd) { bd = d; bk = k; } });
+      var i2 = left.splice(bk, 1)[0]; order.push(i2); cur = pts[i2];
+    }
+    var improved = true, guard = 0;
+    while (improved && guard++ < 60) {
+      improved = false;
+      for (var i = 0; i < order.length - 1; i++) for (var j = i + 1; j < order.length; j++) {
+        var cand = order.slice(0, i).concat(order.slice(i, j + 1).reverse(), order.slice(j + 1));
+        if (pathLen(start, pts, cand) + 1e-9 < pathLen(start, pts, order)) { order = cand; improved = true; }
+      }
+    }
+    return order;
+  }
+  function getGps() {
+    return new Promise(function (res) {
+      if (!navigator.geolocation) return res(null);
+      var done = false, t = setTimeout(function () { if (!done) { done = true; res(null); } }, 4500);
+      navigator.geolocation.getCurrentPosition(function (p) { if (!done) { done = true; clearTimeout(t); res([p.coords.latitude, p.coords.longitude]); } },
+        function () { if (!done) { done = true; clearTimeout(t); res(null); } }, { enableHighAccuracy: false, timeout: 4000, maximumAge: 120000 });
+    });
+  }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function openModal() {
+    var bd = document.createElement('div'); bd.className = 'mvs-ro-backdrop';
+    bd.innerHTML = '<div class="mvs-ro-modal" role="dialog" aria-modal="true"><h3>🧭 Порядок по карте</h3><div class="mvs-ro-body"></div><div class="mvs-ro-actions"></div></div>';
+    document.body.appendChild(bd);
+    var api = { bd: bd, body: bd.querySelector('.mvs-ro-body'), actions: bd.querySelector('.mvs-ro-actions'),
+      close: function () { try { bd.remove(); } catch (e) {} },
+      btn: function (label, primary, fn) { var b = document.createElement('button'); b.type = 'button'; b.textContent = label; if (primary) b.className = 'primary'; b.addEventListener('click', fn); api.actions.appendChild(b); } };
+    return api;
+  }
+  async function planSlot(slotId) {
+    var L = lists(); if (!L) return;
+    var list = L[slotId] || [], pend = list.filter(isPending);
+    if (pend.length < 2) { showToast('Нужно минимум 2 адреса в слоте'); return; }
+    var m = openModal(), cancelled = false;
+    m.body.textContent = 'Определяю координаты адресов…';
+    m.btn('Отмена', false, function () { cancelled = true; m.close(); });
+    var coords = [];
+    for (var i = 0; i < pend.length; i++) {
+      if (cancelled) return;
+      m.body.textContent = 'Определяю координаты: ' + (i + 1) + ' из ' + pend.length + '…';
+      var t0 = Date.now(), c = null;
+      try { c = await geocodeAddress(pend[i].addr); } catch (e) { c = null; }
+      coords.push(c && c.length === 2 ? c : null);
+      var spent = Date.now() - t0; if (spent > 150 && i < pend.length - 1) await sleep(Math.max(0, 1100 - spent));   // не чаще ~1 запроса в секунду
+    }
+    if (cancelled) return;
+    var ok = [], miss = [];
+    coords.forEach(function (c, i) { (c ? ok : miss).push(i); });
+    if (ok.length < 2) { m.body.innerHTML = ''; m.body.textContent = 'Не удалось определить координаты адресов. Проверь, что адреса введены полностью и есть интернет.'; m.actions.innerHTML = ''; m.btn('Закрыть', true, m.close); return; }
+    var gps = await getGps(); if (cancelled) return;
+    var pts = ok.map(function (i) { return coords[i]; }), all = pts.map(function (_, k) { return k; });
+    var start = gps || pts[0], cand = gps ? all : all.slice(1);
+    var order = optimize(start, pts, cand);
+    var before = pathLen(start, pts, cand), after = pathLen(start, pts, order);
+    var finalIdx = (gps ? [] : [0]).concat(order);
+    var newItems = finalIdx.map(function (k) { return pend[ok[k]]; }).concat(miss.map(function (i) { return pend[i]; }));
+    var already = (before - after) < Math.max(0.2, before * 0.05);
+    m.body.innerHTML = '';
+    var sum = document.createElement('div'); sum.className = 'mvs-ro-sum';
+    sum.innerHTML = already
+      ? 'Порядок уже почти оптимальный: <b>' + before.toFixed(1) + ' км</b> по прямой.'
+      : 'Сейчас: <b>' + before.toFixed(1) + ' км</b> → станет: <b>' + after.toFixed(1) + ' км</b> (меньше на ' + (before - after).toFixed(1) + ' км, по прямой).';
+    m.body.appendChild(sum);
+    var ul = document.createElement('ul'); ul.className = 'mvs-ro-list';
+    var prev = start;
+    finalIdx.forEach(function (k, n) {
+      var li = document.createElement('li'), nn = document.createElement('span'), tx = document.createElement('span'), km = document.createElement('span');
+      nn.className = 'n'; nn.textContent = n + 1; tx.textContent = addrOf(pend[ok[k]]); km.className = 'km';
+      km.textContent = (n === 0 && !gps) ? 'старт' : '≈ ' + hav(prev, pts[k]).toFixed(1) + ' км';
+      prev = pts[k]; li.appendChild(nn); li.appendChild(tx); li.appendChild(km); ul.appendChild(li);
+    });
+    miss.forEach(function (i, n) {
+      var li = document.createElement('li'), nn = document.createElement('span'), tx = document.createElement('span'), km = document.createElement('span');
+      nn.className = 'n'; nn.style.background = '#94a3b8'; nn.textContent = '?'; tx.textContent = addrOf(pend[i]); km.className = 'km'; km.textContent = 'нет координат';
+      li.appendChild(nn); li.appendChild(tx); li.appendChild(km); ul.appendChild(li);
+    });
+    m.body.appendChild(ul);
+    var note = document.createElement('div'); note.className = 'mvs-ro-note';
+    note.textContent = (gps ? 'Старт — ваше текущее местоположение. ' : 'GPS недоступен: первый адрес остаётся первым. ') + 'Расстояния по прямой, реальный путь по дорогам длиннее. Адреса «Ждут» остаются выше остальных.' + (miss.length ? ' Адреса без координат поставлены в конец.' : '');
+    m.body.appendChild(note);
+    m.actions.innerHTML = '';
+    m.btn(already ? 'Ок' : 'Отмена', already, m.close);
+    if (!already) m.btn('Применить порядок', true, function () {
+      var cur = routeState.lists[slotId] || [], it = 0;
+      routeState.lists[slotId] = cur.map(function (x) { return isPending(x) ? newItems[it++] || x : x; });
+      saveRouteState(routeState);
+      try { _routeDataHash = ''; } catch (e) {}
+      try { _mapHash = ''; } catch (e) {}
+      m.close(); renderRoute();
+      try { showToast('Порядок обновлён'); } catch (e) {}
+    });
+  }
+  window.mvsAddRouteBtn = function (header, slotId) {
+    var L = lists(); if (!L) return;
+    if ((L[slotId] || []).filter(isPending).length < 2) return;
+    var right = header.querySelector('.rth-right'); if (!right) return;
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'mvs-route-btn'; b.textContent = '🧭 Порядок';
+    b.title = 'Расставить адреса слота в удобном порядке по карте';
+    b.addEventListener('click', function (e) { e.stopPropagation(); planSlot(slotId); });
+    right.insertBefore(b, right.firstChild);
+  };
+
+  /* ═══ 5. Напоминание «встреча начата, но не завершена» ═══ */
+  var STALL_FIRST = 15, STALL_STEP = 30, STALL_KEY = 'mvs_stall_notified';
+  function checkStall() {
+    if (document.visibilityState !== 'visible' || typeof iosBanner !== 'function') return;
+    if (document.body.classList.contains('mvs-splash-open') || $('mvsLiquidSplash')) return;
+    var L = lists(); if (!L || typeof ROUTE_TIMES === 'undefined') return;
+    var seen = lsGet(STALL_KEY, {}), now = Date.now(), fired = false, changed = false;
+    Object.keys(seen).forEach(function (k) { if (now - (+k) > 2 * 86400000) { delete seen[k]; changed = true; } });
+    ROUTE_TIMES.forEach(function (rt) { (L[rt.id] || []).forEach(function (it) {
+      if (fired || !it || !it.startedAt || it.status === 'done') return;
+      var min = Math.floor((now - it.startedAt) / 60000);
+      if (min < STALL_FIRST || min > 360) return;
+      var k = Math.floor((min - STALL_FIRST) / STALL_STEP) + 1;
+      if ((seen[it.startedAt] || 0) >= k) return;
+      seen[it.startedAt] = k; changed = true; fired = true;
+      iosBanner({ title: 'Встреча идёт ' + fmtMin(min), sub: (addrOf(it) || 'Адрес не указан') + '\nНе забыл завершить?', icon: '⏱', kind: 'warn', sticky: true,
+        actions: [{ label: 'Открыть', primary: true, fn: function () {
+          try { goToTab(4); _openSlotId = rt.id; window._routeMeetingsActiveTab = 'working'; renderRoute(); } catch (e) {}
+        } }, { label: 'Позже' }] });
+    }); });
+    if (changed) lsSet(STALL_KEY, seen);
+  }
+  setInterval(checkStall, 30000);
+  setTimeout(checkStall, 20000);
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') setTimeout(checkStall, 1500); });
 })();
 </script>
 <script id="mvs-whats-new">
