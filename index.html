@@ -159,7 +159,8 @@
 </head>
 <body class="tab-4">
 <script type="application/json" id="mvs-changelog">
-{"build":13,"label":"v13","history":[
+{"build":14,"label":"v14","history":[
+ {"build":14,"items":["Кнопка «Причины» (вместо «Все причины»); при раскрытии списка клавиатура убирается"]},
  {"build":13,"items":["Причины недоставок: убраны отдельные кнопки, остался только аккордеон «Все причины»"]},
  {"build":12,"items":["Причины недоставок: аккордеон «Все причины» с готовым списком (добавлены «Недозвон, полный адрес, встреча вечером», «Недозвон, адрес не полный», «Клиент сегодня не может, должен перенести»)"]},
  {"build":11,"items":["Кнопки причин: Недозвон, Отказ клиента, Отмена клиентом, Клиент не в городе","Напоминание о незавершённой встрече приходит через 15 минут после «Начать»"]},
@@ -18268,13 +18269,13 @@ body.dark .mvs-ro-modal{background:#1c2733;color:#e8eef5}
   /* ═══ 1. Быстрые причины недоставок ═══ */
   var ALL = (['Недозвон', 'Отказ клиента', 'Отмена клиентом', 'Клиент не в городе']).concat(['Недозвон, полный адрес, встреча вечером', 'Недозвон, адрес не полный', 'Клиент сегодня не может, должен перенести']);   // список в аккордеоне «Все причины»
   function lowerFirst(t) { return t.charAt(0).toLowerCase() + t.slice(1); }
-  function addReason(ta, txt) {
+  function addReason(ta, txt, noFocus) {
     var v = String(ta.value || '').trim();
     if (v.toLowerCase().indexOf(txt.toLowerCase()) >= 0) return false;    // такая причина уже записана
     var sep = (v.indexOf(',') >= 0 || txt.indexOf(',') >= 0) ? '; ' : ', ';   // «; », чтобы составные причины не путались с запятыми
     ta.value = v ? v.replace(/[,;.\s]+$/, '') + sep + lowerFirst(txt) : txt;
     try { ta.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
-    try { ta.focus({ preventScroll: true }); ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) {}
+    if (!noFocus) { try { ta.focus({ preventScroll: true }); ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) {} }
     try { vibro(8); } catch (e) {}
     return true;
   }
@@ -18285,19 +18286,19 @@ body.dark .mvs-ro-modal{background:#1c2733;color:#e8eef5}
       var b = document.createElement('button');
       b.type = 'button'; b.className = cls; b.textContent = t;
       ['pointerdown', 'mousedown'].forEach(function (ev) { b.addEventListener(ev, function (e) { e.preventDefault(); }); });   // фокус остаётся в поле
-      b.addEventListener('click', function () { addReason(ta, t); });
+      b.addEventListener('click', function () { addReason(ta, t, true); });   // клавиатура остаётся скрытой, список виден целиком
       return b;
     }
     var tg = document.createElement('button');
-    tg.type = 'button'; tg.className = 'mvs-acc-toggle'; tg.setAttribute('aria-expanded', 'false'); tg.textContent = 'Все причины (' + ALL.length + ') ▾';
+    tg.type = 'button'; tg.className = 'mvs-acc-toggle'; tg.setAttribute('aria-expanded', 'false'); tg.textContent = 'Причины ▾';
     var list = document.createElement('div'); list.className = 'mvs-acc-list';
     ALL.forEach(function (t) { list.appendChild(mk(t, 'mvs-reason-row')); });
-    ['pointerdown', 'mousedown'].forEach(function (ev) { tg.addEventListener(ev, function (e) { e.preventDefault(); }); });
     tg.addEventListener('click', function () {
       var open = !list.classList.contains('open');
       list.classList.toggle('open', open);
       tg.setAttribute('aria-expanded', open ? 'true' : 'false');
-      tg.textContent = 'Все причины (' + ALL.length + ') ' + (open ? '▴' : '▾');
+      tg.textContent = 'Причины ' + (open ? '▴' : '▾');
+      if (open) { try { ta.blur(); } catch (e) {} try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch (e) {} }   // клавиатура уезжает
     });
     box.appendChild(tg); box.appendChild(list);
   };
