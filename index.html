@@ -159,7 +159,8 @@
 </head>
 <body class="tab-4">
 <script type="application/json" id="mvs-changelog">
-{"build":17,"label":"v17","history":[
+{"build":18,"label":"v18","history":[
+ {"build":18,"items":["VPN-уведомление после смахивания или тапа молчит 10 минут","Проверка VPN и IP стала реже: раз в 10 минут вместо 3, без лишней второй проверки на старте"]},
  {"build":17,"items":["Заставка: реакция на наклон телефона (включается в «Настройки» → «Наклон заставки»)"]},
  {"build":16,"items":["Заставка: живой фон (плывущие круги и блик по стеклу), пульсирующая стрелка свайпа, вибрация на пороге отпускания"]},
  {"build":15,"items":["Заставка: приветствие по времени суток, блок «Следующая встреча» и счётчик встреч дня","Заставка: цифры УП появляются сразу и плавно «досчитываются»"]},
@@ -15528,9 +15529,10 @@ if (_startOnMap) {
 let _vpnCheckDone = false;   // проверяем 1 раз за сессию
 let _vpnWarningTimeout = null;
 
-function showVpnWarning() {
+function showVpnWarning(force) {
   const el = document.getElementById('vpnWarning');
   if (!el) return;
+  if (!force && window._vpnSnoozeUntil && Date.now() < window._vpnSnoozeUntil) return;   // смахнули — молчим до конца паузы
 
   const warningTitle = el.querySelector('.vpn-warning-text b');
   const warningText = el.querySelector('.vpn-warning-text span');
@@ -15710,6 +15712,7 @@ async function checkVpnAndWarn(force) {
     }
     const first = okRes[0];
     window._vpnLast = { country: first.country, org: first.org, via: first.host, vpn, reason, ts: Date.now() };
+    if (!vpn) window._vpnSnoozeUntil = 0;
     if (vpn) showVpnWarning();
     return window._vpnLast;
   } catch (e) {
@@ -15717,7 +15720,8 @@ async function checkVpnAndWarn(force) {
     // Если сервисы проверки недоступны, показываем предупреждение о возможных сетевых ограничениях,
     // не утверждая, что VPN точно включён.
     try {
-      const w = (navigator.onLine === false) ? null : document.getElementById('vpnWarning');   // нет сети — не VPN
+      const snoozed = window._vpnSnoozeUntil && Date.now() < window._vpnSnoozeUntil;
+      const w = (navigator.onLine === false || snoozed) ? null : document.getElementById('vpnWarning');   // нет сети — не VPN
       if (w) {
         const t = w.querySelector('.vpn-warning-text span');
         if (t) t.textContent = 'Выключи VPN, затем перезайди в приложение или обнови экран, потянув сверху вниз';
@@ -15737,8 +15741,9 @@ async function checkVpnAndWarn(force) {
 // Нажали «Маршрут»: с включённым VPN Яндекс.Карты не открываются — предупреждаем
 function vpnNavGuard() {
   try {
+    window._vpnSnoozeUntil = 0;                     // «Маршрут» с VPN не откроется — предупреждаем обязательно
     const last = window._vpnLast;
-    if (last && last.vpn && Date.now() - last.ts < 60000) { showVpnWarning(); return; }
+    if (last && last.vpn && Date.now() - last.ts < 60000) { showVpnWarning(true); return; }
     checkVpnAndWarn(true);          // проверит заново; если VPN — покажет предупреждение сам
   } catch (e) {}
 }
@@ -15775,6 +15780,7 @@ document.getElementById('btnCheckVpn')?.addEventListener('click', async () => {
   document.getElementById('menu3')?.classList.remove('show');
   vibro(10);
   showToast('🛡 Проверяю VPN…');
+  window._vpnSnoozeUntil = 0;                       // ручная проверка — предупреждение показываем всегда
   const r = await checkVpnAndWarn(true);
   const ua = (navigator.userAgent || '');
   const env = [
@@ -18066,7 +18072,7 @@ textarea.route-addr-input {
 // поэтому на других экранах и при включении VPN уже во время работы предупреждение не приходило.
 (function () {
   'use strict';
-  var last = 0, MIN_GAP = 15000, EVERY = 3 * 60 * 1000;
+  var last = 0, MIN_GAP = 60000, EVERY = 10 * 60 * 1000;   // раньше: не чаще раза в 15 с и по таймеру каждые 3 минуты
   function run(reason) {
     try {
       if (typeof checkVpnAndWarn !== 'function' || document.hidden) return;
@@ -18081,6 +18087,10 @@ textarea.route-addr-input {
   if (el) (function () {
     var sx = 0, sy = 0, dx = 0, dy = 0, t0 = 0, drag = false, moved = false, pid = null;
     function reset() { el.style.transition = ''; el.style.transform = ''; el.style.opacity = ''; }
+    function snooze() {                                  // пользователь убрал уведомление — 10 минут не напоминаем
+      window._vpnSnoozeUntil = Date.now() + 10 * 60 * 1000;
+      try { showToast('VPN-уведомление скрыто на 10 минут'); } catch (e) {}
+    }
     function hideNow() {
       try { clearTimeout(_vpnWarningTimeout); } catch (e) {}   // let из основного скрипта виден глобально
       el.classList.add('hiding');
@@ -18108,7 +18118,7 @@ textarea.route-addr-input {
       var dt = Math.max(1, Date.now() - t0);
       var vx = dx / dt, vy = dy / dt;                 // px/мс
       var out = (-dy > 40) || (Math.abs(dx) > 90) || (vy < -0.5) || (Math.abs(vx) > 0.6);
-      if (!moved) { hideNow(); return; }              // обычный тап — закрыть
+      if (!moved) { snooze(); hideNow(); return; }    // обычный тап — закрыть
       if (out) {
         // улетает в сторону жеста
         var horiz = Math.abs(dx) > Math.abs(dy);
@@ -18118,6 +18128,7 @@ textarea.route-addr-input {
         el.style.transform = 'translateX(calc(-50% + ' + tx + 'px)) translateY(' + ty + 'px)';
         el.style.opacity = '0';
         try { clearTimeout(_vpnWarningTimeout); } catch (er) {}
+        snooze();
         setTimeout(function () { el.classList.remove('show', 'hiding'); reset(); }, 300);
       } else {
         // не дотянули — пружинно возвращается и снова скрывается по таймеру
@@ -18132,7 +18143,10 @@ textarea.route-addr-input {
   })();
   // старт: сеть при запуске часто ещё не готова — проверяем дважды
   setTimeout(function () { run('start'); }, 2000);
-  setTimeout(function () { last = 0; run('start2'); }, 9000);
+  setTimeout(function () {                      // вторая попытка нужна, только если первая не дозвонилась
+    try { if (typeof _vpnLastOk !== 'undefined' && Date.now() - _vpnLastOk < 30000) return; } catch (e) {}
+    last = 0; run('start2');
+  }, 9000);
   // вернулись в приложение (на любой вкладке) — VPN могли включить в шторке
   document.addEventListener('visibilitychange', function () { if (!document.hidden) setTimeout(function () { run('visible'); }, 800); });
   window.addEventListener('focus', function () { setTimeout(function () { run('focus'); }, 800); });
