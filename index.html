@@ -159,7 +159,8 @@
 </head>
 <body class="tab-4">
 <script type="application/json" id="mvs-changelog">
-{"build":16,"label":"v16","history":[
+{"build":17,"label":"v17","history":[
+ {"build":17,"items":["Заставка: реакция на наклон телефона (включается в «Настройки» → «Наклон заставки»)"]},
  {"build":16,"items":["Заставка: живой фон (плывущие круги и блик по стеклу), пульсирующая стрелка свайпа, вибрация на пороге отпускания"]},
  {"build":15,"items":["Заставка: приветствие по времени суток, блок «Следующая встреча» и счётчик встреч дня","Заставка: цифры УП появляются сразу и плавно «досчитываются»"]},
  {"build":14,"items":["Кнопка «Причины» (вместо «Все причины»); при раскрытии списка клавиатура убирается"]},
@@ -198,6 +199,10 @@
 @keyframes mlsDriftB{0%{transform:translate3d(0,0,0) scale(1)}100%{transform:translate3d(-8vw,-5vh,0) scale(1.12)}}
 @keyframes mlsSheen{0%,48%{transform:translate3d(-130%,0,0) skewX(-18deg)}82%,100%{transform:translate3d(440%,0,0) skewX(-18deg)}}
 @keyframes mlsChev{0%,100%{transform:translateY(3px);opacity:.35}50%{transform:translateY(-4px);opacity:1}}
+#mvsLiquidSplash{--tx:0;--ty:0}
+#mvsLiquidSplash:before{translate:calc(var(--tx) * 26px) calc(var(--ty) * 26px)}
+#mvsLiquidSplash:after{translate:calc(var(--tx) * -20px) calc(var(--ty) * -20px)}
+#mvsLiquidSplash .mls-card{translate:calc(var(--tx) * 7px) calc(var(--ty) * 7px)}
 #mvsLiquidSplash:before{animation:mlsDriftA 11s ease-in-out infinite alternate}
 #mvsLiquidSplash:after{animation:mlsDriftB 13s ease-in-out infinite alternate}
 #mvsLiquidSplash .mls-card{overflow:hidden}
@@ -6880,6 +6885,7 @@ body:not(.dark) #screen4 .route-card .route-note-input::placeholder {
   <button id="btnOpenFuel" style="color:#e67e22;">⛽ Расход бензина</button>
   <button id="btnOpenMaxGroups" style="color:#6c5ce7;">💬 Группы в MAX</button>
   <button id="btnToggleTheme">🌙 Сменить тему</button>
+  <button id="btnSplashTilt" style="color:#16a085;">🌀 Наклон заставки: выкл</button>
   <button id="btnResetTotalsMenu">🗑 Сбросить итоги за месяц</button>
   <button id="btnFixDupHistory">🔧 Исправить дубли в истории</button>
   <button id="btnExportData" style="color:#27ae60;">💾 Сохранить данные</button>
@@ -17175,6 +17181,31 @@ try { sessionStorage.removeItem('mvs_autoheal'); } catch (e) {}
     const H=()=>window.innerHeight||800;
     let closed=false, tracking=false, dragging=false, pid=null, startY=0, lastY=0, lastT=0, vel=0, dy=0, raf=0, armed=false;
 
+    // наклон телефона: круги и карточка слегка «едут» за наклоном (включается в меню «Настройки»)
+    (function(){
+      let on=false; try{ on = localStorage.getItem('mvs_splash_tilt')==='1'; }catch(e){}
+      if(!on || reduceMotion || !('DeviceOrientationEvent' in window)) return;
+      const clamp=v=>Math.max(-1,Math.min(1,v));
+      let b0=null,g0=null,tx=0,ty=0,cx=0,cy=0,r2=0;
+      function stop(){ window.removeEventListener('deviceorientation',onOri,true); }
+      function loop(){
+        r2=0;
+        if(closed||!document.getElementById('mvsLiquidSplash')){ stop(); return; }
+        if(document.hidden||splash.classList.contains('mls-lite')) return;
+        cx+=(tx-cx)*.14; cy+=(ty-cy)*.14;
+        splash.style.setProperty('--tx',cx.toFixed(3)); splash.style.setProperty('--ty',cy.toFixed(3));
+        if(Math.abs(tx-cx)>.003||Math.abs(ty-cy)>.003) r2=requestAnimationFrame(loop);
+      }
+      function onOri(e){
+        if(closed){ stop(); return; }
+        if(e.beta==null||e.gamma==null) return;
+        if(b0===null){ b0=e.beta; g0=e.gamma; }                   // за ноль берём положение телефона в момент показа
+        tx=clamp((e.gamma-g0)/22); ty=clamp((e.beta-b0)/22);
+        if(!r2) r2=requestAnimationFrame(loop);
+      }
+      window.addEventListener('deviceorientation',onOri,true);
+    })();
+
     // анимации стоят, пока приложение свёрнуто
     document.addEventListener('visibilitychange',()=>{ try{ splash.classList.toggle('mls-paused',document.hidden); }catch(e){} });
     // на слабых устройствах отключаем «живой» фон: замеряем плавность спустя 1,2 с после показа
@@ -18472,6 +18503,27 @@ body.dark .mvs-ro-modal{background:#1c2733;color:#e8eef5}
     else l1 = left > 0 ? 'Есть невыполненные встречи' : 'Все встречи на сегодня выполнены 🎉';
     return { l1: l1, l2: 'Встреч сегодня: ' + total + ' · выполнено: ' + done + ' · осталось: ' + left };
   };
+
+  /* выключатель «Наклон заставки» (меню «Настройки») */
+  (function () {
+    var KEY = 'mvs_splash_tilt', btn = $('btnSplashTilt');
+    if (!btn) return;
+    function isOn() { try { return localStorage.getItem(KEY) === '1'; } catch (e) { return false; } }
+    function paint() { btn.textContent = '🌀 Наклон заставки: ' + (isOn() ? 'вкл' : 'выкл'); }
+    function set(v) { try { localStorage.setItem(KEY, v ? '1' : '0'); } catch (e) {} paint(); }
+    paint();
+    btn.addEventListener('click', function () {
+      if (isOn()) { set(false); try { showToast('Наклон заставки выключен'); } catch (e) {} return; }
+      if (!('DeviceOrientationEvent' in window)) { try { showToast('Датчик наклона недоступен на этом устройстве'); } catch (e) {} return; }
+      var DO = window.DeviceOrientationEvent;
+      if (typeof DO.requestPermission === 'function') {          // iPhone: разрешение нужно запросить по тапу
+        DO.requestPermission().then(function (r) {
+          if (r === 'granted') { set(true); try { showToast('Наклон включён — заметен при следующем запуске'); } catch (e) {} }
+          else { try { showToast('Доступ к датчикам не разрешён'); } catch (e) {} }
+        }).catch(function () { try { showToast('Не удалось включить наклон'); } catch (e) {} });
+      } else { set(true); try { showToast('Наклон включён — заметен при следующем запуске'); } catch (e) {} }
+    });
+  })();
 
   /* ═══ 3. Порядок адресов слота по карте ═══ */
   function hav(a, b) {
