@@ -159,7 +159,8 @@
 </head>
 <body class="tab-4">
 <script type="application/json" id="mvs-changelog">
-{"build":18,"label":"v18","history":[
+{"build":19,"label":"v19","history":[
+ {"build":19,"items":["Заметка и причина недоставки: первый тап по полю сам заново подключает клавиатуру (раньше приходилось тапать мимо и в поле)"]},
  {"build":18,"items":["VPN-уведомление после смахивания или тапа молчит 10 минут","Проверка VPN и IP стала реже: раз в 10 минут вместо 3, без лишней второй проверки на старте"]},
  {"build":17,"items":["Заставка: реакция на наклон телефона (включается в «Настройки» → «Наклон заставки»)"]},
  {"build":16,"items":["Заставка: живой фон (плывущие круги и блик по стеклу), пульсирующая стрелка свайпа, вибрация на пороге отпускания"]},
@@ -7377,14 +7378,17 @@ function openReasonsFullscreen() {
 
   // Курсор в конец ДО фокуса, фокус СРАЗУ (пока длится жест пользователя — иначе Android WebView
   // иногда не даёт печатать) и ещё несколько попыток, если фокус потерялся.
-  try { textarea.setSelectionRange(textarea.value.length, textarea.value.length); } catch (e) {}
-  const grab = () => {
-    if (!editor.classList.contains('show')) return;
-    if (document.activeElement === textarea) return;
-    try { textarea.focus({ preventScroll: true }); } catch (e) {}
-  };
-  grab();
-  [60, 180, 400, 800].forEach(ms => setTimeout(grab, ms));
+  if (window.mvsFocusField) window.mvsFocusField(textarea, () => editor.classList.contains('show'));
+  else {
+    try { textarea.setSelectionRange(textarea.value.length, textarea.value.length); } catch (e) {}
+    const grab = () => {
+      if (!editor.classList.contains('show')) return;
+      if (document.activeElement === textarea) return;
+      try { textarea.focus({ preventScroll: true }); } catch (e) {}
+    };
+    grab();
+    [60, 180, 400, 800].forEach(ms => setTimeout(grab, ms));
+  }
 
   vibro(15);
 }
@@ -18233,9 +18237,9 @@ textarea.route-addr-input {
     try { ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) {}   // курсор в конец ДО фокуса: клавиатуре не нужно перестраиваться
     try { vibro(10); } catch (e) {}
     // Фокус СРАЗУ, пока длится жест пользователя (иначе Android WebView иногда не даёт ввод),
-    // и ещё несколько попыток, если фокус всё же потерялся.
-    grabFocus();
-    [60, 180, 400, 800].forEach(function (ms) { focusTimers.push(setTimeout(grabFocus, ms)); });
+    // плюс «самолечение»: первый тап по полю заново подключает клавиатуру.
+    if (window.mvsFocusField) window.mvsFocusField(ta, function () { return bd.classList.contains('show'); });
+    else { grabFocus(); [60, 180, 400, 800].forEach(function (ms) { focusTimers.push(setTimeout(grabFocus, ms)); }); }
   };
 })();
 </script>
@@ -18392,6 +18396,33 @@ body.dark .mvs-ro-modal{background:#1c2733;color:#e8eef5}
   function addrOf(it) { return String((it && (it.addrDisplay || it.addr)) || '').replace(/\s+/g, ' ').trim(); }
   function isPending(it) { return !!(it && String(it.addr || '').trim() && it.status !== 'done' && it.status !== 'perenos' && !it.startedAt); }
   function lists() { return (typeof routeState !== 'undefined' && routeState && routeState.lists) ? routeState.lists : null; }
+
+  /* ═══ Надёжный фокус полей ввода (Android WebView: клавиатура иногда не «цепляется» к полю) ═══ */
+  window.mvsFocusField = function (ta, isOpen) {
+    if (!ta) return;
+    function restart() {                               // то же, что делает ручной «тап мимо и снова в поле»
+      var a = 0, b = 0; try { a = ta.selectionStart; b = ta.selectionEnd; } catch (e) {}
+      try { ta.blur(); } catch (e) {}
+      try { ta.focus({ preventScroll: true }); } catch (e) {}
+      try { ta.setSelectionRange(a, b); } catch (e) {}
+    }
+    if (!ta.__mvsHeal) {
+      ta.__mvsHeal = true;
+      ['input', 'compositionstart'].forEach(function (t) { ta.addEventListener(t, function () { ta.__mvsInputs = (ta.__mvsInputs || 0) + 1; }); });
+      // Первый настоящий тап по полю, пока в него ещё ничего не вводили, заново подключает клавиатуру
+      ['touchend', 'click'].forEach(function (t) { ta.addEventListener(t, function () {
+        if (!ta.__mvsPending || ta.__mvsInputs) return;
+        ta.__mvsPending = false;
+        restart();
+      }); });
+    }
+    ta.__mvsInputs = 0; ta.__mvsPending = true;
+    try { var act = document.activeElement; if (act && act !== ta && act !== document.body && act.blur) act.blur(); } catch (e) {}   // старая сессия клавиатуры закрывается до новой
+    function grab() { if (!isOpen()) return; if (document.activeElement !== ta) { try { ta.focus({ preventScroll: true }); } catch (e) {} } }
+    try { ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) {}
+    grab();                                            // сразу, пока длится жест пользователя
+    [60, 180, 400, 800].forEach(function (ms) { setTimeout(grab, ms); });
+  };
 
   /* ═══ 1. Быстрые причины недоставок ═══ */
   var ALL = (['Недозвон', 'Отказ клиента', 'Отмена клиентом', 'Клиент не в городе']).concat(['Недозвон, полный адрес, встреча вечером', 'Недозвон, адрес не полный', 'Клиент сегодня не может, должен перенести']);   // список в аккордеоне «Все причины»
