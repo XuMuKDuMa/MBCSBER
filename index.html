@@ -159,7 +159,10 @@
 </head>
 <body class="tab-4">
 <script type="application/json" id="mvs-changelog">
-{"build":21,"label":"v21","history":[
+{"build":24,"label":"v24","history":[
+ {"build":24,"items":["Кнопка «Причина недоставки»: оранжевая, пока причины нет, красная — когда причина выбрана"]},
+ {"build":23,"items":["Кнопка «Причина недоставки» в карточке: красная, как «ФД обычная», без значка-треугольника"]},
+ {"build":22,"items":["Кнопка «Причина недоставки» в карточке снова компактная, в одну строку"]},
  {"build":21,"items":["Карточка активности: кнопка «Причина недоставки», пока причина пуста, раскрывает список причин — выбор одним тапом","Экран «Сегодня»: блок «Причины не доставок» вернул прежний вид (аккордеон из v20 убран)"]},
  {"build":20,"items":["Пробный аккордеон «Причины не доставок» на экране «Сегодня» (отменён в v21)"]},
  {"build":19,"items":["Заметка и причина недоставки: первый тап по полю сам заново подключает клавиатуру (раньше приходилось тапать мимо и в поле)"]},
@@ -18285,7 +18288,7 @@ textarea.route-addr-input {
 
 <style id="mvs-fe-buttons">
 /* Аккордеон причин в карточке активности */
-.route-fe-reason .fe-chev { margin-left: 8px; font-size: 13px; opacity: .8; transition: transform .2s; }
+.route-fe-reason .fe-chev { transition: transform .2s; }
 .route-fe-reason.filled .fe-chev { display: none; }
 .route-fe-reason.acc-open .fe-chev { transform: rotate(180deg); }
 .route-reason-acc { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 2px; }
@@ -18307,6 +18310,16 @@ textarea.route-addr-input {
 body.dark #screen4 #app4 .route-card .route-fe-btn { background: #2c3a48; border-color: #3a4a5a; color: #e8eef5; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
 body.dark #screen4 #app4 .route-card .route-fe-note.filled { background: #1f3a52; border-color: #5dade2; color: #bfe0f7; }
 body.dark #screen4 #app4 .route-card .route-fe-reason.filled { background: #4a3315; border-color: #f0a04b; color: #ffd9a8; }
+ /* «Причина недоставки» — как «ФД обычная»: оранжевая, пока причины нет; красная, когда причина выбрана; без значка-треугольника */
+#screen4 #app4 .route-card .route-fe-reason,
+body.dark #screen4 #app4 .route-card .route-fe-reason { gap: 8px; min-height: 0; padding: 7px 14px; border: none; border-radius: 10px; color: #fff; background: linear-gradient(135deg, #f39c12, #e67e22); box-shadow: 0 2px 6px rgba(230, 126, 34, .45); font-size: 12px; font-weight: 800; letter-spacing: .3px; line-height: 1.2; }
+#screen4 #app4 .route-card .route-fe-row-reason { margin-left: -10px; width: calc(100% + 10px); }   /* по левому краю с «ФД обычная» */
+#screen4 #app4 .route-card .route-fe-reason .fe-ic { display: none; }
+#screen4 #app4 .route-card .route-fe-reason .fe-lb { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -webkit-line-clamp: unset; }
+#screen4 #app4 .route-card .route-fe-reason .fe-chev { margin-left: 0; font-size: 11px; opacity: .85; }
+#screen4 #app4 .route-card .route-fe-reason.filled,
+body.dark #screen4 #app4 .route-card .route-fe-reason.filled { border: none; color: #fff; background: linear-gradient(135deg, #e74c3c, #c0392b); box-shadow: 0 2px 6px rgba(231, 76, 60, .45); }
+#screen4 #app4 .route-card .route-fe-reason.filled .fe-lb::after { content: ' ✓'; }
 @media (prefers-reduced-motion: reduce) { #screen4 #app4 .route-card .route-fe-btn .fe-tri { animation: none; } }
 </style>
 <style id="mvs-address-pin-right-no-mic">
