@@ -159,7 +159,9 @@
 </head>
 <body class="tab-4">
 <script type="application/json" id="mvs-changelog">
-{"build":24,"label":"v24","history":[
+{"build":26,"label":"v26","history":[
+ {"build":26,"items":["Тап по короткой карточке: большая карточка плавно выезжает справа, свайп вправо или «Назад» возвращает её (можно выключить в «Настройках»)"]},
+ {"build":25,"items":["Окно редактирования причины в карточке: убрана кнопка «Причины» с аккордеоном (список причин теперь в самой карточке)"]},
  {"build":24,"items":["Кнопка «Причина недоставки»: оранжевая, пока причины нет, красная — когда причина выбрана"]},
  {"build":23,"items":["Кнопка «Причина недоставки» в карточке: красная, как «ФД обычная», без значка-треугольника"]},
  {"build":22,"items":["Кнопка «Причина недоставки» в карточке снова компактная, в одну строку"]},
@@ -6893,6 +6895,7 @@ body:not(.dark) #screen4 .route-card .route-note-input::placeholder {
   <button id="btnOpenMaxGroups" style="color:#6c5ce7;">💬 Группы в MAX</button>
   <button id="btnToggleTheme">🌙 Сменить тему</button>
   <button id="btnSplashTilt" style="color:#16a085;">🌀 Наклон заставки: выкл</button>
+  <button id="btnCardSheet" style="color:#2980b9;">🗂 Карточка справа: вкл</button>
   <button id="btnResetTotalsMenu">🗑 Сбросить итоги за месяц</button>
   <button id="btnFixDupHistory">🔧 Исправить дубли в истории</button>
   <button id="btnExportData" style="color:#27ae60;">💾 Сохранить данные</button>
@@ -8519,7 +8522,7 @@ document.addEventListener('scroll', () => {
     closeStatusMenu();
   }
 }, { passive: true, capture: true });
-function buildRouteCard(item, timeId, timeLabel) {
+function buildRouteCard(item, timeId, timeLabel, opts) {
   const card = document.createElement('div');
   card.__routeItem = item;
   card.className = 'route-card';
@@ -8533,7 +8536,8 @@ function buildRouteCard(item, timeId, timeLabel) {
    // Короткие карточки: первый тап раскрывает карточку, не открывая карту.
   // uiExpanded выставляется при смене типа встречи и B2C/B2B — тогда после перерисовки карточка остаётся открытой.
   // Сворачивается только при выборе статуса (там uiExpanded = false).
-  const isCollapsed = !item.startedAt && !item.uiExpanded && !!String(item.addrDisplay || item.addr || '').trim();
+  const asSheet = !!(opts && opts.sheet);   // экземпляр для выезжающей панели — всегда раскрыт
+  const isCollapsed = !asSheet && !item.startedAt && (!item.uiExpanded || window.__mvsSheetItem === item) && !!String(item.addrDisplay || item.addr || '').trim();
   if (isCollapsed) card.classList.add('collapsed');
     // Если встреча в процессе — добавляем класс "живой"
   if (item.startedAt) card.classList.add('route-card-live');
@@ -8553,6 +8557,12 @@ function buildRouteCard(item, timeId, timeLabel) {
     if (ignoreSelectors.some(sel => e.target.closest(sel))) return;
 
     if (card.classList.contains('collapsed')) {
+      // Карточка «выезжает» справа в отдельной панели (можно выключить в «Настройках»)
+      if (window.mvsCardSheetEnabled && window.mvsCardSheetEnabled() && window.mvsOpenCardSheet) {
+        vibro(12);
+        window.mvsOpenCardSheet(item, timeId, timeLabel);
+        return;
+      }
       const parent = card.parentElement;
       if (parent) parent.querySelectorAll('.route-card:not(.route-card-live)').forEach(other => {
         if (other !== card) {
@@ -9398,7 +9408,7 @@ reasonInput.addEventListener('click', e => {
   e.stopPropagation();
   if (!window.mvsOpenFieldEditor) { reasonInput.readOnly = false; reasonInput.removeAttribute('inputmode'); reasonInput.focus(); return; }
   window.mvsOpenFieldEditor({
-    chips: true, title: 'Причина недоставки', hint: 'Если встреча под вопросом — напиши причину. В короткой карточке появится мигающий треугольник.', placeholder: 'Причина недоставки (если встреча под вопросом)', value: reasonInput.value,
+    title: 'Причина недоставки', hint: 'Если встреча под вопросом — напиши причину. В короткой карточке появится мигающий треугольник.', placeholder: 'Причина недоставки (если встреча под вопросом)', value: reasonInput.value,
     onSave: v => { reasonInput.value = v; saveNonDeliveryReason(false); saveNonDeliveryReason(true); if (window.mvsGrowField) window.mvsGrowField(reasonInput); try { refreshFeBtns(); } catch (e) {} }
   });
 });
@@ -18770,6 +18780,207 @@ body.dark .mvs-ro-modal{background:#1c2733;color:#e8eef5}
   setInterval(checkStall, 30000);
   setTimeout(checkStall, 20000);
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') setTimeout(checkStall, 1500); });
+})();
+</script>
+<style id="mvs-card-sheet-css">
+#mvsCardSheet{position:fixed;inset:0;z-index:1500;pointer-events:none}
+#mvsCardSheet.open{pointer-events:auto}
+#mvsCardSheet .mvs-sheet-dim{position:absolute;inset:0;background:#000;opacity:0;transition:opacity .32s ease}
+#mvsCardSheet.open .mvs-sheet-dim{opacity:.5}
+#mvsCardSheet .mvs-sheet-panel{position:absolute;top:0;right:0;bottom:0;width:calc(100% - 18px);max-width:560px;box-sizing:border-box;display:flex;flex-direction:column;background:#eef3f8;color:#1e293b;border-radius:22px 0 0 22px;box-shadow:-12px 0 40px rgba(0,0,0,.35);transform:translate3d(100%,0,0);transition:transform .34s cubic-bezier(.22,.9,.28,1);will-change:transform;touch-action:pan-y;overflow:hidden}
+#mvsCardSheet.open .mvs-sheet-panel{transform:translate3d(0,0,0)}
+body.dark #mvsCardSheet .mvs-sheet-panel{background:#121a22;color:#e8eef5}
+#mvsCardSheet .mvs-sheet-bar{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:calc(env(safe-area-inset-top,0px) + 8px) 12px 6px 6px}
+#mvsCardSheet .mvs-sheet-back{flex:0 0 auto;width:44px;height:44px;border:0;border-radius:14px;background:transparent;color:inherit;font-size:34px;line-height:1;font-weight:300;cursor:pointer;-webkit-appearance:none;appearance:none;-webkit-tap-highlight-color:transparent}
+#mvsCardSheet .mvs-sheet-back:active{background:rgba(120,130,150,.22)}
+#mvsCardSheet .mvs-sheet-title{flex:1;min-width:0;font-size:15px;font-weight:800;letter-spacing:.2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#mvsCardSheet .mvs-sheet-grip{flex:0 0 auto;width:4px;height:34px;border-radius:3px;background:rgba(120,130,150,.45);margin-right:4px}
+#mvsCardSheet .mvs-sheet-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;touch-action:pan-y;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:4px 10px calc(env(safe-area-inset-bottom,0px) + 28px)}
+#mvsSheetBody .route-time-block{margin:0;padding:0;background:none;border:0;box-shadow:none}
+#mvsSheetBody .route-time-body{padding:0;margin:0}
+@media (prefers-reduced-motion:reduce){#mvsCardSheet .mvs-sheet-panel,#mvsCardSheet .mvs-sheet-dim{transition-duration:.01s}}
+</style>
+<script id="mvs-card-sheet">
+(function () {
+  'use strict';
+  var KEY = 'mvs_card_sheet';
+  window.mvsCardSheetEnabled = function () { try { return localStorage.getItem(KEY) !== '0'; } catch (e) { return true; } };
+
+  var root = null, panel = null, titleEl = null, scrollEl = null, cardHost = null;
+  var isOpen = false, closing = false, cur = null, pushed = false, mo = null, stylesDone = false, pending = false;
+
+  /* ── стили карточки привязаны к #screen4 / #app4: копируем нужные правила на панель (один раз, при первом открытии) ── */
+  function mapSel(part) {
+    return part.replace(/#screen4\s+#app4/g, '#mvsCardSheet #mvsSheetBody').replace(/#app4/g, '#mvsSheetBody').replace(/#screen4/g, '#mvsCardSheet');
+  }
+  function splitSel(sel) {
+    var out = [], depth = 0, buf = '';
+    for (var i = 0; i < sel.length; i++) {
+      var ch = sel.charAt(i);
+      if (ch === '(' || ch === '[') depth++; else if (ch === ')' || ch === ']') depth--;
+      if (ch === ',' && depth === 0) { out.push(buf); buf = ''; } else buf += ch;
+    }
+    if (buf.trim()) out.push(buf);
+    return out;
+  }
+  var BARE = /#mvs(?:CardSheet|SheetBody)(?=[.:\[]|\s*$)/;        // правила самого «экрана» (фон, display, отступы) не копируем
+  function cloneRules(container) {
+    var rules; try { rules = container.cssRules; } catch (e) { return; }
+    if (!rules) return;
+    var n = rules.length;
+    for (var i = 0; i < n; i++) {
+      var r = rules[i];
+      if (r.type === 1) {
+        var sel = r.selectorText || '';
+        if (sel.indexOf('#screen4') < 0 && sel.indexOf('#app4') < 0) continue;
+        var parts = splitSel(sel).filter(function (p) { return p.indexOf('#screen4') >= 0 || p.indexOf('#app4') >= 0; })
+          .map(function (p) { return mapSel(p.trim()); }).filter(function (p) { return !BARE.test(p); });
+        if (!parts.length) continue;
+        try { container.insertRule(parts.join(',') + '{' + r.style.cssText + '}', container.cssRules.length); } catch (e) {}
+      } else if ((r.type === 4 || r.type === 12) && r.cssRules) cloneRules(r);
+    }
+  }
+  function ensureStyles() {
+    if (stylesDone) return; stylesDone = true;
+    var sheets = Array.prototype.slice.call(document.styleSheets);
+    sheets.forEach(function (sh) { if (sh.ownerNode && sh.ownerNode.id === 'mvs-card-sheet-css') return; cloneRules(sh); });
+  }
+
+  /* ── DOM ── */
+  function ensureDom() {
+    if (root) return;
+    root = document.createElement('div'); root.id = 'mvsCardSheet'; root.style.display = 'none'; root.setAttribute('aria-hidden', 'true');
+    root.innerHTML = '<div class="mvs-sheet-dim"></div><div class="mvs-sheet-panel" role="dialog" aria-modal="true">' +
+      '<div class="mvs-sheet-bar"><button type="button" class="mvs-sheet-back" aria-label="Назад">‹</button><div class="mvs-sheet-title"></div><div class="mvs-sheet-grip" aria-hidden="true"></div></div>' +
+      '<div class="mvs-sheet-scroll"><div id="mvsSheetBody"><div class="route-time-block"><div class="route-time-body"></div></div></div></div></div>';
+    document.body.appendChild(root);
+    panel = root.querySelector('.mvs-sheet-panel'); titleEl = root.querySelector('.mvs-sheet-title');
+    scrollEl = root.querySelector('.mvs-sheet-scroll'); cardHost = root.querySelector('.route-time-body');
+    root.querySelector('.mvs-sheet-dim').addEventListener('click', requestClose);
+    root.querySelector('.mvs-sheet-back').addEventListener('click', requestClose);
+    bindSwipe();
+  }
+
+  /* ── свайп вправо закрывает ── */
+  function bindSwipe() {
+    var st = null, justDragged = 0;
+    panel.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (e.target.closest && e.target.closest('input,textarea,select,[contenteditable="true"]')) { st = null; return; }
+      st = { x: e.clientX, y: e.clientY, id: e.pointerId, drag: false, lx: e.clientX, lt: Date.now(), v: 0 };
+    });
+    panel.addEventListener('pointermove', function (e) {
+      if (!st || e.pointerId !== st.id) return;
+      var dx = e.clientX - st.x, dy = e.clientY - st.y;
+      if (!st.drag) {
+        if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { st = null; return; }      // это вертикальная прокрутка
+        if (dx > 12 && dx > Math.abs(dy) * 1.3) {
+          st.drag = true; st.x += 12; dx -= 12;
+          try { panel.setPointerCapture(e.pointerId); } catch (er) {}
+          panel.style.transition = 'none';
+        } else return;
+      }
+      var now = Date.now(), dt = Math.max(1, now - st.lt);
+      st.v = st.v * .6 + ((e.clientX - st.lx) / dt) * .4; st.lx = e.clientX; st.lt = now;
+      var x = Math.max(0, dx);
+      panel.style.transform = 'translate3d(' + x + 'px,0,0)';
+      root.querySelector('.mvs-sheet-dim').style.opacity = String(Math.max(0, .5 * (1 - x / Math.max(1, panel.offsetWidth))));
+    });
+    function end(e) {
+      if (!st || (e && e.pointerId !== st.id)) return;
+      var s = st; st = null;
+      if (!s.drag) return;
+      justDragged = Date.now();
+      try { panel.releasePointerCapture(s.id); } catch (er) {}
+      var x = Math.max(0, (e ? e.clientX : s.lx) - s.x);
+      var dim = root.querySelector('.mvs-sheet-dim'); dim.style.opacity = '';
+      panel.style.transition = '';
+      if (x > panel.offsetWidth * .33 || s.v > .5) {
+        panel.style.transition = 'transform .26s cubic-bezier(.4,0,1,1)';
+        requestClose();
+      } else panel.style.transform = '';                                   // пружинно возвращается
+      setTimeout(function () { if (panel) panel.style.transition = ''; }, 380);
+    }
+    panel.addEventListener('pointerup', end); panel.addEventListener('pointercancel', end);
+    panel.addEventListener('click', function (e) { if (Date.now() - justDragged < 350) { e.stopPropagation(); e.preventDefault(); } }, true);
+  }
+
+  /* ── карточка внутри панели: настоящий экземпляр, поэтому все кнопки работают как раньше ── */
+  function renderCard() {
+    if (!cur || typeof buildRouteCard !== 'function') return;
+    var top = scrollEl.scrollTop;
+    cardHost.innerHTML = '';
+    cardHost.appendChild(buildRouteCard(cur.item, cur.timeId, cur.timeLabel, { sheet: true }));
+    scrollEl.scrollTop = top;
+  }
+  function afterRender() {
+    if (!isOpen || !cur) return;
+    var L = (typeof routeState !== 'undefined' && routeState.lists && routeState.lists[cur.timeId]) || [];
+    if (L.indexOf(cur.item) < 0) { closeNow(); return; }                   // встречу удалили
+    if (cur.item.uiExpanded === false) { requestClose(); return; }         // выбрали статус — карточка «сворачивается» обратно
+    renderCard();
+  }
+
+  /* ── открытие / закрытие ── */
+  window.mvsOpenCardSheet = function (item, timeId, timeLabel) {
+    if (isOpen || closing) return;
+    ensureDom(); ensureStyles();
+    cur = { item: item, timeId: timeId, timeLabel: timeLabel };
+    window.__mvsSheetItem = item;
+    item.uiExpanded = true;
+    try { saveRouteState(routeState); } catch (e) {}
+    titleEl.textContent = timeLabel ? 'Слот ' + timeLabel : 'Встреча';
+    scrollEl.scrollTop = 0;
+    renderCard();
+    root.style.display = ''; root.setAttribute('aria-hidden', 'false');
+    void root.offsetWidth;                                                  // запускаем анимацию выезда
+    root.classList.add('open');
+    isOpen = true;
+    try { history.pushState({ mvsSheet: 1 }, ''); pushed = true; } catch (e) { pushed = false; }   // системная «Назад» закрывает панель
+    var app = document.getElementById('app4');
+    if (app && window.MutationObserver) {
+      mo = new MutationObserver(function () { if (!isOpen || pending) return; pending = true; Promise.resolve().then(function () { pending = false; afterRender(); }); });
+      mo.observe(app, { childList: true });
+    }
+  };
+  function closeNow() {
+    if (!isOpen) return;
+    isOpen = false; closing = true;
+    if (mo) { mo.disconnect(); mo = null; }
+    var item = cur && cur.item;
+    panel.style.transform = ''; panel.style.transition = '';
+    root.querySelector('.mvs-sheet-dim').style.opacity = '';
+    root.classList.remove('open');
+    window.__mvsSheetItem = null;
+    if (item) { item.uiExpanded = false; try { saveRouteState(routeState); } catch (e) {} }
+    setTimeout(function () {
+      root.style.display = 'none'; root.setAttribute('aria-hidden', 'true');
+      cardHost.innerHTML = ''; cur = null; closing = false;
+      try { if (typeof renderRoute === 'function') renderRoute(); } catch (e) {}   // короткая карточка показывает актуальные данные
+    }, 350);
+  }
+  function requestClose() {
+    if (!isOpen) return;
+    if (pushed) {
+      pushed = false;
+      try { history.back(); } catch (e) { closeNow(); return; }
+      setTimeout(function () { if (isOpen) closeNow(); }, 450);              // если popstate не пришёл
+    } else closeNow();
+  }
+  window.addEventListener('popstate', function () { pushed = false; if (isOpen) closeNow(); });
+  window.mvsCloseCardSheet = requestClose;
+
+  /* ── выключатель в меню «Настройки» ── */
+  (function () {
+    var btn = document.getElementById('btnCardSheet'); if (!btn) return;
+    function paint() { btn.textContent = '🗂 Карточка справа: ' + (window.mvsCardSheetEnabled() ? 'вкл' : 'выкл'); }
+    paint();
+    btn.addEventListener('click', function () {
+      try { localStorage.setItem(KEY, window.mvsCardSheetEnabled() ? '0' : '1'); } catch (e) {}
+      paint();
+      try { showToast(window.mvsCardSheetEnabled() ? 'Карточка будет выезжать справа' : 'Карточка будет раскрываться в списке'); } catch (e) {}
+    });
+  })();
 })();
 </script>
 <script id="mvs-whats-new">
