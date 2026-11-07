@@ -159,7 +159,8 @@
 </head>
 <body class="tab-4">
 <script type="application/json" id="mvs-changelog">
-{"build":28,"label":"v28","history":[
+{"build":29,"label":"v29","history":[
+ {"build":29,"items":["Тап по маркеру на карте открывает большую карточку встречи","Кнопка «Добавить встречи в слот» показывается только с 06:00 до 10:00"]},
  {"build":28,"items":["Выезжающая карточка: при переходе на «Карту» она сама плавно уезжает обратно"]},
  {"build":27,"items":["Выезжающая карточка: фон «жидкое стекло» (размытие, блики, мягкие цветные пятна)"]},
  {"build":26,"items":["Тап по короткой карточке: большая карточка плавно выезжает справа, свайп вправо или «Назад» возвращает её (можно выключить в «Настройках»)"]},
@@ -9855,6 +9856,7 @@ voiceBatchBtn.type = 'button';
 voiceBatchBtn.className = 'mvs-voice-batch-launch';
 voiceBatchBtn.innerHTML = '＋ Добавить встречи в слот';
 voiceBatchBtn.style.minHeight = '34px';
+voiceBatchBtn.style.display = (window.mvsBatchBtnVisible && !window.mvsBatchBtnVisible()) ? 'none' : '';   // доступна только с 06:00 до 10:00
 voiceBatchBtn.addEventListener('click', openMvsVoiceBatch);
 frag.appendChild(voiceBatchBtn);
 if (window.mvsBuildNextHint) { try { frag.appendChild(window.mvsBuildNextHint()); } catch (e) {} }
@@ -16397,6 +16399,16 @@ window.openActivityFromMap = function(timeId, addrEncoded) {
           if (block) targetCard = block.querySelector('.route-card');
         }
 
+        // Тап по маркеру: вместо короткой карточки в списке открываем большую (выезжает справа)
+        if (targetCard && targetCard.__routeItem && targetCard.classList.contains('collapsed')
+            && window.mvsCardSheetEnabled && window.mvsCardSheetEnabled() && window.mvsOpenCardSheet) {
+          const blk = targetCard.closest('.route-time-block');
+          const tid = (blk && blk.dataset && blk.dataset.timeId) || timeId;
+          const rt = (typeof ROUTE_TIMES !== 'undefined') ? ROUTE_TIMES.filter(r => r.id === tid)[0] : null;
+          try { targetCard.scrollIntoView({ block: 'center' }); } catch (e) {}   // под панелью список уже стоит на нужном месте
+          window.mvsOpenCardSheet(targetCard.__routeItem, tid, rt ? rt.label : '');
+          return;
+        }
         if (targetCard) {
           targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
           targetCard.style.transition = 'box-shadow 0.3s';
@@ -18468,6 +18480,15 @@ body.dark .mvs-ro-modal{background:#1c2733;color:#e8eef5}
   function addrOf(it) { return String((it && (it.addrDisplay || it.addr)) || '').replace(/\s+/g, ' ').trim(); }
   function isPending(it) { return !!(it && String(it.addr || '').trim() && it.status !== 'done' && it.status !== 'perenos' && !it.startedAt); }
   function lists() { return (typeof routeState !== 'undefined' && routeState && routeState.lists) ? routeState.lists : null; }
+
+  /* кнопка «Добавить встречи в слот» доступна только с 06:00 до 10:00 */
+  window.mvsBatchBtnVisible = function () { var h = new Date().getHours(); return h >= 6 && h < 10; };
+  function refreshBatchBtn() {
+    var vis = window.mvsBatchBtnVisible();
+    Array.prototype.forEach.call(document.querySelectorAll('.mvs-voice-batch-launch'), function (b) { b.style.display = vis ? '' : 'none'; });
+  }
+  setInterval(refreshBatchBtn, 20000);
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') refreshBatchBtn(); });
 
   /* ═══ Надёжный фокус полей ввода (Android WebView: клавиатура иногда не «цепляется» к полю) ═══ */
   window.mvsFocusField = function (ta, isOpen) {
