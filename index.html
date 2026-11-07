@@ -159,7 +159,9 @@
 </head>
 <body class="tab-4">
 <script type="application/json" id="mvs-changelog">
-{"build":26,"label":"v26","history":[
+{"build":28,"label":"v28","history":[
+ {"build":28,"items":["Выезжающая карточка: при переходе на «Карту» она сама плавно уезжает обратно"]},
+ {"build":27,"items":["Выезжающая карточка: фон «жидкое стекло» (размытие, блики, мягкие цветные пятна)"]},
  {"build":26,"items":["Тап по короткой карточке: большая карточка плавно выезжает справа, свайп вправо или «Назад» возвращает её (можно выключить в «Настройках»)"]},
  {"build":25,"items":["Окно редактирования причины в карточке: убрана кнопка «Причины» с аккордеоном (список причин теперь в самой карточке)"]},
  {"build":24,"items":["Кнопка «Причина недоставки»: оранжевая, пока причины нет, красная — когда причина выбрана"]},
@@ -17278,7 +17280,7 @@ try { sessionStorage.removeItem('mvs_autoheal'); } catch (e) {}
         if(!t0) t0=ts;
         if(++n<target) return requestAnimationFrame(f);
         const avg=(ts-t0)/(n-1);
-        if(avg>30) splash.classList.add('mls-lite');     // < ~33 кадров/с
+        if(avg>30){ splash.classList.add('mls-lite'); try{ document.documentElement.classList.add('mvs-lite'); }catch(e){} }     // < ~33 кадров/с: упрощаем и заставку, и стекло панели
       })(performance.now());
     },1200);
 
@@ -18786,7 +18788,7 @@ body.dark .mvs-ro-modal{background:#1c2733;color:#e8eef5}
 #mvsCardSheet{position:fixed;inset:0;z-index:1500;pointer-events:none}
 #mvsCardSheet.open{pointer-events:auto}
 #mvsCardSheet .mvs-sheet-dim{position:absolute;inset:0;background:#000;opacity:0;transition:opacity .32s ease}
-#mvsCardSheet.open .mvs-sheet-dim{opacity:.5}
+#mvsCardSheet.open .mvs-sheet-dim{opacity:.34}
 #mvsCardSheet .mvs-sheet-panel{position:absolute;top:0;right:0;bottom:0;width:calc(100% - 18px);max-width:560px;box-sizing:border-box;display:flex;flex-direction:column;background:#eef3f8;color:#1e293b;border-radius:22px 0 0 22px;box-shadow:-12px 0 40px rgba(0,0,0,.35);transform:translate3d(100%,0,0);transition:transform .34s cubic-bezier(.22,.9,.28,1);will-change:transform;touch-action:pan-y;overflow:hidden}
 #mvsCardSheet.open .mvs-sheet-panel{transform:translate3d(0,0,0)}
 body.dark #mvsCardSheet .mvs-sheet-panel{background:#121a22;color:#e8eef5}
@@ -18796,9 +18798,42 @@ body.dark #mvsCardSheet .mvs-sheet-panel{background:#121a22;color:#e8eef5}
 #mvsCardSheet .mvs-sheet-title{flex:1;min-width:0;font-size:15px;font-weight:800;letter-spacing:.2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #mvsCardSheet .mvs-sheet-grip{flex:0 0 auto;width:4px;height:34px;border-radius:3px;background:rgba(120,130,150,.45);margin-right:4px}
 #mvsCardSheet .mvs-sheet-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;touch-action:pan-y;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:4px 10px calc(env(safe-area-inset-bottom,0px) + 28px)}
-#mvsSheetBody .route-time-block{margin:0;padding:0;background:none;border:0;box-shadow:none}
-#mvsSheetBody .route-time-body{padding:0;margin:0}
+#mvsCardSheet #mvsSheetBody .route-time-block,#mvsCardSheet #mvsSheetBody .route-time-body,
+body.dark #mvsCardSheet #mvsSheetBody .route-time-block,body.dark #mvsCardSheet #mvsSheetBody .route-time-body{margin:0 !important;padding:0 !important;background:none !important;border:0 !important;box-shadow:none !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important}
 @media (prefers-reduced-motion:reduce){#mvsCardSheet .mvs-sheet-panel,#mvsCardSheet .mvs-sheet-dim{transition-duration:.01s}}
+/* ── «жидкое стекло» ── */
+@keyframes mvsSheetBlobA{0%{transform:translate3d(0,0,0) scale(1)}100%{transform:translate3d(36px,28px,0) scale(1.12)}}
+@keyframes mvsSheetBlobB{0%{transform:translate3d(0,0,0) scale(1)}100%{transform:translate3d(-34px,-26px,0) scale(1.14)}}
+#mvsCardSheet .mvs-sheet-panel{
+  background:linear-gradient(155deg,rgba(255,255,255,.8) 0%,rgba(226,246,237,.6) 48%,rgba(212,234,250,.52) 100%);
+  -webkit-backdrop-filter:blur(26px) saturate(1.7);backdrop-filter:blur(26px) saturate(1.7);
+  border:1px solid rgba(255,255,255,.78);border-right:0;
+  box-shadow:-14px 0 44px rgba(10,30,50,.28),inset 1px 1px 0 rgba(255,255,255,.95),inset 0 0 44px rgba(255,255,255,.28)}
+body.dark #mvsCardSheet .mvs-sheet-panel{
+  background:linear-gradient(155deg,rgba(62,88,112,.56) 0%,rgba(18,30,42,.64) 55%,rgba(22,52,60,.56) 100%);
+  border:1px solid rgba(255,255,255,.17);border-right:0;
+  box-shadow:-14px 0 44px rgba(0,0,0,.55),inset 1px 1px 0 rgba(255,255,255,.24),inset 0 0 44px rgba(120,200,255,.06)}
+#mvsCardSheet .mvs-sheet-panel::before,#mvsCardSheet .mvs-sheet-panel::after{content:"";position:absolute;border-radius:50%;pointer-events:none;z-index:0;will-change:transform}
+#mvsCardSheet .mvs-sheet-panel::before{width:320px;height:320px;left:-100px;top:-80px;background:radial-gradient(circle at 38% 38%,rgba(46,204,113,.6),rgba(46,204,113,0) 68%);animation:mvsSheetBlobA 12s ease-in-out infinite alternate}
+#mvsCardSheet .mvs-sheet-panel::after{width:340px;height:340px;right:-120px;bottom:-100px;background:radial-gradient(circle at 60% 60%,rgba(52,152,219,.55),rgba(52,152,219,0) 68%);animation:mvsSheetBlobB 14s ease-in-out infinite alternate}
+body.dark #mvsCardSheet .mvs-sheet-panel::before{background:radial-gradient(circle at 38% 38%,rgba(46,204,113,.36),rgba(46,204,113,0) 68%)}
+body.dark #mvsCardSheet .mvs-sheet-panel::after{background:radial-gradient(circle at 60% 60%,rgba(52,152,219,.34),rgba(52,152,219,0) 68%)}
+#mvsCardSheet .mvs-sheet-bar,#mvsCardSheet .mvs-sheet-scroll{position:relative;z-index:1}
+#mvsCardSheet #mvsSheetBody .route-time-body .route-card{
+  background:linear-gradient(160deg,rgba(255,255,255,.66),rgba(255,255,255,.34)) !important;
+  box-shadow:0 10px 28px rgba(20,40,60,.14),inset 0 1px 0 rgba(255,255,255,.95) !important}
+body.dark #mvsCardSheet #mvsSheetBody .route-time-body .route-card{
+  background:linear-gradient(160deg,rgba(255,255,255,.12),rgba(255,255,255,.04)) !important;
+  box-shadow:0 10px 28px rgba(0,0,0,.32),inset 0 1px 0 rgba(255,255,255,.22) !important}
+#mvsCardSheet #mvsSheetBody .route-time-body .route-card.route-card-live,
+body.dark #mvsCardSheet #mvsSheetBody .route-time-body .route-card.route-card-live{
+  background:linear-gradient(160deg,rgba(39,174,96,.30),rgba(39,174,96,.10)) !important}
+/* слабые телефоны / «уменьшить движение»: без размытия и без плывущих пятен */
+html.mvs-lite #mvsCardSheet .mvs-sheet-panel{-webkit-backdrop-filter:none;backdrop-filter:none;background:#eef3f8}
+html.mvs-lite body.dark #mvsCardSheet .mvs-sheet-panel,body.dark html.mvs-lite #mvsCardSheet .mvs-sheet-panel{background:#121a22}
+html.mvs-lite #mvsCardSheet .mvs-sheet-panel::before,html.mvs-lite #mvsCardSheet .mvs-sheet-panel::after{animation:none}
+#mvsCardSheet .mvs-sheet-panel.dragging::before,#mvsCardSheet .mvs-sheet-panel.dragging::after{animation-play-state:paused}
+@media (prefers-reduced-motion:reduce){#mvsCardSheet .mvs-sheet-panel::before,#mvsCardSheet .mvs-sheet-panel::after{animation:none}}
 </style>
 <script id="mvs-card-sheet">
 (function () {
@@ -18807,7 +18842,7 @@ body.dark #mvsCardSheet .mvs-sheet-panel{background:#121a22;color:#e8eef5}
   window.mvsCardSheetEnabled = function () { try { return localStorage.getItem(KEY) !== '0'; } catch (e) { return true; } };
 
   var root = null, panel = null, titleEl = null, scrollEl = null, cardHost = null;
-  var isOpen = false, closing = false, cur = null, pushed = false, mo = null, stylesDone = false, pending = false;
+  var isOpen = false, closing = false, cur = null, pushed = false, mo = null, tabMo = null, stylesDone = false, pending = false;
 
   /* ── стили карточки привязаны к #screen4 / #app4: копируем нужные правила на панель (один раз, при первом открытии) ── */
   function mapSel(part) {
@@ -18878,13 +18913,14 @@ body.dark #mvsCardSheet .mvs-sheet-panel{background:#121a22;color:#e8eef5}
           st.drag = true; st.x += 12; dx -= 12;
           try { panel.setPointerCapture(e.pointerId); } catch (er) {}
           panel.style.transition = 'none';
+          panel.classList.add('dragging');
         } else return;
       }
       var now = Date.now(), dt = Math.max(1, now - st.lt);
       st.v = st.v * .6 + ((e.clientX - st.lx) / dt) * .4; st.lx = e.clientX; st.lt = now;
       var x = Math.max(0, dx);
       panel.style.transform = 'translate3d(' + x + 'px,0,0)';
-      root.querySelector('.mvs-sheet-dim').style.opacity = String(Math.max(0, .5 * (1 - x / Math.max(1, panel.offsetWidth))));
+      root.querySelector('.mvs-sheet-dim').style.opacity = String(Math.max(0, .34 * (1 - x / Math.max(1, panel.offsetWidth))));
     });
     function end(e) {
       if (!st || (e && e.pointerId !== st.id)) return;
@@ -18892,6 +18928,7 @@ body.dark #mvsCardSheet .mvs-sheet-panel{background:#121a22;color:#e8eef5}
       if (!s.drag) return;
       justDragged = Date.now();
       try { panel.releasePointerCapture(s.id); } catch (er) {}
+      panel.classList.remove('dragging');
       var x = Math.max(0, (e ? e.clientX : s.lx) - s.x);
       var dim = root.querySelector('.mvs-sheet-dim'); dim.style.opacity = '';
       panel.style.transition = '';
@@ -18937,6 +18974,10 @@ body.dark #mvsCardSheet .mvs-sheet-panel{background:#121a22;color:#e8eef5}
     root.classList.add('open');
     isOpen = true;
     try { history.pushState({ mvsSheet: 1 }, ''); pushed = true; } catch (e) { pushed = false; }   // системная «Назад» закрывает панель
+    if (window.MutationObserver) {
+      tabMo = new MutationObserver(function () { if (isOpen && !document.body.classList.contains('tab-4')) requestClose(); });
+      tabMo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    }
     var app = document.getElementById('app4');
     if (app && window.MutationObserver) {
       mo = new MutationObserver(function () { if (!isOpen || pending) return; pending = true; Promise.resolve().then(function () { pending = false; afterRender(); }); });
@@ -18947,6 +18988,7 @@ body.dark #mvsCardSheet .mvs-sheet-panel{background:#121a22;color:#e8eef5}
     if (!isOpen) return;
     isOpen = false; closing = true;
     if (mo) { mo.disconnect(); mo = null; }
+    if (tabMo) { tabMo.disconnect(); tabMo = null; }
     var item = cur && cur.item;
     panel.style.transform = ''; panel.style.transition = '';
     root.querySelector('.mvs-sheet-dim').style.opacity = '';
