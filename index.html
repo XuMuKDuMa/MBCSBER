@@ -159,7 +159,8 @@
 </head>
 <body class="tab-4">
 <script type="application/json" id="mvs-changelog">
-{"build":29,"label":"v29","history":[
+{"build":31,"label":"v30","history":[
+  {"build":31,"items":["Утренний отчёт: добавлены «УП на день» из расчёта раздела «Итоги» и количество назначенных встреч в TR день из раздела «Активности»","Утренний отчёт нельзя отправить до 08:00 или без добавленных встреч"]},
  {"build":29,"items":["Тап по маркеру на карте открывает большую карточку встречи","Кнопка «Добавить встречи в слот» показывается только с 06:00 до 10:00"]},
  {"build":28,"items":["Выезжающая карточка: при переходе на «Карту» она сама плавно уезжает обратно"]},
  {"build":27,"items":["Выезжающая карточка: фон «жидкое стекло» (размытие, блики, мягкие цветные пятна)"]},
@@ -14631,16 +14632,26 @@ actionsWrap.innerHTML = `
 `;
 app.appendChild(actionsWrap);
 
-  // Обработчик «Утр.отчёт»
+  // Обработчик «Утр.отчёт»: отправка разрешена с 08:00 и только при наличии встреч.
   const btnMorning = document.getElementById('btnMorningReport2');
   if (btnMorning) {
   btnMorning.addEventListener('click', async () => {
-  const text = buildMorningReport2();
-  await copyText(text);
-  localStorage.setItem(MORNING_REPORT_SENT_KEY, new Date().toDateString());
-  showSuccessNotification('Утренний отчёт готов', 'done');
-  openReportGroup('morning', text);
-});
+    const now = new Date();
+    if (now.getHours() < 8) {
+      showToast('⏰ Ещё рано. Утренний отчёт можно отправить после 08:00.');
+      return;
+    }
+    const activityStats = getMorningActivityStats();
+    if (activityStats.total === 0) {
+      showToast('⚠️ Добавь встречи в разделе «Активности», чтобы отобразить их количество в отчёте.');
+      return;
+    }
+    const text = buildMorningReport2();
+    await copyText(text);
+    localStorage.setItem(MORNING_REPORT_SENT_KEY, now.toDateString());
+    showSuccessNotification('Утренний отчёт готов', 'done');
+    openReportGroup('morning', text);
+  });
   }
 
   // Обработчик «Отчёт»
@@ -15042,23 +15053,56 @@ btn.textContent = 'Отчёт';
   }
 }   
 
+// Статистика встреч для утреннего отчёта берётся напрямую из раздела «Активности».
+function getMorningActivityStats() {
+  const result = { total: 0, done: 0 };
+  if (typeof ROUTE_TIMES === 'undefined' || typeof routeState === 'undefined' || !routeState || !routeState.lists) return result;
+  ROUTE_TIMES.forEach(t => {
+    (routeState.lists[t.id] || []).forEach(item => {
+      if (!item || !String(item.addr || '').trim()) return;
+      result.total++;
+      if (item.status === 'done') result.done++;
+    });
+  });
+  return result;
+}
+
+function getMorningUpPerDay() {
+  try {
+    const planForMonth = Number(getPlanUP()) || 0;
+    const monthUpDone = (typeof state2 !== 'undefined' && state2 && state2.month)
+      ? (Number(state2.month.upDone) || 0) : 0;
+    if (planForMonth <= 0) return '—';
+    const remainingUp = Math.max(0, planForMonth - monthUpDone);
+    const workingDays = getWorkingDaysStats();
+    const daysRemaining = Number(workingDays && workingDays.remaining) || 0;
+    if (daysRemaining <= 0) return '0.00';
+    return (remainingUp / daysRemaining).toFixed(2);
+  } catch (e) {
+    console.warn('Не удалось получить УП на день для утреннего отчёта:', e);
+    return '—';
+  }
+}
+
 function buildMorningReport2() {
   const today = new Date().toLocaleDateString('ru-RU');
   const fio = getPlan2('fio') || '';
   const upPlan = getPlan2('upPlan') || '—';
   const upDone = state2.month.upDone.toFixed(2);
   const upDay = '0.00';
+  const upPerDay = getMorningUpPerDay();
   const upPct = pct2(upDone, getPlan2('upPlan'));
   const kkPlan = getPlan2('kkPlan') || '—';
   const kkFact = state2.last.kk_fact || '0';
   const pk = state2.last.pk || '-';
+  const activityStats = getMorningActivityStats();
   const trMonthNag = state2.month.trMonth.nag;
   const trMonthUsp = state2.month.trMonth.usp;
   const trPct = pct2(trMonthUsp, trMonthNag);
   const slMonthNag = state2.month.slotMonth.nag;
   const slMonthUsp = state2.month.slotMonth.usp;
   const slPct = pct2(slMonthUsp, slMonthNag);
-  return `${fio} ${today}\n\nУП: ${upPlan} / ${upDone} / ${upDay} (${upPct})\n\nКК: ${kkPlan} / ${kkFact}\nПК: ${pk}\n\nTR мес: ${trMonthNag} / ${trMonthUsp} (${trPct})\nTR слот мес: ${slMonthNag} / ${slMonthUsp} (${slPct})`;
+  return `${fio} ${today}\n\nУП: ${upPlan} / ${upDone} / ${upDay} (${upPct})\nУП на день: ${upPerDay}\n\nКК: ${kkPlan} / ${kkFact}\nПК: ${pk}\n\nTR день: ${activityStats.total}\nTR мес: ${trMonthNag} / ${trMonthUsp} (${trPct})\nTR слот мес: ${slMonthNag} / ${slMonthUsp} (${slPct})`;
 }
 function buildReport2() {
 const today = new Date().toLocaleDateString('ru-RU');
