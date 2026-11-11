@@ -76,6 +76,7 @@
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>МВС отчёты</title>
+<meta name="app-build" content="2026-11-11-C">
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#101820">
 <!-- Подключение DaData для подсказок адресов (локально) -->
@@ -6808,7 +6809,8 @@ body.dark .cpa-body .cps-sec{background:rgba(255,255,255,.05)}
   <button id="btnOpenRoutePoints" style="color:#00897b;">🚗 Начальная и конечная точка</button>
   <button id="btnOpenFuel" style="color:#e67e22;">⛽ Расход бензина</button>
   <button id="btnOpenMaxGroups" style="color:#6c5ce7;">💬 Группы в MAX</button>
-  <button id="btnForceUpdate" style="color:#2980b9;">🔄 Обновить приложение · сборка 11.11-B</button>
+  <button id="btnForceUpdate" style="color:#2980b9;">🔄 Обновить приложение (очистить кэш)</button>
+  <button id="btnCheckUpdate" style="color:#2980b9;">🔎 Проверить обновление</button>
   <button id="btnCardMode" style="color:#8e44ad;">🪟 Карточка: выезжает справа</button>
   <button id="btnCardProducts" style="color:#8e44ad;">🛒 Список продуктов в карточке: вкл</button>
   <button id="btnToggleTheme">🌙 Сменить тему</button>
@@ -17283,6 +17285,63 @@ function refreshCardDrawer() {
   };
 })();
 
+// ═══════════════════════════════════════════════
+//  Проверка обновлений приложения + уведомления
+// ═══════════════════════════════════════════════
+const APP_BUILD = (document.querySelector('meta[name="app-build"]') || {}).content || '';
+function sysNotify(title, body) {
+  try { if ('Notification' in window && Notification.permission === 'granted') new Notification(title, { body, tag: 'mvs-update' }); } catch (e) {}
+}
+(function () {
+  const b = document.getElementById('btnForceUpdate');
+  if (b && APP_BUILD) b.textContent = '🔄 Обновить приложение · сборка ' + APP_BUILD;
+})();
+let _updBannerShown = false;
+async function checkForAppUpdate(manual) {
+  if (!APP_BUILD) { if (manual) showToast('⚠️ В файле нет метки сборки'); return; }
+  try {
+    const url = location.href.split('#')[0].split('?')[0] + '?chk=' + Date.now();
+    const r = await fetch(url, { cache: 'reload' });
+    const t = await r.text();
+    const m = t.match(/<meta name="app-build" content="([^"]+)"/);
+    if (!m) { if (manual) showToast('⚠️ Не удалось определить версию на сервере'); return; }
+    if (m[1] !== APP_BUILD) {
+      if (!_updBannerShown || manual) {
+        _updBannerShown = true;
+        iosBanner({
+          title: 'Доступно обновление', sub: 'Новая сборка ' + m[1] + ' (у вас ' + APP_BUILD + ')',
+          icon: '⬆', kind: 'info', sticky: true,
+          actions: [{ label: 'Обновить', primary: true, fn: () => { if (window.__healApp) window.__healApp(); else location.reload(); } }, { label: 'Позже' }]
+        });
+        sysNotify('МВС отчёты', 'Доступно обновление — сборка ' + m[1]);
+      }
+    } else if (manual) {
+      showToast('✓ У вас последняя версия: ' + APP_BUILD);
+    }
+  } catch (e) { if (manual) showToast('⚠️ Нет связи с сервером обновлений'); }
+}
+document.getElementById('btnCheckUpdate')?.addEventListener('click', () => {
+  document.getElementById('menu3')?.classList.remove('show');
+  checkForAppUpdate(true);
+});
+(function announceUpdated() {
+  try {
+    const prev = localStorage.getItem('app_build_seen');
+    if (APP_BUILD) {
+      if (prev && prev !== APP_BUILD) {
+        setTimeout(() => {
+          iosBanner({ title: 'Приложение обновлено', sub: 'Сборка ' + APP_BUILD, icon: '✓', kind: 'ok', duration: 6000 });
+          sysNotify('МВС отчёты', 'Приложение обновлено · сборка ' + APP_BUILD);
+        }, 1800);
+      }
+      localStorage.setItem('app_build_seen', APP_BUILD);
+    }
+  } catch (e) {}
+})();
+setTimeout(() => checkForAppUpdate(false), 6000);
+setInterval(() => checkForAppUpdate(false), 30 * 60 * 1000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(() => checkForAppUpdate(false), 1500); });
+
 // Запуск дошёл до конца — страховка от белого экрана больше не нужна
 window.__appReady = true;
 try { window.__bootMark && window.__bootMark('ready'); } catch (e) {}
@@ -17309,7 +17368,7 @@ try { sessionStorage.removeItem('mvs_autoheal'); } catch (e) {}
     window.addEventListener('load', () => {
       // ?v=4 — меняем адрес скрипта при каждой новой версии воркера: оболочка APK хранит старый sw.js в своём кэше
       // и без этого новый воркер до телефона не доходит
-      const SW_URL = './sw.js?v=4';
+      const SW_URL = './sw.js?v=5';
       // На одном адресе может работать только один воркер. Сборщик APK подсовывает свой (__wta_offline_sw__.js),
       // и он ломает запуск (белый экран). Находим чужой воркер, удаляем его и его кэш и ставим свой.
       async function ensureOurWorker() {
