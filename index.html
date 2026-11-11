@@ -6655,6 +6655,22 @@ body.dark .cpa-body .cps-sec{background:rgba(255,255,255,.05)}
 #cardDrawer #cardDrawerBody .route-card{transform:none!important;-webkit-backface-visibility:visible!important;backface-visibility:visible!important;will-change:auto!important}
 #cardDrawer .cd-body{contain:layout paint}
 </style>
+
+<style id="card-drawer-stable">
+#cardDrawer{visibility:hidden;transition:transform .34s cubic-bezier(.25,.8,.25,1),visibility 0s linear .34s}
+#cardDrawer.open{visibility:visible;transition:transform .34s cubic-bezier(.25,.8,.25,1),visibility 0s}
+#cardDrawer .cd-body{opacity:0;transition:opacity .16s ease .1s;scrollbar-width:none;contain:none}
+#cardDrawer .cd-body::-webkit-scrollbar{display:none}
+#cardDrawer.open .cd-body{opacity:1}
+</style>
+
+<style id="rsn-compact">
+.rsn-toggle{padding:7px 14px!important;font-size:12.5px!important;border-radius:12px!important;gap:7px!important;box-shadow:0 3px 10px rgba(232,117,26,.4)!important}
+.rsn-toggle.filled{box-shadow:0 3px 10px rgba(198,40,40,.45)!important}
+.rsn-arrow{font-size:10px!important}
+.rsn-list{gap:7px!important;margin:9px 0 0 8px!important}
+.rsn-opt{padding:10px 13px!important;font-size:13.5px!important;border-radius:12px!important}
+</style>
 </head>
 <body class="tab-4">
 
@@ -17172,7 +17188,7 @@ function cdGrow(el) {
 function cdGrowAll() {
   if (!_cdEls) return;
   const run = () => _cdEls.body.querySelectorAll('textarea.route-addr-input, textarea.route-note-input, textarea.route-nondelivery-input').forEach(cdGrow);
-  run(); requestAnimationFrame(run); setTimeout(run, 120); setTimeout(run, 400);
+  run(); requestAnimationFrame(run); setTimeout(run, 80);
 }
 function cdSig(item) {
   return JSON.stringify(item, (k, v) => (k === 'prodOpen' || k === 'prodSecOpen' || k === 'uiExpanded') ? undefined : v);
@@ -17200,8 +17216,9 @@ function openCardDrawer(item, timeId, label) {
   _cdState = { item, timeId, label };
   _cdOpenedAt = Date.now();
   renderCardDrawerBody();
+  void els.body.offsetHeight;   // принудительный расчёт раскладки до анимации
   els.overlay.classList.add('show');
-  requestAnimationFrame(() => requestAnimationFrame(() => els.panel.classList.add('open')));
+  requestAnimationFrame(() => requestAnimationFrame(() => { if (_cdState) els.panel.classList.add('open'); }));
 }
 // Закрыть все аккордеоны большой карточки (продукты, разделы, причины)
 function resetCardAccordions(item, card) {
@@ -17219,6 +17236,7 @@ if (window.MutationObserver) {
     });
   }).observe(document.body, { attributes: true, attributeFilter: ['class'], subtree: true });
 }
+setTimeout(() => { try { cloneCardStylesForDrawer(); ensureCardDrawer(); } catch (e) { console.warn('drawer prewarm', e); } }, 1500);
 function closeCardDrawer() {
   if (!_cdEls || !_cdState) return;
   try { if (document.activeElement && _cdEls.panel.contains(document.activeElement)) document.activeElement.blur(); } catch (e) {}
