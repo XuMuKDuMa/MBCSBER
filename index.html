@@ -6808,6 +6808,7 @@ body.dark .cpa-body .cps-sec{background:rgba(255,255,255,.05)}
   <button id="btnOpenRoutePoints" style="color:#00897b;">🚗 Начальная и конечная точка</button>
   <button id="btnOpenFuel" style="color:#e67e22;">⛽ Расход бензина</button>
   <button id="btnOpenMaxGroups" style="color:#6c5ce7;">💬 Группы в MAX</button>
+  <button id="btnForceUpdate" style="color:#2980b9;">🔄 Обновить приложение · сборка 11.11-B</button>
   <button id="btnCardMode" style="color:#8e44ad;">🪟 Карточка: выезжает справа</button>
   <button id="btnCardProducts" style="color:#8e44ad;">🛒 Список продуктов в карточке: вкл</button>
   <button id="btnToggleTheme">🌙 Сменить тему</button>
@@ -8654,7 +8655,7 @@ addrInput.addEventListener('touchstart', e => e.stopPropagation(), { passive: tr
 addrInput.addEventListener('click', e => e.stopPropagation());
 
 function autoGrow(el) {
-  if (!el) return;
+  if (!el || forceExpanded) return;   // в боковой панели высотой полей управляет cdGrow
   el.style.height = 'auto';
   el.style.height = Math.max(el.scrollHeight, 38) + 'px';
   el.style.overflowY = 'hidden';
@@ -9059,6 +9060,7 @@ collapsedNote.textContent = (item.note || '').trim();
 
 // Авто-высота (до 3 строк)
 function autoGrowNote(el) {
+  if (forceExpanded) return;
   el.style.height = 'auto';
   const maxHeight = 60;  // ~3 строки
   el.style.height = Math.min(el.scrollHeight, maxHeight) + 'px';
@@ -17084,6 +17086,11 @@ document.getElementById('btnCardProducts')?.addEventListener('click', () => {
   vibro(12);
   showToast(next ? '🛒 Список продуктов в карточке включён' : '🛒 Список продуктов в карточке отключён');
   renderRoute();
+});
+document.getElementById('btnForceUpdate')?.addEventListener('click', () => {
+  document.getElementById('menu3')?.classList.remove('show');
+  if (!confirm('Очистить кэш и перезагрузить приложение?\n\nТвои данные сохранятся.')) return;
+  if (typeof window.__healApp === 'function') window.__healApp(); else location.reload();
 });
 updateCardModeBtn();
 document.getElementById('btnCardMode')?.addEventListener('click', () => {
