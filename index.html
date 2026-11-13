@@ -76,7 +76,7 @@
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>МВС отчёты</title>
-<meta name="app-build" content="2026-11-12-D">
+<meta name="app-build" content="2026-11-12-F">
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#101820">
 <!-- Подключение DaData для подсказок адресов (локально) -->
@@ -10269,6 +10269,7 @@ const SECTIONS1 = [
   ]},
 ];
 const APPS1 = [
+  { id: 'pu_offers', name: 'ПУ предложений', mode: 'numeric' },
   { id: 'kk_requests', name: 'КК заявки', mode: 'numeric' },
   { id: 'kk_approved', name: 'КК одобрено', mode: 'numeric' },
 ];
@@ -10665,7 +10666,23 @@ if (bizSection) {
   APPS1.forEach(m => {
     const row = document.createElement('div');
     row.className = 'manual';
-    row.innerHTML = `<div class="name">${m.name}</div><input type="text" inputmode="${m.mode || 'numeric'}" data-manual="${m.id}" value="${getManual1(m.id)}">`;
+    if (m.id === 'pu_offers') {
+      // авто: берётся из счётчиков «Премьер → Бесплатный уровень» + «Бесплатный + Сохранение»; можно ввести вручную
+      const manualVal = String(getManual1('pu_offers') || '').trim();
+      const isManual = manualVal !== '';
+      row.classList.add('meet-row');
+      if (isManual) row.classList.add('is-manual');
+      row.innerHTML = `
+        <div class="meet-info"><div class="meet-title">${m.name}</div><span class="meet-badge">${isManual ? 'ручной' : 'авто'}</span></div>
+        <div class="meet-ctrl">
+          <input type="text" inputmode="numeric" data-manual="pu_offers" class="pu-input meet-input" value="${isManual ? escapeHtml(manualVal) : getPuCount()}">
+          <button type="button" class="meet-reset" data-pu-reset title="Вернуть авто-значение" aria-label="Вернуть авто-значение">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+          </button>
+        </div>`;
+    } else {
+      row.innerHTML = `<div class="name">${m.name}</div><input type="text" inputmode="${m.mode || 'numeric'}" data-manual="${m.id}" value="${getManual1(m.id)}">`;
+    }
     appsSec._body.appendChild(row);
   });
   app.appendChild(appsSec);
@@ -11312,6 +11329,38 @@ function buildMeetingsBreakdownToday() {
   const b2b = { rko: getCount1('biz_rko'), ip: getCount1('biz_ip'), card: getCount1('biz_card') };
   return { b2c, b2b };
 }
+// ═══ ПУ (премиальное обслуживание) ═══
+// ПУ = счётчики «Премьер → Бесплатный уровень» + «Бесплатный + Сохранение»
+function getPuCount() { return (getCount1('premier_free') || 0) + (getCount1('premier_save') || 0); }
+// «ПУ предложений»: вручную введённое значение, иначе то же число из счётчиков
+function getPuOffers() {
+  const mv = String(getManual1('pu_offers') || '').trim();
+  return mv !== '' ? num(mv) : getPuCount();
+}
+function updatePuField() {
+  const f = document.querySelector('#app1 .pu-input');
+  if (!f || document.activeElement === f) return;
+  const manualVal = String(getManual1('pu_offers') || '').trim();
+  const isManual = manualVal !== '';
+  const want = isManual ? manualVal : String(getPuCount());
+  if (f.value !== want) f.value = want;
+  const row = f.closest('.meet-row');
+  if (row) {
+    row.classList.toggle('is-manual', isManual);
+    const bd = row.querySelector('.meet-badge');
+    if (bd) bd.textContent = isManual ? 'ручной' : 'авто';
+  }
+}
+document.addEventListener('focusout', (e) => { if (e.target && e.target.classList && e.target.classList.contains('pu-input')) setTimeout(updatePuField, 50); });
+document.addEventListener('click', (e) => {
+  const rb = e.target.closest && e.target.closest('#app1 button[data-pu-reset]');
+  if (!rb) return;
+  e.preventDefault(); e.stopPropagation();
+  setManual1('pu_offers', '');
+  updatePuField();
+  vibro(15);
+  showToast('🔄 ПУ предложений: авто-режим');
+});
 function buildReportText1() {
   let up = 0, od = 0, upFD = 0, fd02 = 0, fd035 = 0, fdSim = 0;
   let sumSim = 0, sumPrime = 0, sumPDS = 0, cntKK = 0, cntPK = 0, cntSZ = 0, bizMeetings = 0;
@@ -11346,7 +11395,7 @@ function buildReportText1() {
     if (i.group === 'КК')    cntKK    += c;
     if (i.group === 'ПК')    cntPK    += c;
     if (i.group === 'СЗ')    cntSZ    += c;
-    others.push(`${c} ${i.name}`);
+    if (i.id !== 'premier_free' && i.id !== 'premier_save') others.push(`${c} ${i.name}`);   // эти два идут отдельной строкой «ПУ»
   }));
   const zkCount = num(getZK1());
   if (zkCount > 0) up += zkCount * ZK_COEF;
@@ -11361,6 +11410,7 @@ let b2cDone = 0;
 let b2bFromCards = 0;
 let b2bDone = 0;
 let outB2C = 0;      // B2C-встречи, проведённые не в слот
+let exB2C = 0, exB2CDone = 0;   // B2C-встречи, не входящие в «слот»: ФД Сим и проведённые не в слот
 let outAll = 0;      // все встречи не в слот (B2C + B2B)
 
 if (typeof ROUTE_TIMES !== 'undefined' &&
@@ -11383,6 +11433,8 @@ if (typeof ROUTE_TIMES !== 'undefined' &&
         b2cTotal++;
         if (item.status === 'done') b2cDone++;
         if (oos) outB2C++;
+        // ФД Сим идёт только в TR, но не в слот
+        if (effectiveMtype(item) === 'fd_meet_sim' || oos) { exB2C++; if (item.status === 'done') exB2CDone++; }
       }
     });
   });
@@ -11398,7 +11450,7 @@ const b2bTotalFinal = b2bManual !== null ? b2bManual : b2bFromCards;
 const b2cLine = `${b2cTotal}/${b2cDone}`;
 const b2bLine = `${b2bTotalFinal}/${b2bDone}`;
 // «B2C слот»: встречи, проведённые не в слот, в слотовый показатель не входят
-const b2cSlotLine = `${b2cTotal - outB2C}/${b2cDone - outB2C}`;
+const b2cSlotLine = `${b2cTotal - exB2C}/${b2cDone - exB2CDone}`;
 const outNote = outAll > 0 ? '\nВстреч не в слот: ' + outAll : '';
   return `‼️‼️‼️
 Новый формат ✅
@@ -11407,6 +11459,7 @@ const outNote = outAll > 0 ? '\nВстреч не в слот: ' + outAll : '';
 
 ЗК: ${zkCount || ''}
 КК: ${cntKK || ''}
+ПУ: ${getPuCount() || ''}
 ПК: ${cntPK || ''}
 Сим: ${sumSim || ''}
 Перенос номера: ${cntPerenos || ''}
@@ -11416,6 +11469,7 @@ const outNote = outAll > 0 ? '\nВстреч не в слот: ' + outAll : '';
 КС: 
 Другие продукты: ${others.join(', ')}
 
+ПУ предложений: ${getPuOffers() || ''}
 КК заявки: ${m('kk_requests')}
 КК одобрено: ${m('kk_approved')}
 
@@ -11731,6 +11785,7 @@ function renderDaySummary1() {
     const r = orig.apply(this, arguments);
     try { renderDaySummary1(); } catch (e) {}
     try { renderProductAdvisor1(); } catch (e) {}
+    try { updatePuField(); } catch (e) {}
     return r;
   };
 })();
@@ -14460,13 +14515,17 @@ function autofillMvsFromToday() {
   let totalMeetings = 0;
   let doneMeetings = 0;
   let doneInSlot = 0;
+  let simMeetings = 0;
   ROUTE_TIMES.forEach(rt => {
     (routeState.lists[rt.id] || []).forEach(item => {
       if (!item || !item.addr || !item.addr.trim()) return;
       totalMeetings++;
+      // ФД Сим считается в TR (день и месяц), но не в TR слот
+      const isSimCard = (item.category || 'b2c') === 'b2c' && effectiveMtype(item) === 'fd_meet_sim';
+      if (isSimCard) simMeetings++;
       if (item.status === 'done') {
         doneMeetings++;
-        if (!isOutOfSlot(item, rt.id)) doneInSlot++;
+        if (!isOutOfSlot(item, rt.id) && !isSimCard) doneInSlot++;
       }
     });
   });
@@ -14477,7 +14536,7 @@ function autofillMvsFromToday() {
   state2.today.pk       = String(pkCount);
   state2.today.tr_nag   = String(totalMeetings);
   state2.today.tr_usp   = String(doneMeetings);
-  state2.today.slot_nag = String(totalMeetings);
+  state2.today.slot_nag = String(totalMeetings - simMeetings);
   state2.today.slot_usp = String(doneInSlot);
 
   saveState2(state2);
