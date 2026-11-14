@@ -76,7 +76,7 @@
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>МВС отчёты</title>
-<meta name="app-build" content="2026-11-12-F">
+<meta name="app-build" content="2026-11-12-G">
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#101820">
 <!-- Подключение DaData для подсказок адресов (локально) -->
@@ -6702,6 +6702,13 @@ body:not(.dark) #screen4 .route-card textarea:focus{border-color:#2f9e6b!importa
 #mvsLiquidSplash .mls-card{max-height:94vh;overflow-y:auto}
 #mvsLiquidSplash .mls-stat-num.sm{font-size:clamp(22px,6vw,30px)}
 </style>
+
+<style id="card-drawer-kbd">
+body.kbd-open #cardDrawer{-webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+  background:linear-gradient(160deg,rgba(236,244,251,.97),rgba(224,240,235,.97))!important;transition:none!important}
+body.dark.kbd-open #cardDrawer{background:linear-gradient(160deg,rgba(30,44,62,.98),rgba(18,30,44,.98))!important}
+body.kbd-open #cardDrawerOverlay{transition:none!important}
+</style>
 </head>
 <body class="tab-4">
 
@@ -8581,12 +8588,19 @@ function buildRouteCard(item, timeId, timeLabel, forceExpanded) {
       '.route-mic-inline', '.route-note-mic', '.route-coords-btn',
       '.route-side-btn', '.route-status-btn', '.route-add-btn',
       '.voice-panel', '.vp-btn', '.vp-audio',
-      '.status-menu', '.status-overlay', '.route-note-wrap',
+      '.status-menu', '.status-overlay', '.route-note-wrap', '.route-nondelivery-wrap', '.rsn-wrap', '.cpa',
     ];
     if (ignoreSelectors.some(sel => e.target.closest(sel))) return;
 
-    // Большая карточка в боковой панели: тап по ней ничего не делает
-    if (forceExpanded) return;
+    // Большая карточка в боковой панели: тап по свободному месту — закрыть панель и открыть адрес на карте
+    if (forceExpanded) {
+      const addrTap = (item.addr || '').trim();
+      if (!addrTap) return;
+      vibro(10);
+      closeCardDrawer();
+      openMapForAddress(addrTap);
+      return;
+    }
     // Режим «выезжает справа»: тап по короткой карточке открывает боковую панель
     if (card.classList.contains('collapsed') && getCardOpenMode() === 'drawer') {
       vibro(10);
@@ -17283,7 +17297,7 @@ function ensureCardDrawer() {
   panel.querySelector('.cd-close').addEventListener('click', closeCardDrawer);
 
   // автоподгонка высоты текстовых полей внутри панели
-  panel.addEventListener('input', (e) => { if (e.target && e.target.tagName === 'TEXTAREA') cdGrow(e.target); });
+  panel.addEventListener('input', (e) => { if (e.target && e.target.tagName === 'TEXTAREA') cdGrow(e.target, /^delete/.test(e.inputType || '') || e.inputType === 'insertFromPaste' ? true : false); });
 
   // свайп вправо — закрыть
   let sx = 0, sy = 0, st = 0, dx = 0, decided = false, horiz = false, tracking = false;
@@ -17324,13 +17338,19 @@ function ensureCardDrawer() {
   panel.addEventListener('touchcancel', end, { passive: true });
   return _cdEls;
 }
-function cdGrow(el) {
+function cdGrow(el, shrink) {
   if (!el || !el.isConnected) return;
   const sc = _cdEls ? _cdEls.body : null, top = sc ? sc.scrollTop : 0;
-  el.style.setProperty('height', '0px', 'important');
-  el.style.setProperty('height', Math.max(44, Math.ceil(el.scrollHeight || 0)) + 'px', 'important');
+  if (shrink === false) {
+    // при наборе текста только увеличиваем — без обнуления высоты (не мерцает)
+    const need = Math.max(44, Math.ceil(el.scrollHeight || 0));
+    if (need > el.offsetHeight + 1) el.style.setProperty('height', need + 'px', 'important');
+  } else {
+    el.style.setProperty('height', '0px', 'important');
+    el.style.setProperty('height', Math.max(44, Math.ceil(el.scrollHeight || 0)) + 'px', 'important');
+  }
   el.style.setProperty('overflow', 'hidden', 'important');
-  if (sc && sc.scrollTop !== top) sc.scrollTop = top;   // не даём прокрутке «прыгать»
+  if (sc && sc.scrollTop !== top) sc.scrollTop = top;
 }
 function cdGrowAll() {
   if (!_cdEls) return;
