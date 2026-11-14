@@ -76,7 +76,7 @@
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>МВС отчёты</title>
-<meta name="app-build" content="2026-11-12-G">
+<meta name="app-build" content="2026-11-12-K">
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#101820">
 <!-- Подключение DaData для подсказок адресов (локально) -->
@@ -6709,6 +6709,79 @@ body.kbd-open #cardDrawer{-webkit-backdrop-filter:none!important;backdrop-filter
 body.dark.kbd-open #cardDrawer{background:linear-gradient(160deg,rgba(30,44,62,.98),rgba(18,30,44,.98))!important}
 body.kbd-open #cardDrawerOverlay{transition:none!important}
 </style>
+
+<style id="h-features-style">
+/* свайп по короткой карточке */
+#app4 .route-card.collapsed{touch-action:pan-y}
+#screen4 #app4 .route-card.collapsed.swipe-right{background:linear-gradient(90deg,rgba(46,204,113,.55),rgba(46,204,113,.25))!important}
+#screen4 #app4 .route-card.collapsed.swipe-left{background:linear-gradient(270deg,rgba(231,76,60,.55),rgba(231,76,60,.25))!important}
+#app4 .route-card.swipe-right::before,#app4 .route-card.swipe-left::before{position:absolute;top:50%;transform:translateY(-50%);font-size:15px;font-weight:900;z-index:3;pointer-events:none}
+#app4 .route-card.swipe-right::before{content:'✓ Готово';left:14px;color:#0e7a3f}
+#app4 .route-card.swipe-left::before{content:'✕ Отмена';right:14px;color:#b3261e}
+/* «Что продали?» */
+#soldOverlay{position:fixed;inset:0;z-index:1600;background:rgba(10,18,28,.4);opacity:0;transition:opacity .25s}
+#soldOverlay.show{opacity:1}
+#soldSheet{position:fixed;left:0;right:0;bottom:0;z-index:1601;max-height:78vh;display:flex;flex-direction:column;
+  border-radius:26px 26px 0 0;padding:16px 14px calc(16px + env(safe-area-inset-bottom,0px));transform:translate3d(0,105%,0);transition:transform .32s cubic-bezier(.25,.8,.25,1);
+  background:linear-gradient(160deg,rgba(255,255,255,.82),rgba(222,240,255,.62));-webkit-backdrop-filter:blur(26px) saturate(170%);backdrop-filter:blur(26px) saturate(170%);
+  border-top:1px solid rgba(255,255,255,.8);box-shadow:0 -10px 40px rgba(0,0,0,.25);color:#1f2d3a}
+#soldSheet.show{transform:translate3d(0,0,0)}
+body.dark #soldSheet{background:linear-gradient(160deg,rgba(40,56,78,.9),rgba(20,32,48,.86));border-top-color:rgba(255,255,255,.14);color:#edf4ff}
+#soldSheet .ss-title{font-size:17px;font-weight:850;margin:0 4px 2px}
+#soldSheet .ss-sub{font-size:12px;opacity:.7;margin:0 4px 10px}
+#soldSheet .ss-list{overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:8px}
+#soldSheet .ss-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:14px;background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.8)}
+body.dark #soldSheet .ss-row{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.12)}
+#soldSheet .ss-name{flex:1;font-size:15px;font-weight:700;line-height:1.25}
+#soldSheet .ss-name small{display:block;font-size:11px;font-weight:600;opacity:.6}
+#soldSheet .ss-ctrl{display:flex;align-items:center;gap:6px}
+#soldSheet .ss-ctrl button{width:36px;height:36px;border:none;border-radius:50%;background:rgba(120,135,150,.22);color:inherit;font-size:20px;font-weight:800;padding:0;cursor:pointer}
+#soldSheet .ss-ctrl .ss-plus{background:#27ae60;color:#fff}
+#soldSheet .ss-val{min-width:24px;text-align:center;font-size:18px;font-weight:900}
+#soldSheet .ss-actions{display:flex;gap:10px;margin-top:12px}
+#soldSheet .ss-actions button{flex:1;padding:13px;border:none;border-radius:14px;font:800 15px inherit;font-family:inherit;cursor:pointer}
+#soldSheet .ss-skip{background:rgba(120,135,150,.22);color:inherit}
+#soldSheet .ss-done{background:linear-gradient(135deg,#2ecc71,#27ae60);color:#fff}
+/* мини-презентация «Что нового» */
+#whatsNew{position:fixed;inset:0;z-index:3500;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(10,18,28,.55);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);opacity:0;transition:opacity .25s}
+#whatsNew.show{opacity:1}
+#whatsNew .wn-card{position:relative;width:min(100%,420px);height:min(80vh,580px);display:flex;flex-direction:column;overflow:hidden;border-radius:30px;
+  background:linear-gradient(160deg,rgba(255,255,255,.9),rgba(214,238,255,.75) 55%,rgba(214,255,232,.7));border:1px solid rgba(255,255,255,.85);box-shadow:0 24px 70px rgba(0,0,0,.35);color:#1f2d3a}
+body.dark #whatsNew .wn-card{background:linear-gradient(160deg,rgba(40,58,82,.95),rgba(20,32,48,.95) 55%,rgba(16,44,38,.92));border-color:rgba(255,255,255,.14);color:#edf4ff}
+#whatsNew .wn-close{position:absolute;top:12px;right:12px;z-index:3;width:34px;height:34px;border:none;border-radius:50%;background:rgba(120,135,150,.25);color:inherit;font-size:16px;font-weight:800;cursor:pointer}
+#whatsNew .wn-viewport{flex:1;overflow:hidden;touch-action:pan-y}
+#whatsNew .wn-track{display:flex;height:100%;transition:transform .38s cubic-bezier(.25,.8,.25,1)}
+#whatsNew .wn-slide{flex:0 0 100%;box-sizing:border-box;padding:46px 26px 12px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;overflow-y:auto}
+#whatsNew .wn-icon{font-size:68px;line-height:1;filter:drop-shadow(0 6px 10px rgba(0,0,0,.18))}
+#whatsNew .wn-tag{font-size:11px;font-weight:900;letter-spacing:.6px;text-transform:uppercase;padding:4px 12px;border-radius:999px;background:#27ae60;color:#fff}
+#whatsNew .wn-tag.fix{background:#e67e22}#whatsNew .wn-tag.imp{background:#3498db}#whatsNew .wn-tag.rel{background:#8e44ad}
+#whatsNew .wn-title{font-size:23px;font-weight:900;line-height:1.2;letter-spacing:-.3px}
+#whatsNew .wn-text{font-size:15px;line-height:1.5;opacity:.85}
+#whatsNew .wn-build{font-size:11px;opacity:.5;font-weight:700}
+#whatsNew .wn-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 16px 16px}
+#whatsNew .wn-count{font-size:12px;font-weight:800;opacity:.6;min-width:52px}
+#whatsNew .wn-dots{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;flex:1}
+#whatsNew .wn-dot{width:7px;height:7px;border-radius:50%;background:rgba(120,135,150,.4)}
+#whatsNew .wn-dot.on{background:#27ae60;width:18px;border-radius:5px}
+#whatsNew .wn-btn{border:none;border-radius:14px;padding:11px 18px;font:800 14px inherit;font-family:inherit;background:linear-gradient(135deg,#2ecc71,#27ae60);color:#fff;cursor:pointer;min-width:92px}
+#whatsNew .wn-btn.ghost{background:rgba(120,135,150,.22);color:inherit}
+</style>
+
+<style id="swipe-under-style">
+/* убираем прежнюю подсветку и подпись поверх карточки */
+#screen4 #app4 .route-card.collapsed.swipe-right,#screen4 #app4 .route-card.collapsed.swipe-left{background:unset}
+#app4 .route-card.swipe-right::before,#app4 .route-card.swipe-left::before{content:none!important}
+/* подложка под карточкой */
+.swipe-under{position:absolute;z-index:0;display:flex;align-items:center;justify-content:space-between;padding:0 22px;box-sizing:border-box;border-radius:12px;overflow:hidden;pointer-events:none}
+.swipe-under.right{background:linear-gradient(90deg,#1e9e55,#2ecc71)}
+.swipe-under.left{background:linear-gradient(270deg,#c0392b,#e74c3c)}
+.swipe-under span{font-size:17px;font-weight:900;color:#fff;letter-spacing:.3px;opacity:0;transform:scale(.85);transition:transform .15s,opacity .15s;text-shadow:0 1px 3px rgba(0,0,0,.25)}
+.swipe-under.right .su-l,.swipe-under.left .su-r{opacity:.85}
+.swipe-under.armed span{opacity:1!important;transform:scale(1.15)}
+/* пока двигаем — карточка непрозрачная, чтобы подложка не просвечивала */
+#screen4 #app4 .route-card.collapsed.swiping{background:#ffffff!important;will-change:transform}
+body.dark #screen4 #app4 .route-card.collapsed.swiping{background:#1c2832!important}
+</style>
 </head>
 <body class="tab-4">
 
@@ -6848,6 +6921,8 @@ body.kbd-open #cardDrawerOverlay{transition:none!important}
   <button id="btnOpenMaxGroups" style="color:#6c5ce7;">💬 Группы в MAX</button>
   <button id="btnForceUpdate" style="color:#2980b9;">🔄 Обновить приложение (очистить кэш)</button>
   <button id="btnCheckUpdate" style="color:#2980b9;">🔎 Проверить обновление</button>
+  <button id="btnWhatsNew" style="color:#8e44ad;">🎞 Что нового в приложении</button>
+  <button id="btnAskSold" style="color:#8e44ad;">🛍 Спрашивать «что продали»: вкл</button>
   <button id="btnCardMode" style="color:#8e44ad;">🪟 Карточка: выезжает справа</button>
   <button id="btnCardProducts" style="color:#8e44ad;">🛒 Список продуктов в карточке: вкл</button>
   <button id="btnToggleTheme">🌙 Сменить тему</button>
@@ -8312,6 +8387,7 @@ function openStatusMenu(anchor, item, timeId, mode) {
       } else if (status) {
         const wasSame = item.status === status;
         item.status = status;
+        try { applyAutoReason(item, status); } catch (e) {}
         // После выбора любого статуса карточка возвращается в компактный вид.
         // Это не затрагивает переключение B2C/B2B: там uiExpanded сохраняется.
         item.uiExpanded = false;
@@ -8329,7 +8405,7 @@ function openStatusMenu(anchor, item, timeId, mode) {
         vibro(15);
         if (!wasSame) {
           if (status === 'wait')    showSuccessNotification('Встреча в ожидании', 'wait');
-          if (status === 'done')    { showSuccessNotification('Встреча проведена' + creditUpLabel(item.credited), 'done'); noTypeHint(item); }
+          if (status === 'done')    { showSuccessNotification('Встреча проведена' + creditUpLabel(item.credited), 'done'); noTypeHint(item); try { showSoldSheet(item); } catch (e) {} }
           if (status === 'perenos') showSuccessNotification('Встреча отменена', 'perenos');
           if (status === 'ndz')     showSuccessNotification('Недозвон', 'ndz');
         }
@@ -9460,6 +9536,7 @@ reasonInput.style.cssText = 'display:block;width:100%;min-width:0;box-sizing:bor
 let reasonComposing = false;
 function saveNonDeliveryReason(updateReport = false) {
   item.nonDeliveryReason = reasonInput.value;
+  item.reasonAuto = false;   // причину правили вручную
   updateNdFlag();   // треугольник в короткой карточке обновляется сразу при вводе
   saveRouteState(routeState);
   // Не обновляем отчёт во время набора: перерисовка может прервать
@@ -9733,6 +9810,7 @@ function quickFinishMeeting(item) {
     }
     showSuccessNotification('Встреча проведена' + creditUpLabel(item.credited), 'done', _dur);
     noTypeHint(item);
+    try { showSoldSheet(item); } catch (e) {}
   };
   if (effectiveMtype(item) === 'fd_meet_035') {
     askChildVerification(answer => {
@@ -12233,6 +12311,7 @@ async function kmRecalcToday(force) {
     h2[key] = {
       km: Math.round(res.km * 10) / 10,
       stops: stops.length - skipped,
+      addrs: stops.slice(),
       skipped, pointMissing,
       approx: res.approx,
       sig: res.approx ? null : sig,     // при приближённом расчёте — попробуем ещё раз позже
@@ -12297,7 +12376,7 @@ function kmSectionHtml() {
         <button type="button" id="kmAdd" style="flex:1;border:0;border-radius:10px;padding:11px;background:rgba(0,137,123,.12);color:#00897b;font-weight:700;font-size:13px;cursor:pointer;">✎ Ввести вручную</button>
         <button type="button" id="kmRecalc" style="flex:1;border:0;border-radius:10px;padding:11px;background:rgba(0,137,123,.12);color:#00897b;font-weight:700;font-size:13px;cursor:pointer;">↻ Пересчитать сегодня</button>
       </div>
-      <div style="padding:0 14px 12px;font-size:11px;color:#95a5a6;">Тап по дню — исправить километраж (например, по одометру).</div>
+      <div style="padding:0 14px 12px;font-size:11px;color:#95a5a6;">Тап по дню — адреса, которые проехали, и километраж.</div>
     </div>
   </div>`;
 }
@@ -12323,7 +12402,7 @@ function kmBind() {
   const add = document.getElementById('kmAdd');
   if (add) add.addEventListener('click', () => { vibro(10); kmEditDay(kmDayKey()); });
   document.querySelectorAll('#kmBody .km-row').forEach(row => {
-    row.addEventListener('click', () => { vibro(10); kmEditDay(row.dataset.date); });
+    row.addEventListener('click', () => { vibro(10); kmOpenDayModal(row.dataset.date); });
   });
   fuelBind();
 }
@@ -12343,11 +12422,83 @@ function kmEditDay(dateStr) {
   }
   const v = parseFloat(t);
   if (!isFinite(v) || v < 0 || v > 3000) { showToast('⚠️ Введи число километров'); return; }
-  h[dateStr] = { km: Math.round(v * 10) / 10, manual: true, stops: 0, ts: Date.now() };
+  h[dateStr] = { km: Math.round(v * 10) / 10, manual: true, stops: 0, addrs: (h[dateStr] || {}).addrs, ts: Date.now() };
   kmSaveHistory(h);
   kmRefreshSection();
   vibro(15);
   showToast('✓ Сохранено: ' + kmFmt(v));
+}
+// ── Окно «Адреса за день» (тап по дате в «Километраж за месяц») ──
+function kmNextDayStr(ds) {
+  const p = ds.split('.').map(Number);
+  return new Date(p[2], p[1] - 1, p[0] + 1).toLocaleDateString('ru-RU');
+}
+function kmAddressesForDay(ds) {
+  const e = kmLoadHistory()[ds] || {};
+  if (Array.isArray(e.addrs) && e.addrs.length) return { list: e.addrs, note: '' };
+  if (ds === kmDayKey()) return { list: kmGatherStops(), note: '' };
+  try {   // старые дни: берём из сохранённой истории маршрутов (она записывается на следующий день)
+    const rs = (JSON.parse(localStorage.getItem('routes_history') || '{}') || {})[kmNextDayStr(ds)];
+    if (rs && rs.lists) {
+      const items = [];
+      ROUTE_TIMES.forEach((t, si) => (rs.lists[t.id] || []).forEach((it, ii) => {
+        if (!it || !it.addr || !it.addr.trim() || it.status === 'perenos') return;
+        if (!(it.navAt || it.status === 'done')) return;
+        items.push({ addr: it.addr.trim(), at: it.navAt || it.doneAt || (si * 3600000 + ii) });
+      }));
+      items.sort((a, b) => a.at - b.at);
+      if (items.length) return { list: items.map(x => x.addr), note: 'Адреса восстановлены из истории маршрутов — проверь их.' };
+    }
+  } catch (err) {}
+  return { list: [], note: 'Адреса за этот день не сохранились (запись адресов появилась после обновления).' };
+}
+function kmDayText(ds) {
+  const r = kmAddressesForDay(ds), e = kmLoadHistory()[ds] || {}, pts = kmLoadPoints();
+  const L = ['Адреса за ' + ds];
+  if (pts.start) L.push('Старт: ' + pts.start);
+  r.list.forEach((a, i) => L.push((i + 1) + '. ' + a));
+  const endA = pts.sameEnd ? pts.start : pts.end;
+  if (endA) L.push('Финиш: ' + endA);
+  if (e.km) L.push('Итого: ' + kmFmt(e.km));
+  return L.join('\n');
+}
+function kmOpenDayModal(ds) {
+  document.getElementById('kmDayModal')?.remove();
+  const r = kmAddressesForDay(ds), e = kmLoadHistory()[ds] || {}, pts = kmLoadPoints();
+  const ov = document.createElement('div');
+  ov.className = 'modal-overlay show'; ov.id = 'kmDayModal'; ov.style.zIndex = '1700';
+  const box = document.createElement('div'); box.className = 'sales-modal';
+  const row = (num, txt, accent) => '<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 4px;border-bottom:1px solid rgba(120,130,140,.2);">' +
+    '<div style="min-width:26px;height:26px;border-radius:50%;background:' + (accent || 'rgba(0,137,123,.15)') + ';color:' + (accent ? '#fff' : '#00897b') + ';font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;">' + num + '</div>' +
+    '<div style="flex:1;font-size:14px;font-weight:600;line-height:1.3;overflow-wrap:anywhere;">' + escapeHtml(txt) + '</div></div>';
+  let list = '';
+  if (pts.start) list += row('A', pts.start, '#00897b');
+  r.list.forEach((a, i) => { list += row(i + 1, a); });
+  const endA = pts.sameEnd ? pts.start : pts.end;
+  if (endA) list += row('B', endA, '#00897b');
+  if (!r.list.length) list = '<div style="padding:18px 6px;text-align:center;color:#888;font-size:13px;">Адресов нет</div>';
+  box.innerHTML =
+    '<div class="sales-modal-header"><h2>🚗 ' + escapeHtml(ds) + '</h2><button class="sales-close" type="button">✕</button></div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:baseline;margin:2px 2px 8px;">' +
+      '<div style="font-size:13px;opacity:.7;">Адресов: <b>' + r.list.length + '</b></div>' +
+      '<div style="font-size:18px;font-weight:800;color:#00897b;">' + (e.km ? ((e.approx && !e.manual ? '≈ ' : '') + kmFmt(e.km)) : '—') + '</div></div>' +
+    (r.note ? '<div style="font-size:12px;color:#e67e22;margin:0 2px 8px;">' + escapeHtml(r.note) + '</div>' : '') +
+    '<div style="max-height:46vh;overflow-y:auto;">' + list + '</div>' +
+    '<div style="display:flex;gap:8px;margin-top:12px;">' +
+      '<button type="button" class="kmd-copy" style="flex:1;border:0;border-radius:12px;padding:13px;background:#00897b;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">📋 Скопировать адреса</button>' +
+      '<button type="button" class="kmd-edit" style="flex:1;border:0;border-radius:12px;padding:13px;background:rgba(0,137,123,.14);color:#00897b;font-weight:800;font-size:14px;cursor:pointer;">✎ Километраж</button></div>';
+  ov.appendChild(box);
+  const close = () => ov.remove();
+  box.querySelector('.sales-close').addEventListener('click', close);
+  ov.addEventListener('click', (ev) => { if (ev.target === ov) close(); });
+  box.querySelector('.kmd-copy').addEventListener('click', async () => {
+    const text = kmDayText(ds);
+    try { await navigator.clipboard.writeText(text); }
+    catch (err) { const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e2) {} ta.remove(); }
+    vibro(15); showToast('📋 Адреса за ' + ds + ' скопированы');
+  });
+  box.querySelector('.kmd-edit').addEventListener('click', () => { close(); kmEditDay(ds); });
+  document.body.appendChild(ov);
 }
 function kmRefreshSection() {
   const el = document.getElementById('kmSection');
@@ -14273,7 +14424,7 @@ const BACKUP_KEYS = [
   'quick_report_v2', 'quick_report_last_day', 'quick_report_sent_today',
   'quick_report_reminder_shown', 'morning_report_sent_today',
   'monthly_report_last_shown', 'my_city', 'mvs_theme', 'map_geocache',
-  'route_points', 'km_history', 'fuel_settings', 'max_groups', 'card_open_mode', 'card_products_enabled'
+  'route_points', 'km_history', 'fuel_settings', 'max_groups', 'card_open_mode', 'card_products_enabled', 'ask_sold'
 ];
 
 document.getElementById('btnToggleTheme').addEventListener('click', () => {
@@ -17488,7 +17639,8 @@ document.getElementById('btnCheckUpdate')?.addEventListener('click', () => {
     if (APP_BUILD) {
       if (prev && prev !== APP_BUILD) {
         setTimeout(() => {
-          iosBanner({ title: 'Приложение обновлено', sub: 'Сборка ' + APP_BUILD, icon: '✓', kind: 'ok', duration: 6000 });
+          iosBanner({ title: 'Приложение обновлено', sub: 'Сборка ' + APP_BUILD + ' · посмотри, что нового', icon: '✓', kind: 'ok', sticky: true,
+            actions: [{ label: 'Подробнее', primary: true, fn: () => openWhatsNew(prev) }, { label: 'Закрыть' }] });
           sysNotify('МВС отчёты', 'Приложение обновлено · сборка ' + APP_BUILD);
         }, 1800);
       }
@@ -17499,6 +17651,287 @@ document.getElementById('btnCheckUpdate')?.addEventListener('click', () => {
 setTimeout(() => checkForAppUpdate(false), 6000);
 setInterval(() => checkForAppUpdate(false), 30 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(() => checkForAppUpdate(false), 1500); });
+
+// ═══════════════════════════════════════════════
+//  Свайп по карточке, «Что продали?», автопричина, «Что нового»
+// ═══════════════════════════════════════════════
+
+// ── Автопричина при НДЗ / Отмене ──
+const AUTO_REASONS = { ndz: 'Недозвон', perenos: 'Отмена клиентом' };
+function applyAutoReason(item, status) {
+  const cur = String(item.nonDeliveryReason || '').trim();
+  const isAutoText = cur === 'Недозвон' || cur === 'Отмена клиентом';
+  if (AUTO_REASONS[status]) {
+    if (!cur || (item.reasonAuto && isAutoText)) { item.nonDeliveryReason = AUTO_REASONS[status]; item.reasonAuto = true; }
+  } else if (item.reasonAuto) {
+    if (isAutoText) item.nonDeliveryReason = '';
+    item.reasonAuto = false;
+  }
+}
+function mvsSetStatus(item, status) {
+  item.status = status;
+  item.uiExpanded = false;
+  if (status === 'done' || status === 'ndz' || status === 'perenos') item.startedAt = null;
+  try { applyAutoReason(item, status); } catch (e) {}
+  syncCardCredit(item);
+  saveRouteState(routeState);
+  renderRoute();
+  try { updateAutoNonDeliveryReport(); } catch (e) {}
+  try { updateDrawerRoutes(); } catch (e) {}
+  try { updateActivitiesBadge(); } catch (e) {}
+  _mapHash = '';
+  if (map) renderMapMarkers();
+  vibro(15);
+}
+
+// ── Свайп по короткой карточке: вправо — «Готово», влево — «Отмена» ──
+// Карточка двигается за пальцем, а под ней открывается цветная подложка с подписью
+(function initCardSwipe() {
+  const app = document.getElementById('app4');
+  if (!app) return;
+  let st = null;
+  const TH = 90;                                   // порог срабатывания, px
+  function cleanup(s, animate) {
+    const card = s.card;
+    if (animate) { card.style.setProperty('transition', 'transform .2s ease-out', 'important'); card.style.setProperty('transform', 'translate3d(0,0,0)', 'important'); }
+    setTimeout(() => {
+      card.style.removeProperty('transition'); card.style.removeProperty('transform'); card.classList.remove('swiping');
+      if (s.under) s.under.remove();
+      if (s.par && s.par.dataset.swPos) { s.par.style.position = ''; delete s.par.dataset.swPos; }
+    }, animate ? 210 : 0);
+  }
+  function makeUnder(s) {
+    const card = s.card, par = card.parentElement;
+    if (!par) return;
+    if (getComputedStyle(par).position === 'static') { par.dataset.swPos = '1'; par.style.position = 'relative'; }
+    const u = document.createElement('div');
+    u.className = 'swipe-under';
+    u.style.cssText = 'left:' + card.offsetLeft + 'px;top:' + card.offsetTop + 'px;width:' + card.offsetWidth + 'px;height:' + card.offsetHeight + 'px;';
+    u.innerHTML = '<span class="su-l">✓ Готово</span><span class="su-r">Отмена ✕</span>';
+    par.insertBefore(u, card);
+    s.under = u; s.par = par;
+    card.classList.add('swiping');
+  }
+  app.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) { st = null; return; }
+    const card = e.target.closest && e.target.closest('.route-card.collapsed');
+    if (!card || !card.__routeItem || e.target.closest('input, textarea, button, select')) { st = null; return; }
+    st = { card, item: card.__routeItem, x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), dx: 0, mode: null, armed: false, under: null, par: null };
+  }, { passive: true, capture: true });
+  app.addEventListener('touchmove', (e) => {
+    if (!st) return;
+    const t = e.touches[0], dx = t.clientX - st.x, dy = t.clientY - st.y;
+    if (st.mode === null) {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+      st.mode = (Math.abs(dx) > Math.abs(dy) * 1.5) ? 'h' : 'v';
+      if (st.mode === 'h') makeUnder(st);
+    }
+    if (st.mode !== 'h') return;
+    st.dx = dx;
+    st.card.style.setProperty('transition', 'none', 'important');   // перебиваем глобальное «transform:none !important»
+    st.card.style.setProperty('transform', 'translate3d(' + dx + 'px,0,0)', 'important');
+    if (st.under) {
+      st.under.classList.toggle('right', dx > 0);
+      st.under.classList.toggle('left', dx < 0);
+      const armed = Math.abs(dx) > TH;
+      st.under.classList.toggle('armed', armed);
+      if (armed && !st.armed) vibro(12);
+      st.armed = armed;
+    }
+  }, { passive: true, capture: true });
+  const end = (e) => {
+    if (!st) return;
+    const s = st; st = null;
+    if (s.mode !== 'h') return;
+    if (e.stopPropagation) e.stopPropagation();          // не переключать вкладки «Встречи / В работе»
+    window._swipeAt = Date.now();
+    const adx = Math.abs(s.dx), v = adx / Math.max(1, Date.now() - s.t);
+    const commit = adx > TH || (v > 0.6 && adx > 45);
+    cleanup(s, true);
+    if (!commit) return;
+    const item = s.item;
+    if (s.dx > 0) {
+      if (item.status === 'done') { showToast('✓ Встреча уже проведена'); return; }
+      vibro(20);
+      quickFinishMeeting(item);
+    } else {
+      if (item.status === 'perenos') { showToast('✕ Встреча уже отменена'); return; }
+      const prev = item.status, prevReason = item.nonDeliveryReason, prevAuto = item.reasonAuto;
+      vibro(20);
+      mvsSetStatus(item, 'perenos');
+      iosBanner({ title: 'Встреча отменена', sub: 'Свайп влево', icon: '✕', kind: 'grey', duration: 5000,
+        actions: [{ label: 'Вернуть', primary: true, fn: () => { mvsSetStatus(item, prev || null); item.nonDeliveryReason = prevReason; item.reasonAuto = prevAuto; saveRouteState(routeState); } }] });
+    }
+  };
+  app.addEventListener('touchend', end, { capture: true });
+  app.addEventListener('touchcancel', () => { if (st && st.mode === 'h') cleanup(st, false); st = null; }, { capture: true });
+  app.addEventListener('click', (e) => {
+    if (Date.now() - (window._swipeAt || 0) < 500) { e.stopPropagation(); e.preventDefault(); }
+  }, true);
+})();
+
+// ── «Что продали?» после завершения встречи ──
+function askSoldEnabled() { try { return localStorage.getItem('ask_sold') !== '0'; } catch (e) { return true; } }
+function updateAskSoldBtn() {
+  const b = document.getElementById('btnAskSold');
+  if (b) b.textContent = askSoldEnabled() ? '🛍 Спрашивать «что продали»: вкл' : '🛍 Спрашивать «что продали»: выкл';
+}
+updateAskSoldBtn();
+document.getElementById('btnAskSold')?.addEventListener('click', () => {
+  document.getElementById('menu3')?.classList.remove('show');
+  const next = !askSoldEnabled();
+  try { localStorage.setItem('ask_sold', next ? '1' : '0'); } catch (e) {}
+  updateAskSoldBtn(); vibro(12);
+  showToast(next ? '🛍 Вопрос «что продали» включён' : '🛍 Вопрос «что продали» отключён');
+});
+function getTopSoldProducts(n) {
+  const byId = {}, cutoff = Date.now() - 45 * 864e5, hist = loadHistory1();
+  Object.keys(hist).forEach(k => {
+    const p = k.split('.'); if (p.length !== 3) return;
+    if (new Date(+p[2], +p[1] - 1, +p[0]).getTime() < cutoff) return;
+    const s = hist[k].sales; if (!s) return;
+    Object.keys(s).forEach(id => { if (!id.startsWith('extra_')) byId[id] = (byId[id] || 0) + ((s[id] && s[id].count) || 0); });
+  });
+  const all = {};
+  SECTIONS1.forEach(sec => sec.items.forEach(it => { if (it.type !== 'meeting' && it.type !== 'biz') all[it.id] = it; }));
+  const ids = Object.keys(byId).filter(id => all[id] && byId[id] > 0).sort((a, b) => byId[b] - byId[a]);
+  ['sim_my', 'vklad', 'sbercard', 'kk', 'prime_m', 'first_sbercard', 'pds', 'app_inst', 'premier_free'].forEach(id => {
+    if (ids.length < n && !ids.includes(id) && all[id]) ids.push(id);
+  });
+  return ids.slice(0, n).map(id => ({ it: all[id], hist: byId[id] || 0 }));
+}
+function closeSoldSheet() {
+  const sh = document.getElementById('soldSheet'), ov = document.getElementById('soldOverlay');
+  if (sh) sh.classList.remove('show'); if (ov) ov.classList.remove('show');
+  setTimeout(() => { sh && sh.remove(); ov && ov.remove(); }, 350);
+}
+function showSoldSheet(item) {
+  if (!askSoldEnabled()) return;
+  document.getElementById('soldSheet')?.remove(); document.getElementById('soldOverlay')?.remove();
+  const ov = document.createElement('div'); ov.id = 'soldOverlay';
+  const sh = document.createElement('div'); sh.id = 'soldSheet';
+  sh.innerHTML = '<div class="ss-title">Что продали на этой встрече?</div><div class="ss-sub">Самые частые продукты — нажми «+». Можно пропустить.</div><div class="ss-list"></div><div class="ss-actions"><button type="button" class="ss-skip">Пропустить</button><button type="button" class="ss-done">Готово ✓</button></div>';
+  const list = sh.querySelector('.ss-list');
+  let rebuildAcc = () => {};   // перерисовка аккордеона (подтягивает новые счётчики)
+  getTopSoldProducts(8).forEach(({ it, hist }) => {
+    const row = document.createElement('div'); row.className = 'ss-row';
+    row.innerHTML = '<div class="ss-name"></div><div class="ss-ctrl"><button type="button" class="ss-minus">−</button><div class="ss-val"></div><button type="button" class="ss-plus">+</button></div>';
+    const nm = row.querySelector('.ss-name'); nm.textContent = it.name;
+    const sm = document.createElement('small'); sm.textContent = it.up + ' УП' + (hist ? ' · продано за 45 дн.: ' + hist : ''); nm.appendChild(sm);
+    const val = row.querySelector('.ss-val');
+    const paint = () => { val.textContent = getCount1(it.id); };
+    paint();
+    row._paint = paint;
+    row.querySelector('.ss-minus').addEventListener('click', () => { vibro(10); setCount1(it.id, getCount1(it.id) - 1); paint(); rebuildAcc(); });
+    row.querySelector('.ss-plus').addEventListener('click', () => { vibro(12); setCount1(it.id, getCount1(it.id) + 1); paint(); rebuildAcc(); });
+    list.appendChild(row);
+  });
+  // Внизу — полный «Список продуктов» (разделы со счётчиками), как в карточке и в «Сегодня»
+  const accState = { prodOpen: false, prodSecOpen: {} };
+  let accEl = buildCardProductsAccordion(accState);
+  accEl.style.marginTop = '6px';
+  list.appendChild(accEl);
+  rebuildAcc = () => { const n = buildCardProductsAccordion(accState); n.style.marginTop = '6px'; accEl.replaceWith(n); accEl = n; };
+  // изменения в аккордеоне сразу отражаются в верхнем списке
+  list.addEventListener('click', () => setTimeout(() => list.querySelectorAll('.ss-row').forEach(r => r._paint && r._paint()), 0), true);
+  sh.querySelector('.ss-skip').addEventListener('click', closeSoldSheet);
+  sh.querySelector('.ss-done').addEventListener('click', () => { vibro(15); closeSoldSheet(); });
+  ov.addEventListener('click', closeSoldSheet);
+  document.body.appendChild(ov); document.body.appendChild(sh);
+  requestAnimationFrame(() => requestAnimationFrame(() => { ov.classList.add('show'); sh.classList.add('show'); }));
+}
+
+// ── Мини-презентация «Что нового» ──
+const RELEASES = [
+  { build: '2026-11-12-K', date: '12 ноября', title: 'Адреса за день', slides: [
+    { tag: 'new', icon: '🚗', title: 'Адреса в километраже', text: 'В «Итоги» → «Километраж за месяц» тап по дате открывает окно со всеми адресами, которые вы проехали в этот день, и километражем. Кнопка «Скопировать адреса» — для отчёта по бензину.' },
+    { tag: 'imp', icon: '🪟', title: 'Заставка проще', text: 'С заставки убраны «до конца интервала» и «следующая встреча» — остались УП и количество проведённых встреч.' } ] },
+  { build: '2026-11-12-J', date: '12 ноября', title: 'Больше продуктов в «Что продали»', slides: [
+    { tag: 'imp', icon: '🛒', title: 'Весь список продуктов', text: 'Внизу окна «Что продали?» теперь есть полный «Список продуктов» с разделами и счётчиками — если нужного продукта нет среди частых.' } ] },
+  { build: '2026-11-12-I', date: '12 ноября', title: 'Свайп стал нагляднее', slides: [
+    { tag: 'fix', icon: '👉', title: 'Свайп: карточка двигается', text: 'При свайпе короткая карточка едет за пальцем, а под ней открывается зелёная («Готово») или красная («Отмена») подложка с подписью.' } ] },
+  { build: '2026-11-12-H', date: '12 ноября', title: 'Быстрее в работе', slides: [
+    { tag: 'new', icon: '👆', title: 'Свайп по карточке', text: 'Короткая карточка: свайп вправо — «Готово», свайп влево — «Отмена». Отмену можно вернуть кнопкой «Вернуть».' },
+    { tag: 'new', icon: '🛍', title: 'Что продали?', text: 'После завершения встречи появляется быстрый список ваших самых частых продуктов с кнопкой «+». Отключается в меню ⋮ раздела «Итоги».' },
+    { tag: 'new', icon: '⚡', title: 'Автопричина', text: 'При статусе «НДЗ» причина «Недозвон» подставляется сама, при «Отмене» — «Отмена клиентом». Её можно поправить.' },
+    { tag: 'new', icon: '🎞', title: 'Что нового', text: 'После обновления приложение показывает уведомление, а эта презентация — что изменилось. Она всегда доступна в меню ⋮ → «Что нового».' } ] },
+  { build: '2026-11-12-G', date: '12 ноября', title: 'Карта и плавность', slides: [
+    { tag: 'fix', icon: '🗺', title: 'Тап по карточке → карта', text: 'Тап по свободному месту большой карточки снова открывает адрес на карте.' },
+    { tag: 'fix', icon: '✨', title: 'Меньше мерцаний', text: 'Когда открыта клавиатура, фон панели без размытия — карточка больше не мерцает при вводе.' } ] },
+  { build: '2026-11-12-F', date: '12 ноября', title: 'ФД Сим и слот', slides: [
+    { tag: 'imp', icon: '📱', title: 'ФД Сим только в TR', text: 'Встречи «ФД Сим» считаются в TR день и TR месяц, но не входят в TR слот и «B2C слот ЕКП» в отчёте.' } ] },
+  { build: '2026-11-12-E', date: '12 ноября', title: 'ПУ в отчёте', slides: [
+    { tag: 'new', icon: '💎', title: 'ПУ и ПУ предложений', text: 'В вечернем отчёте новые строки. «ПУ» — автоматически из счётчиков Премьер (бесплатный уровень и бесплатный + сохранение). «ПУ предложений» — поле в «Заявках»: авто или вручную.' } ] },
+  { build: '2026-11-12-D', date: '12 ноября', title: 'Подсказки и светлая тема', slides: [
+    { tag: 'fix', icon: '☀️', title: 'Светлая тема', text: 'В карточках встреч текст в полях снова хорошо виден.' },
+    { tag: 'new', icon: '⏱', title: 'Пульс встреч', text: 'На заставке и в «Сегодня»: сколько встреч проведено, сколько осталось до конца интервала и какая следующая.' },
+    { tag: 'imp', icon: '🕐', title: 'Кнопка «Добавить встречи в слот»', text: 'Теперь показывается только с 6:00 до 10:00.' } ] },
+  { build: '2026-11-11-C', date: '11 ноября', title: 'Большая карточка', slides: [
+    { tag: 'new', icon: '🪟', title: 'Карточка выезжает справа', text: 'Стеклянная панель с большой карточкой. Закрывается свайпом вправо или тапом по затемнению. Режим переключается в меню ⋮.' },
+    { tag: 'new', icon: '🛒', title: 'Список продуктов в карточке', text: 'Разделы со счётчиками «+» и «−», как в «Сегодня». Можно отключить в меню ⋮.' },
+    { tag: 'new', icon: '🧾', title: 'Причина недоставки', text: 'Оранжевая кнопка со списком причин. После выбора причина пишется в поле, а кнопка становится красной.' },
+    { tag: 'imp', icon: '📍', title: 'Короткий адрес', text: 'Подсказки адреса вставляют только улицу и дом.' } ] }
+];
+const WN_TAGS = { new: 'Новое', fix: 'Исправлено', imp: 'Улучшено' };
+function closeWhatsNew() {
+  const el = document.getElementById('whatsNew'); if (!el) return;
+  el.classList.remove('show'); setTimeout(() => el.remove(), 280);
+}
+function openWhatsNew(sinceBuild) {
+  document.getElementById('whatsNew')?.remove();
+  let rel = RELEASES.filter(r => !sinceBuild || r.build > sinceBuild);
+  if (!rel.length) rel = RELEASES.slice(0, 3);
+  const slides = [];
+  rel.forEach(r => {
+    slides.push({ tag: 'rel', tagText: 'Сборка ' + r.build.slice(-1), icon: '🚀', title: r.title, text: r.date + ' · ' + r.slides.length + ' ' + plural(r.slides.length, 'изменение', 'изменения', 'изменений'), build: r.build });
+    r.slides.forEach(s => slides.push(Object.assign({ build: r.build }, s)));
+  });
+  const wrap = document.createElement('div'); wrap.id = 'whatsNew';
+  wrap.innerHTML = '<div class="wn-card"><button type="button" class="wn-close" aria-label="Закрыть">✕</button><div class="wn-viewport"><div class="wn-track"></div></div><div class="wn-foot"><button type="button" class="wn-btn ghost wn-prev">←</button><div class="wn-dots"></div><div class="wn-count"></div><button type="button" class="wn-btn wn-next">Далее →</button></div></div>';
+  const track = wrap.querySelector('.wn-track');
+  slides.forEach(s => {
+    const d = document.createElement('div'); d.className = 'wn-slide';
+    d.innerHTML = '<div class="wn-icon"></div><div class="wn-tag ' + (s.tag === 'fix' ? 'fix' : s.tag === 'imp' ? 'imp' : s.tag === 'rel' ? 'rel' : '') + '"></div><div class="wn-title"></div><div class="wn-text"></div><div class="wn-build"></div>';
+    d.querySelector('.wn-icon').textContent = s.icon;
+    d.querySelector('.wn-tag').textContent = s.tagText || WN_TAGS[s.tag] || 'Новое';
+    d.querySelector('.wn-title').textContent = s.title;
+    d.querySelector('.wn-text').textContent = s.text;
+    d.querySelector('.wn-build').textContent = s.tag === 'rel' ? '' : 'сборка ' + s.build;
+    track.appendChild(d);
+  });
+  const dots = wrap.querySelector('.wn-dots'), cnt = wrap.querySelector('.wn-count');
+  const showDots = slides.length <= 9;
+  if (showDots) slides.forEach(() => { const dt = document.createElement('div'); dt.className = 'wn-dot'; dots.appendChild(dt); });
+  let idx = 0;
+  const prev = wrap.querySelector('.wn-prev'), next = wrap.querySelector('.wn-next');
+  function go(i) {
+    idx = Math.max(0, Math.min(slides.length - 1, i));
+    track.style.transform = 'translate3d(' + (-idx * 100) + '%,0,0)';
+    dots.querySelectorAll('.wn-dot').forEach((dt, k) => dt.classList.toggle('on', k === idx));
+    cnt.textContent = idx + 1 + ' / ' + slides.length;
+    prev.style.visibility = idx === 0 ? 'hidden' : 'visible';
+    next.textContent = idx === slides.length - 1 ? 'Готово ✓' : 'Далее →';
+  }
+  next.addEventListener('click', () => { vibro(8); if (idx === slides.length - 1) closeWhatsNew(); else go(idx + 1); });
+  prev.addEventListener('click', () => { vibro(8); go(idx - 1); });
+  wrap.querySelector('.wn-close').addEventListener('click', closeWhatsNew);
+  wrap.addEventListener('click', (e) => { if (e.target === wrap) closeWhatsNew(); });
+  let sx = null;
+  const vp = wrap.querySelector('.wn-viewport');
+  vp.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; }, { passive: true });
+  vp.addEventListener('touchend', (e) => {
+    if (sx === null) return;
+    const dx = e.changedTouches[0].clientX - sx; sx = null;
+    if (Math.abs(dx) > 45) go(idx + (dx < 0 ? 1 : -1));
+  }, { passive: true });
+  document.body.appendChild(wrap);
+  go(0);
+  requestAnimationFrame(() => wrap.classList.add('show'));
+}
+document.getElementById('btnWhatsNew')?.addEventListener('click', () => {
+  document.getElementById('menu3')?.classList.remove('show');
+  openWhatsNew(null);
+});
 
 // Запуск дошёл до конца — страховка от белого экрана больше не нужна
 window.__appReady = true;
@@ -17622,9 +18055,7 @@ body:not(.dark) #screen4 .route-card .route-note-input::placeholder {
     <div class="mls-stats">
       <div class="mls-stat"><div class="mls-stat-num" id="mlsDailyUP">—</div><div class="mls-stat-label">УП выполнено за день</div></div>
       <div class="mls-stat"><div class="mls-stat-num" id="mlsDailyFD">—</div><div class="mls-stat-label">УП на ФД</div></div>
-      <div class="mls-stat"><div class="mls-stat-num" id="mlsMeetDone">—</div><div class="mls-stat-label">Встреч проведено</div></div>
-      <div class="mls-stat"><div class="mls-stat-num sm" id="mlsLeft">—</div><div class="mls-stat-label" id="mlsLeftLabel">До конца интервала</div></div>
-      <div class="mls-stat mls-wide"><div class="mls-next-title">Следующая встреча</div><div class="mls-next" id="mlsNext">—</div></div>
+      <div class="mls-stat" style="grid-column:1/-1"><div class="mls-stat-num" id="mlsMeetDone">—</div><div class="mls-stat-label">Встреч проведено</div></div>
     </div>
     <button type="button" class="mls-open" id="mlsOpenBtn">Открыть МВС ↑</button>
     <div class="mls-hint">Свайпни вверх, чтобы продолжить</div>
