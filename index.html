@@ -76,7 +76,7 @@
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>МВС отчёты</title>
-<meta name="app-build" content="2026-11-12-K">
+<meta name="app-build" content="2026-11-12-M">
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#101820">
 <!-- Подключение DaData для подсказок адресов (локально) -->
@@ -6781,6 +6781,34 @@ body.dark #whatsNew .wn-card{background:linear-gradient(160deg,rgba(40,58,82,.95
 /* пока двигаем — карточка непрозрачная, чтобы подложка не просвечивала */
 #screen4 #app4 .route-card.collapsed.swiping{background:#ffffff!important;will-change:transform}
 body.dark #screen4 #app4 .route-card.collapsed.swiping{background:#1c2832!important}
+</style>
+
+<style id="mls-animation">
+/* Анимация заставки «жидкое стекло» */
+@keyframes mlsCardIn{from{opacity:0;transform:translate3d(0,46px,0) scale(.93);filter:blur(10px)}to{opacity:1;transform:translate3d(0,0,0) scale(1);filter:blur(0)}}
+@keyframes mlsStatIn{from{opacity:0;transform:translate3d(0,22px,0) scale(.9)}to{opacity:1;transform:translate3d(0,0,0) scale(1)}}
+@keyframes mlsFade{from{opacity:0;transform:translate3d(0,14px,0)}to{opacity:1;transform:translate3d(0,0,0)}}
+@keyframes mlsBlobA{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(9vw,7vh,0) scale(1.14)}}
+@keyframes mlsBlobB{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(-8vw,-8vh,0) scale(1.1)}}
+@keyframes mlsShine{0%{background-position:0% 50%}100%{background-position:200% 50%}}
+@keyframes mlsHint{0%,100%{opacity:.5;transform:translate3d(0,0,0)}50%{opacity:1;transform:translate3d(0,-5px,0)}}
+@keyframes mlsLogo{from{opacity:0;letter-spacing:.7em}to{opacity:1;letter-spacing:.28em}}
+#mvsLiquidSplash .mls-card{animation:mlsCardIn .95s cubic-bezier(.16,1,.3,1) backwards}
+#mvsLiquidSplash .mls-sber{animation:mlsFade .7s ease .25s backwards}
+#mvsLiquidSplash .mls-logo{animation:mlsLogo 1s ease .35s backwards}
+#mvsLiquidSplash .mls-title{animation:mlsFade .7s ease .45s backwards}
+#mvsLiquidSplash .mls-date{animation:mlsFade .7s ease .55s backwards}
+#mvsLiquidSplash .mls-stat{animation:mlsStatIn .65s cubic-bezier(.16,1,.3,1) backwards}
+#mvsLiquidSplash .mls-stat:nth-child(1){animation-delay:.65s}
+#mvsLiquidSplash .mls-stat:nth-child(2){animation-delay:.78s}
+#mvsLiquidSplash .mls-stat:nth-child(3){animation-delay:.91s}
+#mvsLiquidSplash .mls-open{animation:mlsFade .7s ease 1.05s backwards,mlsShine 4.5s linear 1.8s infinite;
+  background:linear-gradient(110deg,#159447,#35b86b,#159447,#35b86b);background-size:200% 100%}
+#mvsLiquidSplash .mls-hint{animation:mlsFade .7s ease 1.2s backwards,mlsHint 2s ease-in-out 2s infinite}
+#mvsLiquidSplash:before{animation:mlsBlobA 9s ease-in-out infinite}
+#mvsLiquidSplash:after{animation:mlsBlobB 11s ease-in-out infinite}
+#mvsLiquidSplash.mls-hide:before,#mvsLiquidSplash.mls-hide:after{animation:none}
+@media(prefers-reduced-motion:reduce){#mvsLiquidSplash *,#mvsLiquidSplash:before,#mvsLiquidSplash:after{animation:none!important}}
 </style>
 </head>
 <body class="tab-4">
@@ -17684,7 +17712,37 @@ function mvsSetStatus(item, status) {
   vibro(15);
 }
 
-// ── Свайп по короткой карточке: вправо — «Готово», влево — «Отмена» ──
+// Удаление активности (свайп влево) с кнопкой «Вернуть»
+function mvsDeleteItem(item) {
+  let timeId = null, idx = -1;
+  ROUTE_TIMES.forEach(t => { const i = (routeState.lists[t.id] || []).indexOf(item); if (i >= 0) { timeId = t.id; idx = i; } });
+  if (timeId === null) return;
+  const list = routeState.lists[timeId];
+  const addr = String(item.addrDisplay || item.addr || '').trim() || 'Без адреса';
+  uncreditCard(item);                       // снять УП, если встреча была засчитана
+  list.splice(idx, 1);
+  saveRouteState(routeState);
+  renderRoute();
+  try { updateAutoNonDeliveryReport(); } catch (e) {}
+  try { updateDrawerRoutes(); } catch (e) {}
+  try { updateActivitiesBadge(); } catch (e) {}
+  _mapHash = ''; if (map) renderMapMarkers();
+  iosBanner({ title: 'Удалено: ' + addr, sub: 'Активность удалена', icon: '🗑', kind: 'error', duration: 6000,
+    actions: [{ label: 'Вернуть', primary: true, fn: () => {
+      const l = routeState.lists[timeId] || (routeState.lists[timeId] = []);
+      l.splice(Math.min(idx, l.length), 0, item);
+      syncCardCredit(item);                 // вернуть УП, если был статус «Готово»
+      saveRouteState(routeState);
+      renderRoute();
+      try { updateAutoNonDeliveryReport(); } catch (e) {}
+      try { updateDrawerRoutes(); } catch (e) {}
+      try { updateActivitiesBadge(); } catch (e) {}
+      _mapHash = ''; if (map) renderMapMarkers();
+      vibro(15);
+    } }] });
+}
+
+// ── Свайп по короткой карточке: вправо — «Готово», влево — «Удалить» ──
 // Карточка двигается за пальцем, а под ней открывается цветная подложка с подписью
 (function initCardSwipe() {
   const app = document.getElementById('app4');
@@ -17707,7 +17765,7 @@ function mvsSetStatus(item, status) {
     const u = document.createElement('div');
     u.className = 'swipe-under';
     u.style.cssText = 'left:' + card.offsetLeft + 'px;top:' + card.offsetTop + 'px;width:' + card.offsetWidth + 'px;height:' + card.offsetHeight + 'px;';
-    u.innerHTML = '<span class="su-l">✓ Готово</span><span class="su-r">Отмена ✕</span>';
+    u.innerHTML = '<span class="su-l">✓ Готово</span><span class="su-r">Удалить 🗑</span>';
     par.insertBefore(u, card);
     s.under = u; s.par = par;
     card.classList.add('swiping');
@@ -17755,12 +17813,9 @@ function mvsSetStatus(item, status) {
       vibro(20);
       quickFinishMeeting(item);
     } else {
-      if (item.status === 'perenos') { showToast('✕ Встреча уже отменена'); return; }
-      const prev = item.status, prevReason = item.nonDeliveryReason, prevAuto = item.reasonAuto;
-      vibro(20);
-      mvsSetStatus(item, 'perenos');
-      iosBanner({ title: 'Встреча отменена', sub: 'Свайп влево', icon: '✕', kind: 'grey', duration: 5000,
-        actions: [{ label: 'Вернуть', primary: true, fn: () => { mvsSetStatus(item, prev || null); item.nonDeliveryReason = prevReason; item.reasonAuto = prevAuto; saveRouteState(routeState); } }] });
+      // свайп влево — удалить активность целиком (с возможностью вернуть)
+      vibro(25);
+      mvsDeleteItem(item);
     }
   };
   app.addEventListener('touchend', end, { capture: true });
@@ -17843,15 +17898,19 @@ function showSoldSheet(item) {
 
 // ── Мини-презентация «Что нового» ──
 const RELEASES = [
+  { build: '2026-11-12-M', date: '13 ноября', title: 'Свайп удаляет', slides: [
+    { tag: 'imp', icon: '🗑', title: 'Свайп влево — удалить', text: 'Свайп короткой карточки влево теперь удаляет активность целиком (раньше ставил «Отмена»). Если удалили случайно, нажмите «Вернуть» в баннере.' } ] },
+  { build: '2026-11-12-L', date: '12 ноября', title: 'Заставка ожила', slides: [
+    { tag: 'new', icon: '🫧', title: 'Анимация заставки', text: 'Стеклянная карточка плавно выезжает, блоки появляются по очереди, цифры УП набираются, на фоне медленно плывут «капли», а кнопка переливается.' } ] },
   { build: '2026-11-12-K', date: '12 ноября', title: 'Адреса за день', slides: [
     { tag: 'new', icon: '🚗', title: 'Адреса в километраже', text: 'В «Итоги» → «Километраж за месяц» тап по дате открывает окно со всеми адресами, которые вы проехали в этот день, и километражем. Кнопка «Скопировать адреса» — для отчёта по бензину.' },
     { tag: 'imp', icon: '🪟', title: 'Заставка проще', text: 'С заставки убраны «до конца интервала» и «следующая встреча» — остались УП и количество проведённых встреч.' } ] },
   { build: '2026-11-12-J', date: '12 ноября', title: 'Больше продуктов в «Что продали»', slides: [
     { tag: 'imp', icon: '🛒', title: 'Весь список продуктов', text: 'Внизу окна «Что продали?» теперь есть полный «Список продуктов» с разделами и счётчиками — если нужного продукта нет среди частых.' } ] },
   { build: '2026-11-12-I', date: '12 ноября', title: 'Свайп стал нагляднее', slides: [
-    { tag: 'fix', icon: '👉', title: 'Свайп: карточка двигается', text: 'При свайпе короткая карточка едет за пальцем, а под ней открывается зелёная («Готово») или красная («Отмена») подложка с подписью.' } ] },
+    { tag: 'fix', icon: '👉', title: 'Свайп: карточка двигается', text: 'При свайпе короткая карточка едет за пальцем, а под ней открывается зелёная («Готово») или красная («Удалить») подложка с подписью.' } ] },
   { build: '2026-11-12-H', date: '12 ноября', title: 'Быстрее в работе', slides: [
-    { tag: 'new', icon: '👆', title: 'Свайп по карточке', text: 'Короткая карточка: свайп вправо — «Готово», свайп влево — «Отмена». Отмену можно вернуть кнопкой «Вернуть».' },
+    { tag: 'new', icon: '👆', title: 'Свайп по карточке', text: 'Короткая карточка: свайп вправо — «Готово», свайп влево — «Удалить». Удаление можно вернуть кнопкой «Вернуть».' },
     { tag: 'new', icon: '🛍', title: 'Что продали?', text: 'После завершения встречи появляется быстрый список ваших самых частых продуктов с кнопкой «+». Отключается в меню ⋮ раздела «Итоги».' },
     { tag: 'new', icon: '⚡', title: 'Автопричина', text: 'При статусе «НДЗ» причина «Недозвон» подставляется сама, при «Отмене» — «Отмена клиентом». Её можно поправить.' },
     { tag: 'new', icon: '🎞', title: 'Что нового', text: 'После обновления приложение показывает уведомление, а эта презентация — что изменилось. Она всегда доступна в меню ⋮ → «Что нового».' } ] },
@@ -18070,6 +18129,19 @@ body:not(.dark) #screen4 .route-card .route-note-input::placeholder {
     document.body.classList.add('mvs-splash-open');
     // Не переключаем вкладку при показе заставки: стартовый раздел — «Активности».
     try { const d=document.getElementById('mlsDate'); if(d) d.textContent=new Intl.DateTimeFormat('ru-RU',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date()); } catch(e) {}
+    function mlsNum(el, val, dec){
+      if(!el) return;
+      const fmt = v => v.toFixed(dec).replace('.', ',');
+      if(el.dataset.shown === undefined || val === 0){ el.dataset.shown = String(val); el.textContent = fmt(val); if(val === 0) return; el.textContent = fmt(0); }
+      const from = parseFloat(el.dataset.shown) || 0;
+      if(from === val && el.dataset.done){ el.textContent = fmt(val); return; }
+      const t0 = performance.now(), dur = 900, start = el.dataset.done ? from : 0;
+      (function step(now){
+        const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+        el.textContent = fmt(start + (val - start) * e);
+        if(k < 1) requestAnimationFrame(step); else { el.dataset.done = '1'; el.dataset.shown = String(val); }
+      })(t0);
+    }
     function stats(){
       let up=0, upFD=0;
       try {
@@ -18081,8 +18153,7 @@ body:not(.dark) #screen4 .route-card .route-note-input::placeholder {
         }
       } catch(e) {}
       const a=document.getElementById('mlsDailyUP'), b=document.getElementById('mlsDailyFD');
-      if(a) a.textContent=up.toFixed(2).replace('.', ',');
-      if(b) b.textContent=upFD.toFixed(2).replace('.', ',');
+      mlsNum(a, up, 2); mlsNum(b, upFD, 2);
       try {
         const pl=getMeetingsPulse();
         const md=document.getElementById('mlsMeetDone'), ml=document.getElementById('mlsLeft'), mll=document.getElementById('mlsLeftLabel'), mn=document.getElementById('mlsNext');
