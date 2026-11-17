@@ -76,7 +76,7 @@
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>МВС отчёты</title>
-<meta name="app-build" content="2026-11-12-M">
+<meta name="app-build" content="2026-11-13-N">
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#101820">
 <!-- Подключение DaData для подсказок адресов (локально) -->
@@ -8677,7 +8677,7 @@ function buildRouteCard(item, timeId, timeLabel, forceExpanded) {
   if (item.status === 'done' || item.status === 'perenos') card.classList.add('route-card-compact');
   
    // Короткие карточки: первый тап раскрывает карточку, не открывая карту.
-  const isCollapsed = !forceExpanded && !item.startedAt && !!String(item.addrDisplay || item.addr || '').trim();
+  const isCollapsed = !forceExpanded && !item.startedAt && !item.uiExpanded && !!String(item.addrDisplay || item.addr || '').trim();
   if (isCollapsed) { card.classList.add('collapsed'); resetCardAccordions(item, null); }
     // Если встреча в процессе — добавляем класс "живой"
   if (item.startedAt) card.classList.add('route-card-live');
@@ -10122,7 +10122,7 @@ if (_openSlotId) {
       const cards = Array.from(body.querySelectorAll('.route-card:not(.route-card-live)'));
       if (!cards.length) return;
       const collapseAll = cards.some(c => !c.classList.contains('collapsed'));
-      cards.forEach(c => c.classList.toggle('collapsed', collapseAll));
+      cards.forEach(c => { c.classList.toggle('collapsed', collapseAll); if (c.__routeItem) c.__routeItem.uiExpanded = !collapseAll; });
     };
     header.addEventListener('click', toggleSlotCards);
     header.addEventListener('keydown', (e) => {
@@ -16595,13 +16595,7 @@ if (tooltipText) {
     const addrKey = (group.addr || '').trim().toLowerCase();
 const totalInHouse = addrCounts[addrKey] || 1;
 const popupAddrFull = String(group.addr || '').trim();
-const popupAddrShort = (() => {
-  // Show only street and house in the popup title; keep the full address in group.addr for routing.
-  const m = popupAddrFull.match(/((?:ул\.?|улица|пр-?кт|проспект|пер\.?|переулок|ш\.?|шоссе|б-р|бул\.?|набережная|наб\.?|пл\.?|площадь)\s*[^,]+(?:,?\s*(?:д\.?|дом)\s*[^,]+)?)/i);
-  if (m) return m[1].replace(/\s+/g, ' ').trim();
-  const parts = popupAddrFull.split(',').map(x => x.trim()).filter(Boolean);
-  return parts.length > 1 ? parts.slice(-2).join(', ') : popupAddrFull;
-})();
+const popupAddrShort = popupAddrFull;   // показываем адрес целиком, как он записан в карточке
 const popupContent = `
   <div class="map-popup" onclick="openActivityFromMap('${group.items[0].timeId}', '${encodeURIComponent(group.addr || '')}')">
     <div class="map-popup-addr">${escapeHtml(popupAddrShort)}</div>
@@ -17898,6 +17892,9 @@ function showSoldSheet(item) {
 
 // ── Мини-презентация «Что нового» ──
 const RELEASES = [
+  { build: '2026-11-13-N', date: '17 ноября', title: 'Исправления', slides: [
+    { tag: 'fix', icon: '🗺', title: 'Полный адрес на карте', text: 'В окне встречи на карте теперь показывается адрес целиком, а не обрезанный «б-р 17».' },
+    { tag: 'fix', icon: '🔀', title: 'B2C ↔ B2B не сворачивает карточку', text: 'При переключении B2C / B2B раскрытая карточка остаётся раскрытой.' } ] },
   { build: '2026-11-12-M', date: '13 ноября', title: 'Свайп удаляет', slides: [
     { tag: 'imp', icon: '🗑', title: 'Свайп влево — удалить', text: 'Свайп короткой карточки влево теперь удаляет активность целиком (раньше ставил «Отмена»). Если удалили случайно, нажмите «Вернуть» в баннере.' } ] },
   { build: '2026-11-12-L', date: '12 ноября', title: 'Заставка ожила', slides: [
