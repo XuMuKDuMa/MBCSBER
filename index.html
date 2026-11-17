@@ -76,7 +76,7 @@
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>МВС отчёты</title>
-<meta name="app-build" content="2026-11-13-N">
+<meta name="app-build" content="2026-11-17-O">
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#101820">
 <!-- Подключение DaData для подсказок адресов (локально) -->
@@ -6809,6 +6809,10 @@ body.dark #screen4 #app4 .route-card.collapsed.swiping{background:#1c2832!import
 #mvsLiquidSplash:after{animation:mlsBlobB 11s ease-in-out infinite}
 #mvsLiquidSplash.mls-hide:before,#mvsLiquidSplash.mls-hide:after{animation:none}
 @media(prefers-reduced-motion:reduce){#mvsLiquidSplash *,#mvsLiquidSplash:before,#mvsLiquidSplash:after{animation:none!important}}
+</style>
+
+<style id="vpn-dismiss-style">
+.vpn-warning.show{pointer-events:auto;touch-action:none;cursor:pointer}
 </style>
 </head>
 <body class="tab-4">
@@ -15926,6 +15930,41 @@ function showVpnWarning() {
   }, 8000);
 }
 
+/* ─── Убрать предупреждение о VPN: свайп (вверх / в сторону) или тап ─── */
+(function initVpnWarningDismiss() {
+  const el = document.getElementById('vpnWarning');
+  if (!el) return;
+  let sx = 0, sy = 0, dx = 0, dy = 0, active = false;
+  function dismiss() {
+    clearTimeout(_vpnWarningTimeout);
+    el.style.transition = 'transform .25s ease-out, opacity .25s ease-out';
+    el.style.opacity = '0';
+    el.style.transform = 'translate(calc(-50% + ' + (Math.abs(dx) > Math.abs(dy) ? dx * 3 : 0) + 'px), ' + (Math.abs(dx) > Math.abs(dy) ? 0 : -220) + 'px)';
+    setTimeout(() => {
+      el.classList.remove('show', 'hiding');
+      el.style.transition = ''; el.style.transform = ''; el.style.opacity = '';
+    }, 280);
+  }
+  el.addEventListener('touchstart', (e) => {
+    if (!el.classList.contains('show') || e.touches.length !== 1) return;
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY; dx = dy = 0; active = true;
+    el.style.transition = 'none';
+  }, { passive: true });
+  el.addEventListener('touchmove', (e) => {
+    if (!active) return;
+    dx = e.touches[0].clientX - sx; dy = Math.min(0, e.touches[0].clientY - sy);
+    el.style.transform = 'translate(calc(-50% + ' + dx + 'px), ' + dy + 'px)';
+    el.style.opacity = String(Math.max(0.2, 1 - Math.max(Math.abs(dx), Math.abs(dy)) / 220));
+  }, { passive: true });
+  el.addEventListener('touchend', () => {
+    if (!active) return;
+    active = false;
+    const moved = Math.max(Math.abs(dx), Math.abs(dy));
+    if (moved < 8 || dy < -30 || Math.abs(dx) > 70) { vibro(10); dismiss(); }   // тап или свайп — убрать
+    else { el.style.transition = 'transform .2s, opacity .2s'; el.style.transform = ''; el.style.opacity = ''; }
+  });
+  el.addEventListener('click', (e) => { if (el.classList.contains('show') && !('ontouchstart' in window)) dismiss(); });
+})();
 /* ─── Универсальный HTTP-запрос (fetch → fallback на XHR) ─── */
 function httpGetJson(url, timeout = 5000) {
   if (typeof fetch === 'function') {
@@ -17892,6 +17931,8 @@ function showSoldSheet(item) {
 
 // ── Мини-презентация «Что нового» ──
 const RELEASES = [
+  { build: '2026-11-17-O', date: '17 ноября', title: 'Уведомление о VPN', slides: [
+    { tag: 'fix', icon: '📡', title: 'Убрать предупреждение о VPN', text: 'Уведомление «Выключи VPN» снова можно убрать: свайпом вверх или в сторону, либо тапом по нему.' } ] },
   { build: '2026-11-13-N', date: '17 ноября', title: 'Исправления', slides: [
     { tag: 'fix', icon: '🗺', title: 'Полный адрес на карте', text: 'В окне встречи на карте теперь показывается адрес целиком, а не обрезанный «б-р 17».' },
     { tag: 'fix', icon: '🔀', title: 'B2C ↔ B2B не сворачивает карточку', text: 'При переключении B2C / B2B раскрытая карточка остаётся раскрытой.' } ] },
