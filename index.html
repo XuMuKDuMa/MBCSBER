@@ -76,7 +76,7 @@
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>МВС отчёты</title>
-<meta name="app-build" content="2026-11-17-O">
+<meta name="app-build" content="2026-11-17-P">
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#101820">
 <!-- Подключение DaData для подсказок адресов (локально) -->
@@ -6813,6 +6813,16 @@ body.dark #screen4 #app4 .route-card.collapsed.swiping{background:#1c2832!import
 
 <style id="vpn-dismiss-style">
 .vpn-warning.show{pointer-events:auto;touch-action:none;cursor:pointer}
+</style>
+
+<style id="hold-down-style">
+#app4 .route-card.collapsed{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#screen4 #app4 .route-card.collapsed.holding{transform:scale(.975)!important;box-shadow:0 8px 22px rgba(52,152,219,.45)!important;transition:transform .12s!important}
+.swipe-under span.su-d{display:none}
+.swipe-under.down{background:linear-gradient(180deg,#2471a3,#3498db);align-items:flex-start;justify-content:center;padding-top:12px}
+.swipe-under.down .su-l,.swipe-under.down .su-r{display:none}
+.swipe-under.down span.su-d{display:block;opacity:.9}
+#screen4 #app4 .route-card.collapsed.swiping{z-index:5!important}
 </style>
 </head>
 <body class="tab-4">
@@ -17781,9 +17791,11 @@ function mvsDeleteItem(item) {
   const app = document.getElementById('app4');
   if (!app) return;
   let st = null;
-  const TH = 90;                                   // порог срабатывания, px
+  const TH = 90, TH_DOWN = 70, HOLD_MS = 400;     // пороги: вбок, вниз, удержание
   function cleanup(s, animate) {
     const card = s.card;
+    clearTimeout(s.timer);
+    card.classList.remove('holding');
     if (animate) { card.style.setProperty('transition', 'transform .2s ease-out', 'important'); card.style.setProperty('transform', 'translate3d(0,0,0)', 'important'); }
     setTimeout(() => {
       card.style.removeProperty('transition'); card.style.removeProperty('transform'); card.classList.remove('swiping');
@@ -17793,35 +17805,63 @@ function mvsDeleteItem(item) {
   }
   function makeUnder(s) {
     const card = s.card, par = card.parentElement;
-    if (!par) return;
+    if (!par || s.under) return;
     if (getComputedStyle(par).position === 'static') { par.dataset.swPos = '1'; par.style.position = 'relative'; }
     const u = document.createElement('div');
     u.className = 'swipe-under';
     u.style.cssText = 'left:' + card.offsetLeft + 'px;top:' + card.offsetTop + 'px;width:' + card.offsetWidth + 'px;height:' + card.offsetHeight + 'px;';
-    u.innerHTML = '<span class="su-l">✓ Готово</span><span class="su-r">Удалить 🗑</span>';
+    u.innerHTML = '<span class="su-l">✓ Готово</span><span class="su-r">Удалить 🗑</span><span class="su-d">⏳ Ждёт</span>';
     par.insertBefore(u, card);
     s.under = u; s.par = par;
     card.classList.add('swiping');
   }
   app.addEventListener('touchstart', (e) => {
+    if (st) { clearTimeout(st.timer); }
     if (e.touches.length !== 1) { st = null; return; }
     const card = e.target.closest && e.target.closest('.route-card.collapsed');
     if (!card || !card.__routeItem || e.target.closest('input, textarea, button, select')) { st = null; return; }
-    st = { card, item: card.__routeItem, x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), dx: 0, mode: null, armed: false, under: null, par: null };
+    const s = { card, item: card.__routeItem, x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), dx: 0, dy: 0, mode: null, armed: false, hold: false, under: null, par: null, timer: null };
+    s.timer = setTimeout(() => {                       // палец удержан на месте — включаем жест «вниз»
+      if (st === s && s.mode === null) { s.hold = true; vibro(18); card.classList.add('holding'); }
+    }, HOLD_MS);
+    st = s;
   }, { passive: true, capture: true });
   app.addEventListener('touchmove', (e) => {
     if (!st) return;
     const t = e.touches[0], dx = t.clientX - st.x, dy = t.clientY - st.y;
     if (st.mode === null) {
-      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
-      st.mode = (Math.abs(dx) > Math.abs(dy) * 1.5) ? 'h' : 'v';
-      if (st.mode === 'h') makeUnder(st);
+      if (st.hold) {
+        if (dy > 8 && dy > Math.abs(dx)) { st.mode = 'd'; makeUnder(st); }
+        else if (dy < -12 || Math.abs(dx) > 14) { clearTimeout(st.timer); st.card.classList.remove('holding'); st.hold = false; st.mode = 'v'; }
+        if (st.hold && e.cancelable) e.preventDefault();   // после удержания список не прокручиваем
+      } else {
+        if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+        clearTimeout(st.timer);
+        st.mode = (Math.abs(dx) > Math.abs(dy) * 1.5) ? 'h' : 'v';
+        if (st.mode === 'h') makeUnder(st);
+      }
+    }
+    if (st.mode === 'd') {
+      if (e.cancelable) e.preventDefault();
+      st.dy = Math.max(0, dy);
+      const shift = Math.min(st.dy * 0.8, 150);
+      st.card.style.setProperty('transition', 'none', 'important');
+      st.card.style.setProperty('transform', 'translate3d(0,' + shift + 'px,0)', 'important');
+      if (st.under) {
+        st.under.classList.add('down'); st.under.classList.remove('left', 'right');
+        const armed = st.dy > TH_DOWN;
+        st.under.classList.toggle('armed', armed);
+        if (armed && !st.armed) vibro(12);
+        st.armed = armed;
+      }
+      return;
     }
     if (st.mode !== 'h') return;
     st.dx = dx;
     st.card.style.setProperty('transition', 'none', 'important');   // перебиваем глобальное «transform:none !important»
     st.card.style.setProperty('transform', 'translate3d(' + dx + 'px,0,0)', 'important');
     if (st.under) {
+      st.under.classList.remove('down');
       st.under.classList.toggle('right', dx > 0);
       st.under.classList.toggle('left', dx < 0);
       const armed = Math.abs(dx) > TH;
@@ -17829,10 +17869,28 @@ function mvsDeleteItem(item) {
       if (armed && !st.armed) vibro(12);
       st.armed = armed;
     }
-  }, { passive: true, capture: true });
+  }, { passive: false, capture: true });
   const end = (e) => {
     if (!st) return;
     const s = st; st = null;
+    clearTimeout(s.timer);
+    if (s.hold && s.mode === null) {                     // подержали, но не потянули — ничего не делаем
+      s.card.classList.remove('holding');
+      window._swipeAt = Date.now();
+      return;
+    }
+    if (s.mode === 'd') {
+      if (e.stopPropagation) e.stopPropagation();
+      window._swipeAt = Date.now();
+      const commit = s.dy > TH_DOWN;
+      cleanup(s, true);
+      if (!commit) return;
+      if (s.item.status === 'wait') { showToast('⏳ Уже в ожидании'); return; }
+      vibro(20);
+      mvsSetStatus(s.item, 'wait');
+      showSuccessNotification('Встреча в ожидании', 'wait');
+      return;
+    }
     if (s.mode !== 'h') return;
     if (e.stopPropagation) e.stopPropagation();          // не переключать вкладки «Встречи / В работе»
     window._swipeAt = Date.now();
@@ -17852,7 +17910,8 @@ function mvsDeleteItem(item) {
     }
   };
   app.addEventListener('touchend', end, { capture: true });
-  app.addEventListener('touchcancel', () => { if (st && st.mode === 'h') cleanup(st, false); st = null; }, { capture: true });
+  app.addEventListener('touchcancel', () => { if (st) { cleanup(st, false); } st = null; }, { capture: true });
+  app.addEventListener('contextmenu', (e) => { if (e.target.closest && e.target.closest('.route-card.collapsed')) e.preventDefault(); });
   app.addEventListener('click', (e) => {
     if (Date.now() - (window._swipeAt || 0) < 500) { e.stopPropagation(); e.preventDefault(); }
   }, true);
@@ -17931,6 +17990,9 @@ function showSoldSheet(item) {
 
 // ── Мини-презентация «Что нового» ──
 const RELEASES = [
+  { build: '2026-11-17-P', date: '17 ноября', title: 'Жест «Ждёт»', slides: [
+    { tag: 'new', icon: '⏳', title: 'Удержать и потянуть вниз', text: 'Положите палец на короткую карточку, подержите около полсекунды (телефон завибрирует) и потяните вниз — встреча получит статус «Ждёт». Обычная прокрутка списка не мешает.' },
+    { tag: 'imp', icon: '📋', title: 'Копирование адреса убрано', text: 'Долгое нажатие на карточку больше не копирует адрес — этот жест теперь ставит «Ждёт».' } ] },
   { build: '2026-11-17-O', date: '17 ноября', title: 'Уведомление о VPN', slides: [
     { tag: 'fix', icon: '📡', title: 'Убрать предупреждение о VPN', text: 'Уведомление «Выключи VPN» снова можно убрать: свайпом вверх или в сторону, либо тапом по нему.' } ] },
   { build: '2026-11-13-N', date: '17 ноября', title: 'Исправления', slides: [
@@ -18532,45 +18594,7 @@ body.dark #mvs-card-actions button[data-action="confirm"]{background:#168b59;col
 </style>
 
 
-<script id="mvs-route-card-longpress">
-(function(){
-  if(window.__mvsLongPressInstalled)return;
-  window.__mvsLongPressInstalled=true;
-  let timer=null,startX=0,startY=0;
-  const delay=620;
-  function closePrompt(){const el=document.getElementById('mvs-card-actions');if(el)el.remove();}
-  function addressFrom(card){
-    const selectors=['.route-addr-collapsed','.route-address','.route-addr','.address-text'];
-    for(const sel of selectors){const el=card.querySelector(sel);if(el&&el.textContent.trim())return el.textContent.trim();}
-    const input=card.querySelector('input.route-addr-input,input[name*="address" i],input');
-    return input&&input.value.trim()?input.value.trim():(card.innerText.split('\n').map(x=>x.trim()).find(x=>/улиц|ул\.|просп|шоссе|переул|дом/i.test(x))||'').trim();
-  }
-  function showConfirm(card){
-    closePrompt();const addr=addressFrom(card);
-    const wrap=document.createElement('div');wrap.id='mvs-card-actions';
-    wrap.innerHTML='<div class="mvs-ca-panel" role="dialog" aria-label="Подтверждение копирования адреса"><div class="mvs-ca-title">Подтвердите действие</div><div class="mvs-ca-sub">Скопировать адрес?<br><strong class="mvs-ca-address"></strong></div><div class="mvs-ca-grid"><button data-action="cancel">Отмена</button><button data-action="confirm">Скопировать адрес</button></div></div>';
-    wrap.querySelector('.mvs-ca-address').textContent=addr||'Адрес не найден';
-    wrap.addEventListener('click',async e=>{
-      if(e.target===wrap||e.target.closest('[data-action="cancel"]')){closePrompt();return;}
-      if(!e.target.closest('[data-action="confirm"]'))return;
-      if(!addr){alert('Не удалось найти адрес в карточке.');closePrompt();return;}
-      try{await navigator.clipboard.writeText(addr);}
-      catch(err){const ta=document.createElement('textarea');ta.value=addr;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();const ok=document.execCommand('copy');ta.remove();if(!ok){window.prompt('Скопируй адрес:',addr);closePrompt();return;}}
-      const b=wrap.querySelector('[data-action="confirm"]');if(b)b.textContent='✓ Скопировано';setTimeout(closePrompt,850);
-    });
-    document.body.appendChild(wrap);
-  }
-  function clear(){if(timer){clearTimeout(timer);timer=null;}}
-  document.addEventListener('pointerdown',e=>{
-    const card=e.target.closest&&e.target.closest('#app4 .route-card,#screen4 .route-card');
-    if(!card||e.target.closest('button,input,textarea,select,.status-menu,.status-overlay'))return;
-    clear();startX=e.clientX;startY=e.clientY;timer=setTimeout(()=>{timer=null;if(navigator.vibrate)navigator.vibrate(18);showConfirm(card);},delay);
-  },{passive:true});
-  document.addEventListener('pointermove',e=>{if(timer&&(Math.abs(e.clientX-startX)>12||Math.abs(e.clientY-startY)>12))clear();},{passive:true});
-  document.addEventListener('pointerup',clear,{passive:true});document.addEventListener('pointercancel',clear,{passive:true});
-  document.addEventListener('contextmenu',e=>{const card=e.target.closest&&e.target.closest('#app4 .route-card,#screen4 .route-card');if(card){e.preventDefault();showConfirm(card);}});
-})();
-</script>
+<!-- копирование адреса долгим нажатием удалено: долгое нажатие + свайп вниз теперь ставит «Ждёт» -->
 
 
 <style id="mvs-fix-light-status-text-and-slot-time">
