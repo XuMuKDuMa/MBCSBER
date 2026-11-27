@@ -76,7 +76,7 @@
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>МВС отчёты</title>
-<meta name="app-build" content="2026-11-26-R">
+<meta name="app-build" content="2026-11-27-S">
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#101820">
 <!-- Подключение DaData для подсказок адресов (локально) -->
@@ -8862,7 +8862,7 @@ addrCollapsed.textContent = item.addr || '';
 
 const addrInput = document.createElement('textarea');
 addrInput.className = 'route-addr-input';
-addrInput.placeholder = 'Адрес доставки';
+addrInput.placeholder = 'Адрес';
 addrInput.value = item.addr || '';
 addrInput.rows = 1;
 addrInput.style.height = 'auto';
@@ -9276,7 +9276,7 @@ noteWrap.className = 'route-note-wrap';
 
 const noteInput = document.createElement('textarea');
 noteInput.className = 'route-note-input';
-noteInput.placeholder = 'кв, этаж, код домофона…';
+noteInput.placeholder = 'кв, этаж, домофон';
 noteInput.value = item.note || '';
 noteInput.rows = 1;
 const collapsedNote = document.createElement('div');
@@ -9639,7 +9639,7 @@ reasonWrap.className = 'route-nondelivery-wrap';
 reasonWrap.style.cssText = 'padding:6px 10px 8px;border-top:1px solid rgba(120,130,140,.15);';
 const reasonInput = document.createElement('textarea');
 reasonInput.className = 'route-nondelivery-input route-note-input';
-reasonInput.placeholder = 'Причина недоставки (если встреча под вопросом)';
+reasonInput.placeholder = 'Или напиши причину';
 reasonInput.value = item.nonDeliveryReason || '';
 reasonInput.rows = 1;
 reasonInput.lang = 'ru';
@@ -17648,6 +17648,7 @@ function ensureCardDrawer() {
 }
 function cdGrow(el, shrink) {
   if (!el || !el.isConnected) return;
+  if (!el.value) { el.style.setProperty('height', '44px', 'important'); el.style.setProperty('overflow', 'hidden', 'important'); return; }
   const sc = _cdEls ? _cdEls.body : null, top = sc ? sc.scrollTop : 0;
   if (shrink === false) {
     // при наборе текста только увеличиваем — без обнуления высоты (не мерцает)
@@ -18077,6 +18078,8 @@ function showSoldSheet(item) {
 
 // ── Мини-презентация «Что нового» ──
 const RELEASES = [
+  { build: '2026-11-27-S', date: '27 ноября', title: 'Карточка не дрожит', slides: [
+    { tag: 'fix', icon: '📏', title: 'Стабильная высота полей', text: 'Поля адреса, заметки и причины в раскрытой карточке больше не меняют высоту при смене B2C/B2B и вида встречи. Подсказки в пустых полях стали короче (Адрес, кв/этаж/домофон, Или напиши причину).' } ] },
   { build: '2026-11-26-R', date: '26 ноября', title: 'Терминалы эквайринга', slides: [
     { tag: 'new', icon: '💳', title: 'Новая B2B-встреча «Терминал»', text: 'В B2B рядом с РКО, ИП, Бизнес картой и ЗК добавлен «Терминал» — доставка терминала эквайринга. УП за встречу 0,20.' },
     { tag: 'new', icon: 'ℹ️', title: 'Кнопка «И» — инструкция', text: 'Когда у встречи выбран тип «Терминал», слева от него появляется кнопка «И». Она открывает инструкции: «6.1 С настройкой» и «Техническая поддержка». Тап по картинке — на весь экран.' },
@@ -18241,7 +18244,7 @@ function openTermInfo() {
           if (el) { const d = el.getBoundingClientRect().top - aTop; if (Math.abs(d) > 0.5) sc.scrollTop += d; }
         } else { sc.scrollTop = prev; }
       };
-      fix(); requestAnimationFrame(fix); setTimeout(fix, 120);
+      fix(); requestAnimationFrame(fix);
     }
     return r;
   };
@@ -19158,6 +19161,8 @@ textarea.route-addr-input {
     if (!el || !el.isConnected) return;
     // Preserve the existing compact card summary; only resize editable fields when expanded.
     if (el.closest && el.closest('.route-card.collapsed')) return;
+    // Пустое поле: фиксированная высота, без замеров (placeholder не должен влиять на размер — иначе карточка «прыгает»)
+    if (!el.value) { el.style.setProperty('height', '44px', 'important'); el.style.setProperty('overflow', 'hidden', 'important'); return; }
 
     // Reset to zero before measuring: supports long -> short -> long edits reliably.
     el.style.setProperty('height', '0px', 'important');
